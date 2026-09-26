@@ -1,0 +1,177 @@
+.profile-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 480px;
+}
+.profile-steps-progress {
+  display: flex;
+  gap: 6px;
+}
+.profile-steps-progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+.profile-steps-progress span.is-done {
+  background: var(--accent-deep);
+}
+.profile-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-step h2 {
+  font-size: 22px;
+  letter-spacing: -0.4px;
+  line-height: 1.3;
+  color: var(--ink);
+  margin: 0;
+  outline: none;
+}
+.profile-step p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.profile-step .field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.profile-step .field span {
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--info-ink);
+}
+.profile-step .field input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  padding: 11px 13px;
+  min-height: 44px;
+}
+.profile-step .field-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.profile-step .field-row .field {
+  flex: 1;
+}
+.profile-step .field-row .button {
+  flex: none;
+  align-self: flex-end;
+}
+.profile-step .helper {
+  color: var(--ink-muted);
+}
+/* Direction-aware slide-and-fade; disabled globally under prefers-reduced-motion. */
+.profile-step.is-forward {
+  animation: profile-step-in-forward 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.profile-step.is-backward {
+  animation: profile-step-in-backward 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes profile-step-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes profile-step-in-backward {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.profile-steps .choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.profile-steps .choice-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.profile-steps .choice-card:hover {
+  border-color: var(--accent-deep);
+}
+.profile-steps .choice-card.is-selected {
+  border-color: var(--accent-deep);
+  background: var(--accent-wash);
+}
+.profile-steps .choice-card input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: pointer;
+}
+.profile-steps .choice-card input[type="radio"]::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-deep);
+  transform: scale(0);
+  transition: transform 0.12s ease;
+}
+.profile-steps .choice-card input[type="radio"]:checked {
+  border-color: var(--accent-deep);
+}
+.profile-steps .choice-card input[type="radio"]:checked::before {
+  transform: scale(1);
+}
+.profile-steps .choice-card input[type="radio"]:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 2px;
+}
+.profile-steps-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-steps-actions .button.primary {
+  margin-left: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-step.is-forward,
+  .profile-step.is-backward {
+    animation: none;
+  }
+}

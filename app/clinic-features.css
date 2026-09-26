@@ -1,0 +1,355 @@
+/* Styles for the clinic-packet feature set (logbook, sick-day panel, low-treatment dialog,
+ * call notices, appointments) and the extra header reminders. Visual language matches
+ * care-workspace.css and globals.css: same tokens, .notice/.button/.field/.check-row base
+ * classes, same reminder card shape. */
+
+/* Logbook -------------------------------------------------------------- */
+.logbook-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.logbook-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.logbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.logbook-table th,
+.logbook-table td {
+  padding: 9px 10px;
+  vertical-align: top;
+}
+.logbook-table thead th {
+  background: var(--surface-sunken);
+  color: var(--info-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.logbook-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.logbook-flag {
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.logbook-flag.is-low {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.logbook-table {
+  min-width: 640px;
+}
+/* The row header stays a table cell so its background fills the whole row height. */
+.logbook-period-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.logbook-cell span {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-muted);
+  line-height: 1.35;
+}
+.logbook-cell.is-high {
+  background: var(--warning-bg);
+  box-shadow: inset 3px 0 0 var(--warning-border);
+}
+.logbook-cell.is-low {
+  background: var(--danger-bg);
+  box-shadow: inset 3px 0 0 var(--danger-border);
+}
+.logbook-page + .appointments-panel {
+  margin-top: 14px;
+}
+tr.is-sick .logbook-cell {
+  opacity: 0.92;
+}
+@media print {
+  .logbook-toolbar,
+  .logbook-flags {
+    display: none !important;
+  }
+  .logbook-cell.is-high,
+  .logbook-cell.is-low {
+    background: none !important;
+    font-weight: 700;
+  }
+}
+
+/* Sick-day dialog --------------------------------------------------------- */
+.sick-day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+/* The body's gap owns spacing; global .notice/.helper margins would double it. */
+.sick-day-body > * {
+  margin: 0;
+}
+.sick-day-body .care-plan-instructions {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.sick-day-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sick-day-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-ink);
+}
+.sick-day-check strong {
+  font-size: 14px;
+  margin-right: 8px;
+}
+.sick-day-check .care-reminder-detail {
+  display: block;
+  margin-top: 3px;
+}
+.sick-day-check.is-overdue {
+  border-color: var(--danger-strong);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+}
+.sick-day-overdue-badge {
+  background: var(--danger-strong);
+  color: var(--danger-bg);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Low-treatment dialog ---------------------------------------------------- */
+.low-treatment-form .field {
+  margin-top: 14px;
+}
+.low-severity-toggle {
+  border: 0;
+  padding: 0;
+  margin: 14px 0 0;
+}
+.low-severity-toggle legend {
+  font-size: 14px;
+  color: var(--ink-muted);
+  padding: 0;
+  margin-bottom: 7px;
+}
+.low-severity-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.low-severity-options button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 9px;
+  padding: 10px;
+  font-weight: 650;
+  font-size: 14px;
+}
+.low-severity-options button[aria-pressed="true"] {
+  border-color: var(--accent-deep);
+  background: var(--accent-wash);
+  color: var(--accent-wash-ink);
+}
+.low-treatment-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.low-treatment-actions .button.primary {
+  flex: 1;
+}
+
+/* Call notices ------------------------------------------------------------ */
+.call-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--danger-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.call-notices-title {
+  color: var(--danger-ink);
+  font-size: 15px;
+}
+.call-notices > small {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.call-notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.call-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--danger-strong);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.call-notices-contacts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.call-notices-contacts a {
+  margin-left: 6px;
+  font-weight: 700;
+  color: var(--accent-solid);
+}
+
+/* Appointments panel -------------------------------------------------------- */
+.appointments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.appointments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.appointment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.appointment-list > li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.appointment-list > li.is-past {
+  opacity: 0.6;
+}
+.appointment-list .care-reminder-detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.appointment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: none;
+}
+.next-appointment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  color: var(--info-ink);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+/* Extra header reminders: overnight check, low-treatment recheck, sick day ---- */
+.care-redesign .overnight-reminder {
+  background: var(--event-correction-bg);
+  border-color: var(--event-food-border);
+  color: var(--event-correction-ink);
+}
+.care-redesign .overnight-reminder.is-missed {
+  background: var(--danger-bg);
+  border-color: var(--danger-strong);
+  color: var(--danger-ink);
+}
+.care-redesign .low-recheck-reminder {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-ink);
+}
+.care-redesign .low-recheck-reminder.is-still-low {
+  background: var(--danger-bg);
+  border-color: var(--danger-strong);
+  color: var(--danger-ink);
+  animation: nightly-log-pulse 2s ease-in-out infinite;
+}
+.care-redesign .low-recheck-reminder.is-recovered {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+  color: var(--success-ink);
+}
+.care-redesign .sick-day-reminder {
+  background: var(--event-illness-bg);
+  border-color: var(--event-illness-border);
+  color: var(--event-illness-ink);
+}
+.care-redesign .sick-day-reminder.is-overdue {
+  background: var(--danger-bg);
+  border-color: var(--danger-strong);
+  color: var(--danger-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-redesign .low-recheck-reminder.is-still-low {
+    animation: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .sick-day-check,
+  .appointment-list > li {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

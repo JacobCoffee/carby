@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+SOCKET_PATH="${CABOTAGE_SOCKET:-/var/run/cabotage/cabotage.sock}"
+mkdir -p "$(dirname "$SOCKET_PATH")"
+
+# socat forwards to 127.0.0.1, so the app must listen exactly there.
+HOST=127.0.0.1 node scripts/serve-production.mjs &
+APP_PID=$!
+
+socat UNIX-LISTEN:"$SOCKET_PATH",fork,reuseaddr,unlink-early TCP:127.0.0.1:"${PORT:-3000}" &
+SOCAT_PID=$!
+
+trap 'kill -TERM "$APP_PID" "$SOCAT_PID" 2>/dev/null || true' TERM INT
+
+# `|| EXIT_CODE=$?` keeps set -e from exiting before the survivor is stopped.
+EXIT_CODE=0
+wait -n "$APP_PID" "$SOCAT_PID" || EXIT_CODE=$?
+kill -TERM "$APP_PID" "$SOCAT_PID" 2>/dev/null || true
+exit "$EXIT_CODE"

@@ -1,0 +1,736 @@
+/* Clinician report: compact context first, with printable provenance and event detail. */
+:is(.report-dialog, .report-page) .report-paper {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.42;
+}
+:is(.report-dialog, .report-page) .report-title {
+  align-items: end;
+}
+.report-quality {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--report-quality-bg);
+  border: 1px solid var(--report-quality-border);
+  color: var(--report-quality-ink);
+  font-size: 12px;
+}
+.report-quality strong {
+  white-space: nowrap;
+  font-size: 12px;
+}
+.report-quality-limited {
+  background: var(--report-quality-limited-bg);
+  border-color: var(--report-quality-limited-border);
+  color: var(--report-quality-limited-ink);
+}
+.report-glance {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 10px;
+}
+.report-range-card {
+  border: 1px solid var(--report-line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--report-coverage-stripe-b);
+  min-height: 92px;
+}
+.report-range-card > span,
+.report-range-card > p {
+  font-size: 12px;
+  color: var(--report-ink-muted);
+}
+.report-range-card > strong {
+  font-size: 29px;
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--report-ink-strong);
+}
+.report-range-track {
+  display: flex;
+  height: 8px;
+  margin-top: 9px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--report-line);
+}
+.report-range-track i {
+  height: 100%;
+  flex: none;
+}
+.report-range-track .below {
+  background: var(--report-below);
+}
+.report-range-track .within {
+  background: var(--report-within);
+}
+.report-range-track .above {
+  background: var(--report-above);
+}
+.report-key-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  gap: 8px;
+}
+.report-key-metrics > div {
+  border: 1px solid var(--report-line);
+  border-radius: 9px;
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.report-key-metrics dt,
+.report-care-totals dt {
+  font-size: 11px;
+  color: var(--report-ink-muted);
+}
+.report-key-metrics dd,
+.report-care-totals dd {
+  font-size: 19px;
+  font-weight: 720;
+  line-height: 1.2;
+  margin: 4px 0 0;
+  color: var(--report-ink-strong);
+  white-space: nowrap;
+}
+.report-key-metrics > div:last-child dd {
+  font-size: 17px;
+}
+.report-source-line {
+  font-size: 12px;
+  color: var(--report-ink-muted);
+  border-bottom: 1px solid var(--report-line);
+  padding: 10px 0;
+}
+.report-source-line strong {
+  color: var(--report-ink-strong);
+}
+.report-illness {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--event-illness-bg);
+  border: 1px solid var(--event-illness-border);
+  color: var(--event-illness-ink);
+  font-size: 12px;
+}
+.report-illness strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--report-illness-ink);
+}
+.report-illness ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.report-illness .report-scroll {
+  margin-top: 8px;
+}
+.report-check-ins {
+  font-size: 12px;
+}
+.report-check-ins caption {
+  text-align: left;
+  font-weight: 650;
+  color: var(--report-illness-ink);
+  padding-bottom: 4px;
+}
+.report-check-ins th,
+.report-check-ins td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--event-illness-border);
+  color: var(--report-ink);
+}
+.report-check-ins th {
+  background: transparent;
+  color: var(--report-illness-ink);
+}
+.report-check-ins td:first-child {
+  white-space: nowrap;
+}
+.report-sick-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--event-illness-ink);
+}
+.report-day-coverage {
+  margin: 13px 0 6px;
+  break-inside: avoid;
+}
+.report-mini-heading {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.report-mini-heading span {
+  font-size: 11px;
+  color: var(--report-ink-muted);
+}
+.report-coverage-grid {
+  display: flex;
+  gap: 5px;
+  margin-top: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.report-coverage-day {
+  flex: 1 0 23px;
+  max-width: 69px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--report-ink-muted);
+}
+.report-coverage-day > span {
+  white-space: nowrap;
+}
+.report-coverage-day > strong {
+  font-size: 10px;
+  color: var(--report-ink-strong);
+}
+.report-coverage-track {
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: end;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--report-coverage-stripe-a),
+    var(--report-coverage-stripe-a) 3px,
+    var(--report-coverage-stripe-b) 3px,
+    var(--report-coverage-stripe-b) 6px
+  );
+  border-radius: 3px;
+  overflow: hidden;
+}
+.report-coverage-track i {
+  display: block;
+  width: 100%;
+  background: var(--report-coverage-fill);
+  min-height: 0;
+}
+:is(.report-dialog, .report-page) .report-matrix {
+  margin-top: 15px;
+}
+.report-matrix .report-caption {
+  margin: 3px 0 8px;
+}
+.report-matrix .matrix-table th,
+.report-matrix .matrix-table td {
+  padding: 7px 8px;
+}
+.matrix-table tr.report-sick-day > th,
+.matrix-table tr.report-sick-day > td {
+  background: var(--event-illness-bg);
+}
+/* Badges sit on their own line under the date so they never spill into the first reading. */
+.report-day-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.report-sick-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--report-badge-alert-bg);
+  color: var(--report-badge-alert-ink);
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.report-pattern {
+  border-top: 1px solid var(--report-line);
+  padding-top: 12px;
+  margin-top: 17px;
+}
+.report-pattern > .report-caption {
+  margin: 3px 0 6px;
+}
+.report-pattern svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+}
+.report-pattern-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+  color: var(--report-ink-muted);
+  font-size: 11px;
+}
+.report-pattern-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.report-pattern-legend i {
+  display: block;
+  width: 19px;
+}
+.report-pattern-legend i.median {
+  border-top: 3px solid var(--report-pattern-median);
+}
+.report-pattern-legend i.quartiles {
+  height: 9px;
+  background: color-mix(in srgb, var(--report-pattern-quartile) 33.3%, transparent);
+  border: 1px solid var(--report-pattern-quartile);
+}
+.report-patterns {
+  border-top: 1px solid var(--report-line);
+  padding-top: 12px;
+  margin-top: 17px;
+}
+.report-patterns h3 {
+  margin: 0 0 6px;
+}
+.report-patterns ul {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.report-cgm .cgm-levels {
+  margin: 10px 0 4px;
+}
+/* The range bar and daily profile come from Insights; inside the report they draw only from
+ * --report-* tokens, so they follow the theme on screen and the paper palette in print. */
+/* Each "very" level is its neighbor pushed toward the ink color: always the same hue family,
+ * and always visibly stronger, whichever theme the report is showing in. */
+.report-cgm .level-veryLow {
+  background: color-mix(in srgb, var(--report-below) 55%, var(--report-ink));
+}
+.report-cgm .level-low {
+  background: var(--report-below);
+}
+.report-cgm .level-inRange {
+  background: var(--report-within);
+}
+.report-cgm .level-high {
+  background: var(--report-above);
+}
+.report-cgm .level-veryHigh {
+  background: color-mix(in srgb, var(--report-above) 55%, var(--report-ink));
+}
+.report-cgm .cgm-levels-track {
+  background: var(--report-coverage-stripe-a);
+}
+.report-cgm .cgm-levels-legend li {
+  color: var(--report-ink-muted);
+}
+.report-cgm .cgm-levels-legend strong {
+  color: var(--report-ink);
+}
+.report-cgm .cgm-agp .agp-range {
+  fill: var(--report-band-bg);
+}
+.report-cgm .cgm-agp .agp-grid {
+  stroke: var(--report-grid);
+}
+.report-cgm .cgm-agp .agp-axis {
+  fill: var(--report-text);
+}
+.report-cgm .cgm-agp .agp-outer {
+  fill: color-mix(in srgb, var(--report-pattern-quartile) 45%, transparent);
+}
+.report-cgm .cgm-agp .agp-inner {
+  fill: var(--report-pattern-quartile);
+}
+.report-cgm .cgm-agp .agp-median {
+  stroke: var(--report-pattern-median);
+}
+.report-cgm-figures {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+.report-cgm-figures > div {
+  padding: 8px 10px;
+  border: 1px solid var(--report-line);
+  border-radius: 8px;
+}
+.report-cgm-figures dt {
+  font-size: 11px;
+  color: var(--report-ink-muted);
+}
+.report-cgm-figures dd {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--report-ink);
+}
+.report-cgm-figures small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--report-ink-muted);
+}
+.report-cgm h4 {
+  margin: 12px 0 2px;
+  font-size: 13px;
+  color: var(--report-ink-strong);
+}
+.report-cgm-device {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 20px;
+}
+.report-cgm ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.report-cgm-pdfs a {
+  color: var(--report-accent);
+}
+@media (max-width: 700px) {
+  .report-cgm-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report-cgm-device {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media print {
+  .report-cgm,
+  .report-cgm-agp {
+    break-inside: avoid;
+  }
+  .report-cgm .cgm-levels-track span,
+  .report-cgm .cgm-levels-legend i {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+.report-pattern-flag {
+  margin: 4px 0;
+}
+.report-pattern-flag.pattern-low {
+  color: var(--report-flag-low);
+}
+.report-pattern-flag.pattern-high {
+  color: var(--report-flag-high);
+}
+.report-care-totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.report-care-totals > div {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--report-line);
+  border-radius: 7px;
+}
+.report-care-totals dd {
+  font-size: 16px;
+}
+.report-care-totals dd small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--report-ink-muted);
+}
+.report-detail {
+  border-top: 2px solid var(--report-line-strong);
+  padding-top: 14px;
+}
+.report-detail > .report-caption {
+  margin: 2px 0 7px;
+}
+.report-chart-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 16px;
+  color: var(--report-ink-muted);
+  font-size: 11px;
+  margin: 4px 0 10px;
+}
+.report-chart-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.report-chart-key i {
+  display: inline-block;
+  flex: none;
+}
+.report-chart-key .key-line {
+  width: 17px;
+  border-top: 3px solid;
+}
+.report-chart-key .manual {
+  border-color: var(--report-finger-dot);
+}
+.report-chart-key .logged-dexcom {
+  border-color: var(--report-cgm-dot);
+}
+.report-chart-key .imported {
+  border-color: var(--event-food-border);
+}
+.report-chart-key .key-range {
+  width: 17px;
+  height: 8px;
+  background: var(--warning-bg);
+  border: 1.5px solid var(--warning-border);
+  border-radius: 2px;
+}
+.report-chart-key .key-tick {
+  height: 12px;
+  border-left: 3px solid;
+}
+.report-chart-key .food {
+  border-color: var(--event-food-border);
+  background: none;
+}
+.report-chart-key .insulin {
+  border-color: var(--event-dose-marker);
+  background: none;
+}
+.report-chart-key .key-sick {
+  width: 17px;
+  height: 10px;
+  background: var(--event-illness-bg);
+  border-left: 1px dashed var(--report-illness-ink);
+}
+.report-day {
+  border-bottom: 1px solid var(--report-line);
+  padding: 6px 0 13px;
+  margin: 8px 0 12px;
+}
+.report-day h4 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.report-day h4 .report-day-counts {
+  text-align: right;
+}
+.report-day-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* An outline, not only a tint, so a pattern run still stands out on a pink sick-day row. */
+.matrix-table td.report-meal-cell.pattern-high {
+  background: var(--report-status-bg);
+  box-shadow: inset 0 0 0 2px var(--report-flag-high);
+}
+.matrix-table td.report-meal-cell.pattern-low {
+  background: var(--report-canvas);
+  box-shadow: inset 0 0 0 2px var(--report-flag-low);
+}
+.report-meal-cell span.report-pattern-mark {
+  margin-top: 3px;
+  font-weight: 650;
+}
+.report-meal-cell.pattern-high .report-pattern-mark {
+  color: var(--report-flag-high);
+}
+.report-meal-cell.pattern-low .report-pattern-mark {
+  color: var(--report-flag-low);
+}
+.report-day .daily-chart {
+  margin: 5px 0 8px;
+  break-inside: avoid;
+}
+.report-status-runs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--report-flag-above);
+}
+.report-status-runs span {
+  padding: 2px 6px;
+  background: var(--report-status-bg);
+  border: 1px solid var(--report-status-border);
+  border-radius: 4px;
+}
+.report-status-runs small {
+  font-size: 10px;
+  color: var(--report-ink-muted);
+}
+.report-event-table td:first-child {
+  white-space: nowrap;
+  width: 75px;
+}
+.report-event-table td:nth-child(2) {
+  width: 72px;
+}
+.report-event-table td:last-child {
+  overflow-wrap: anywhere;
+}
+.report-record-kind {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--report-badge-imported-bg);
+  color: var(--report-badge-imported-ink);
+  text-transform: capitalize;
+  font-size: 10px;
+  font-weight: 700;
+}
+.report-record-kind.device {
+  background: var(--report-badge-device-bg);
+  color: var(--report-badge-device-ink);
+}
+.report-record-kind.insulin {
+  background: var(--report-badge-insulin-bg);
+  color: var(--report-badge-insulin-ink);
+}
+.report-record-kind.food {
+  background: var(--report-badge-food-bg);
+  color: var(--report-badge-food-ink);
+}
+.report-method {
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--report-line-strong);
+  color: var(--report-ink-muted);
+  font-size: 11px;
+  line-height: 1.42;
+}
+.report-method strong {
+  color: var(--report-ink-strong);
+}
+.report-method p {
+  margin-top: 4px;
+}
+.report-placeholder {
+  margin: 20px 0;
+  color: var(--report-ink-muted);
+}
+@media (max-width: 700px) {
+  .report-quality {
+    display: block;
+  }
+  .report-quality strong {
+    display: block;
+  }
+  .report-glance {
+    grid-template-columns: 1fr;
+  }
+  .report-key-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report-care-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .report-day h4 {
+    display: block;
+  }
+  .report-day h4 .report-day-counts {
+    display: block;
+    text-align: left;
+  }
+}
+@media print {
+  :is(.report-dialog, .report-page) .report-paper {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .report-quality,
+  .report-range-card,
+  .report-key-metrics > div,
+  .report-care-totals > div,
+  .report-status-runs span,
+  .report-illness,
+  .report-sick-badge,
+  .matrix-table tr.report-sick-day > th,
+  .matrix-table tr.report-sick-day > td,
+  .matrix-table td.report-meal-cell.pattern-high,
+  .matrix-table td.report-meal-cell.pattern-low,
+  .report-chart-key .key-sick {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report-illness,
+  .report-patterns {
+    break-inside: avoid;
+  }
+  .report-glance {
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 6px;
+  }
+  .report-key-metrics > div {
+    padding: 5px 7px;
+  }
+  .report-quality {
+    margin-top: 7px;
+    padding: 6px 9px;
+  }
+  .report-day-coverage {
+    margin-top: 8px;
+  }
+  .report-coverage-grid {
+    overflow: visible;
+  }
+  :is(.report-dialog, .report-page) .report-matrix {
+    margin-top: 10px;
+  }
+  .report-matrix .matrix-table th,
+  .report-matrix .matrix-table td {
+    padding: 4px 5px;
+  }
+  .report-pattern {
+    break-inside: avoid;
+  }
+  .report-pattern svg {
+    max-height: 175px;
+  }
+  .report-care-totals {
+    margin-top: 6px;
+    gap: 5px;
+  }
+  .report-care-totals > div {
+    padding: 5px 7px;
+  }
+  .report-detail {
+    break-inside: auto;
+  }
+  .report-day {
+    break-inside: auto;
+  }
+  .report-day h4,
+  .report-day .daily-chart {
+    break-inside: avoid;
+  }
+  .report-day .daily-chart svg {
+    max-height: 175px;
+  }
+  .report-event-table thead {
+    display: table-header-group;
+  }
+  .report-event-table tr {
+    break-inside: avoid;
+  }
+  .report-method {
+    break-inside: avoid;
+  }
+}

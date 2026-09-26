@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "sortImports": false,
+  "ignorePatterns": [
+    "components/ui/**",
+    "hooks/use-mobile.ts",
+    "vendor/**",
+    "postgres/**",
+    ".impeccable/**",
+    "bun.lock"
+  ]
+}

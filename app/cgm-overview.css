@@ -1,0 +1,332 @@
+/* Standard CGM report inside Insights. Shares the Insights panel, period and stat language;
+ * the five range colors extend the existing low / in-range / high trio. */
+
+.cgm-overview {
+  margin: 0 0 14px;
+}
+.cgm-overview > .insights-panel-title {
+  flex-wrap: wrap;
+}
+.cgm-overview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+  transition: opacity 0.2s;
+}
+.cgm-overview-body.is-stale {
+  opacity: 0.55;
+}
+.cgm-overview .notice {
+  margin-top: 12px;
+}
+
+/* Very low borrows the rapid-acting purple: it stays apart from the high ambers in every
+ * theme, including Blood, whose danger color is itself amber. */
+.level-veryLow {
+  background: var(--event-rapid);
+}
+.level-low {
+  background: var(--chart-alert-low);
+}
+.level-inRange {
+  background: var(--chart-in-range);
+}
+.level-high {
+  background: var(--event-food-border);
+}
+.level-veryHigh {
+  background: var(--event-food-ink);
+}
+
+.cgm-levels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+  gap: 12px 20px;
+  align-items: center;
+}
+.cgm-levels-track {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--surface-sunken);
+}
+.cgm-levels-track span {
+  display: block;
+  min-width: 0;
+  flex-basis: 0;
+}
+.cgm-levels-legend {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-levels-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+}
+.cgm-levels-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.cgm-levels-legend strong {
+  color: var(--ink);
+}
+
+.cgm-metrics,
+.cgm-episode-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-metrics > div,
+.cgm-episode-counts > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--canvas);
+}
+.cgm-metrics dt,
+.cgm-episode-counts dt {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-muted);
+}
+.cgm-metrics dd,
+.cgm-episode-counts dd {
+  margin: 3px 0;
+  font-size: 24px;
+  font-weight: 730;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.cgm-metrics small,
+.cgm-episode-counts small {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink-muted);
+}
+
+.cgm-overview-section h4 {
+  font-size: 15px;
+  color: var(--ink);
+}
+.cgm-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.cgm-agp {
+  display: block;
+  width: 100%;
+  max-width: 1000px;
+  height: auto;
+  margin-top: 8px;
+}
+.cgm-agp .agp-range {
+  fill: var(--event-glucose-bg);
+}
+.cgm-agp .agp-grid {
+  stroke: var(--line);
+}
+.cgm-agp .agp-axis {
+  fill: var(--ink-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-agp .agp-outer {
+  fill: color-mix(in srgb, var(--chart-in-range) 16%, transparent);
+}
+.cgm-agp .agp-inner {
+  fill: color-mix(in srgb, var(--chart-in-range) 34%, transparent);
+}
+.cgm-agp .agp-median {
+  fill: none;
+  stroke: var(--chart-in-range);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.cgm-episode-counts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px;
+}
+.cgm-episode-list,
+.cgm-meal-list,
+.cgm-food-ranking,
+.cgm-weekdays {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-episode-list li,
+.cgm-meal-list li,
+.cgm-food-ranking li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.cgm-episode-list li span:last-child,
+.cgm-meal-list li span:last-child,
+.cgm-food-ranking li span:last-child {
+  color: var(--ink-muted);
+}
+.cgm-food-ranking li span:first-child {
+  font-weight: 650;
+}
+.cgm-weekdays li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 10px;
+}
+.cgm-weekdays li > span {
+  color: var(--ink-muted);
+  font-weight: 650;
+}
+.cgm-weekdays li strong {
+  text-align: right;
+}
+.cgm-weekdays .cgm-levels-track {
+  height: 10px;
+}
+
+@media (max-width: 780px) {
+  .cgm-levels,
+  .cgm-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Long-term record under the clinician report: same panel as the report controls. */
+.cgm-history {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.cgm-history > header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.cgm-history > header p,
+.cgm-history-note,
+.cgm-history-empty {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.cgm-history-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 16px;
+  transition: opacity 0.2s;
+}
+.cgm-history-body.is-stale {
+  opacity: 0.55;
+}
+.cgm-history-part h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--ink);
+}
+.cgm-history-scroll {
+  overflow-x: auto;
+}
+.cgm-history-months {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-history-months th,
+.cgm-history-months td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.cgm-history-months thead th {
+  font-weight: 650;
+  color: var(--ink-muted);
+}
+.cgm-history-months th:first-child {
+  text-align: left;
+}
+.cgm-history-months tbody th small {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-muted);
+}
+.cgm-history-months th:nth-child(2),
+.cgm-history-months td:nth-child(2) {
+  width: 32%;
+  min-width: 140px;
+  text-align: left;
+}
+.cgm-history-months .cgm-levels-track {
+  height: 10px;
+}
+.cgm-history-months td.is-low {
+  color: var(--warning-ink);
+  font-weight: 650;
+}
+.cgm-history-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.cgm-history-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.cgm-history-list li > span:first-child {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.cgm-history-list li > span:nth-child(2) {
+  margin-left: auto;
+  color: var(--ink-muted);
+}
+
+@media print {
+  .cgm-history {
+    display: none !important;
+  }
+}

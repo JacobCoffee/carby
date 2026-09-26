@@ -1,0 +1,30 @@
+.profile-prompt-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--accent-wash);
+  border: 1px solid var(--info-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.profile-prompt-card p {
+  margin: 0;
+  max-width: 60ch;
+}
+.profile-prompt-card strong {
+  font-weight: 650;
+}
+.profile-prompt-card-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.profile-prompt-dialog {
+  max-width: 480px;
+}

@@ -1,0 +1,474 @@
+.glucose-chart-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.chart-legend .legend-event-marker {
+  width: 16px;
+  height: 20px;
+  flex: none;
+  overflow: visible;
+}
+.chart-legend .legend-low {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--chart-alert-low);
+}
+.glucose-chart-details {
+  margin-top: 9px;
+  color: var(--chart-panel-ink-muted);
+  font-size: 12px;
+}
+.glucose-chart-details summary {
+  display: inline-block;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px dotted var(--chart-panel-ink-muted);
+  font-weight: 650;
+}
+.glucose-chart-details summary::after {
+  content: " ▾";
+}
+.glucose-chart-details[open] summary::after {
+  content: " ▴";
+}
+.glucose-chart-details summary:focus-visible {
+  outline: 2px solid var(--chart-panel-ink);
+  outline-offset: 4px;
+}
+.glucose-chart-details-scroll {
+  max-height: 280px;
+  overflow: auto;
+  margin-top: 10px;
+  border: 1px solid color-mix(in srgb, var(--chart-panel-ink) 22%, transparent);
+  border-radius: 8px;
+}
+.glucose-chart-details table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  min-width: 470px;
+}
+.glucose-chart-details th,
+.glucose-chart-details td {
+  padding: 7px 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--chart-panel-ink) 15.3%, transparent);
+  vertical-align: top;
+}
+.glucose-chart-details th {
+  position: sticky;
+  top: 0;
+  background: var(--chart-panel-bg);
+  color: var(--chart-panel-ink);
+}
+.glucose-chart-details tr:last-child td {
+  border-bottom: 0;
+}
+@media (max-width: 780px) {
+  .glucose-chart .plot-wrap .plot-tooltip {
+    position: static;
+    transform: none;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 8px;
+  }
+  .glucose-chart-details summary {
+    padding: 8px 0;
+    min-height: 40px;
+  }
+}
+@media (max-width: 600px) {
+  .glucose-chart-details-scroll {
+    max-height: 230px;
+  }
+}
+
+/* One line under the title: the period in view and any zoom. */
+.glucose-chart-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 10px 0 2px;
+}
+/* A period's name stands like a flag on the strip it labels: the square foot marks where the
+ * period starts, and the dates give way with an ellipsis before the next flag or the review label.
+ * It is shaded like the range trough so panel ink reads on it in every theme; the period's own
+ * colour rides the icon, the edge and the strip underneath. */
+.chart-band-tag {
+  position: absolute;
+  z-index: 1;
+  translate: 0 -100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 22px;
+  padding: 0 8px 0 7px;
+  border: 0;
+  border-radius: 6px 6px 6px 0;
+  background: color-mix(in srgb, rgb(var(--shadow-rgb)) 24%, var(--chart-panel-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chart-device) 35%, transparent);
+  color: var(--chart-panel-ink);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+/* The chart's own `.plot-wrap svg` sizing and crosshair must not reach the icon. */
+.glucose-chart .plot-wrap .chart-band-tag svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  min-height: 0;
+  color: var(--chart-device);
+  cursor: inherit;
+}
+.chart-band-tag strong,
+.chart-band-tag span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-band-tag strong {
+  flex: 0 1 auto;
+  font-weight: 650;
+}
+/* The dates give way long before the period's name does. */
+.chart-band-tag span {
+  flex: 0 100 auto;
+  font-variant-numeric: tabular-nums;
+}
+.chart-band-tag:hover {
+  background: color-mix(in srgb, rgb(var(--shadow-rgb)) 36%, var(--chart-panel-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chart-device) 70%, transparent);
+}
+.chart-band-tag:focus-visible {
+  outline: 2px solid var(--chart-panel-ink);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .chart-band-tag::after {
+    content: "";
+    position: absolute;
+    inset: -9px -4px -8px;
+  }
+}
+.chart-illness-wash {
+  opacity: 0.09;
+  transition: opacity 0.2s ease-out;
+}
+.chart-illness-band[data-hot] .chart-illness-wash {
+  opacity: 0.2;
+}
+
+/* The title carries a small help button; the always-on instructions live in its popover. */
+.glucose-chart-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+}
+.chart-help {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -3px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--chart-panel-ink-muted);
+  transition:
+    background-color 0.15s ease-out,
+    color 0.15s ease-out;
+}
+.chart-help:hover,
+.chart-help[data-state="open"] {
+  background: color-mix(in srgb, var(--chart-panel-ink) 12%, transparent);
+  color: var(--chart-panel-ink);
+}
+.chart-help:focus-visible {
+  outline: 2px solid var(--chart-panel-ink);
+  outline-offset: 2px;
+}
+.chart-help-panel {
+  width: min(340px, calc(100vw - 32px));
+  font-size: 13px;
+  line-height: 1.5;
+}
+.chart-help-panel ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* The key is also the layer switch: grouped chips, each showing or hiding its marks. */
+.chart-layers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+}
+.chart-layer-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.chart-layers .chart-layer-group-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--chart-panel-ink-muted);
+  opacity: 0.8;
+}
+.chart-layer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--chart-panel-ink) 20%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chart-panel-ink) 7%, transparent);
+  color: var(--chart-panel-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    opacity 0.15s ease-out;
+}
+button.chart-layer:hover {
+  background: color-mix(in srgb, var(--chart-panel-ink) 14%, transparent);
+}
+button.chart-layer:focus-visible {
+  outline: 2px solid var(--chart-panel-ink);
+  outline-offset: 2px;
+}
+/* Switched off: an empty dashed outline with its swatch dimmed, still one click to bring back. */
+button.chart-layer[aria-pressed="false"] {
+  background: transparent;
+  border-style: dashed;
+  color: var(--chart-panel-ink-muted);
+}
+button.chart-layer[aria-pressed="false"] > :first-child {
+  opacity: 0.35;
+}
+/* Fingers need a bigger target than a pointer. */
+@media (pointer: coarse) {
+  button.chart-layer {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+  .chart-help {
+    width: 40px;
+    height: 40px;
+  }
+}
+.chart-layer.is-fixed {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 2px;
+}
+.chart-legend .legend-correction {
+  width: 24px;
+  border-top: 2px dashed var(--chart-review);
+}
+/* The in-range band as the chart draws it. */
+.chart-legend .legend-band {
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--chart-panel-ink) 22%, transparent);
+}
+
+/* Pointing at a key item picks out its marks; everything else steps back. */
+.glucose-chart .plot-wrap svg [data-layer] {
+  transition: opacity 0.18s ease-out;
+}
+.glucose-chart .plot-wrap svg[data-preview] [data-layer] {
+  opacity: 0.14;
+}
+.glucose-chart .plot-wrap svg[data-preview] [data-layer="cgm"] {
+  opacity: 0.35;
+}
+.glucose-chart .plot-wrap svg[data-preview="meter"] [data-layer="meter"],
+.glucose-chart .plot-wrap svg[data-preview="status"] [data-layer="status"],
+.glucose-chart .plot-wrap svg[data-preview="food"] [data-layer="food"],
+.glucose-chart .plot-wrap svg[data-preview="links"] [data-layer="links"],
+.glucose-chart .plot-wrap svg[data-preview="rapid"] [data-layer="rapid"],
+.glucose-chart .plot-wrap svg[data-preview="long"] [data-layer="long"],
+.glucose-chart .plot-wrap svg[data-preview="exercise"] [data-layer="exercise"],
+.glucose-chart .plot-wrap svg[data-preview="rescue"] [data-layer="rescue"],
+.glucose-chart .plot-wrap svg[data-preview="device"] [data-layer="device"],
+.glucose-chart .plot-wrap svg[data-preview="review"] [data-layer="review"] {
+  opacity: 1;
+}
+/* A moved lane icon keeps a hairline back to its true time. */
+.chart-lane-tick {
+  fill: none;
+  stroke: var(--chart-panel-ink-muted);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glucose-chart .plot-wrap svg [data-layer],
+  .chart-layer,
+  .chart-help,
+  .chart-band-tag,
+  .chart-illness-wash {
+    transition: none;
+  }
+}
+.chart-review-line {
+  stroke: var(--chart-review);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 6;
+  opacity: 0.6;
+}
+.chart-review-line.is-passed {
+  opacity: 0.3;
+}
+
+.chart-navigation .chart-range-days {
+  position: relative;
+  margin-left: 7px;
+}
+.chart-navigation .chart-range-days::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 25%;
+  bottom: 25%;
+  width: 1px;
+  background: color-mix(in srgb, var(--chart-panel-ink) 27.1%, transparent);
+}
+.glucose-chart-period,
+.glucose-chart-history {
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.glucose-chart-history {
+  margin: 8px 0 0;
+}
+.glucose-chart-period strong {
+  color: var(--chart-panel-ink);
+  font-weight: 650;
+}
+.glucose-chart-history {
+  color: var(--chart-panel-ink-muted);
+  max-width: 72ch;
+}
+.glucose-chart-zoom {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--chart-panel-ink-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.glucose-chart-zoom strong {
+  color: var(--chart-panel-ink);
+  font-weight: 650;
+}
+.chart-zoom-selection {
+  fill: color-mix(in srgb, var(--chart-panel-ink) 14%, transparent);
+  stroke: var(--chart-panel-ink);
+  stroke-dasharray: 4 4;
+  stroke-opacity: 0.6;
+}
+/* A zoom drag would otherwise select the axis labels. */
+.glucose-chart .plot-wrap svg {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.glucose-chart-details-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.glucose-chart-details-pages span {
+  margin-inline: 4px;
+}
+.glucose-chart-details-pages button,
+.glucose-chart-zoom button {
+  min-height: 36px;
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--chart-panel-ink) 22%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--chart-panel-ink) 7.8%, transparent);
+  color: var(--chart-panel-ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+.glucose-chart-details-pages button:disabled,
+.glucose-chart-zoom button:disabled {
+  opacity: 0.45;
+}
+.glucose-chart-details-pages button:focus-visible,
+.glucose-chart-zoom button:focus-visible {
+  outline: 2px solid var(--chart-panel-ink);
+  outline-offset: 2px;
+}
+@media (max-width: 680px) {
+  .glucose-chart-details-pages button,
+  .glucose-chart-zoom button {
+    min-height: 44px;
+  }
+}
+.chart-now-dot {
+  fill: var(--chart-sensor);
+}
+.chart-now-dot-faded {
+  opacity: 0.45;
+}
+.chart-now-gap {
+  stroke: var(--chart-sensor);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+  opacity: 0.45;
+  fill: none;
+}
+.chart-now-ring {
+  fill: none;
+  stroke: var(--chart-sensor);
+  stroke-width: 1.5;
+  opacity: 0.5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.chart-now-pulsing {
+  animation: chart-now-pulse 1.8s ease-in-out infinite;
+}
+@keyframes chart-now-pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}

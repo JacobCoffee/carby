@@ -1,0 +1,111 @@
+/* Command palette — matches the care-workspace theme; command.tsx/cmdk stays Tailwind, this overrides colors. */
+.care-command-palette {
+  max-width: 560px;
+  border-radius: 16px;
+  border: 1px solid var(--care-line, var(--line));
+  box-shadow: 0 24px 60px -20px rgb(var(--shadow-rgb) / 35%);
+}
+.care-command-palette [data-slot="command"] {
+  background: var(--surface);
+  color: var(--care-ink, var(--ink));
+}
+.care-command-palette [data-slot="command-input-wrapper"] {
+  border-bottom: 1px solid var(--care-line, var(--line));
+  padding: 0 16px;
+}
+.care-command-palette [data-slot="command-input-wrapper"] svg {
+  color: var(--care-muted, var(--ink-muted));
+}
+.care-command-palette [data-slot="command-input"] {
+  font-size: 15px;
+}
+.care-command-palette [data-slot="command-input"]::placeholder {
+  color: var(--care-muted, var(--ink-muted));
+}
+.care-command-palette [data-slot="command-group"] [cmdk-group-heading] {
+  color: var(--care-muted, var(--ink-muted));
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+.care-command-palette [data-slot="command-item"] {
+  border-radius: 9px;
+}
+.care-command-palette [data-slot="command-item"] svg {
+  color: var(--care-muted, var(--ink-muted));
+}
+.care-command-palette [data-slot="command-item"][data-selected="true"] {
+  background: var(--accent-wash);
+  color: var(--accent-wash-ink);
+}
+.care-command-palette [data-slot="command-item"][data-selected="true"] svg {
+  color: var(--accent-wash-ink);
+}
+.care-command-palette [data-slot="command-item"][data-disabled="true"] {
+  opacity: 0.45;
+}
+.care-command-palette [data-slot="command-shortcut"] {
+  color: var(--care-muted, var(--ink-muted));
+}
+.care-command-palette [data-slot="command-separator"] {
+  background: var(--care-line, var(--line));
+}
+
+/* Header trigger button */
+.care-command-trigger {
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid var(--care-line, var(--line));
+  border-radius: 11px;
+  padding: 0 12px;
+  background: var(--surface);
+  font-size: 14px;
+  gap: 8px;
+}
+.care-command-trigger-kbd {
+  display: inline-flex;
+}
+
+@media (max-width: 900px) {
+  .care-command-trigger-label {
+    display: none;
+  }
+  .care-command-trigger {
+    padding: 0 10px;
+  }
+}
+@media (max-width: 680px) {
+  .care-command-trigger-kbd {
+    display: none;
+  }
+  .care-command-trigger {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* Full-width sheet on narrow screens, matching mobile dialog conventions elsewhere in the app. */
+@media (max-width: 640px) {
+  .care-command-palette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: none;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .care-command-palette [data-slot="command"] {
+    flex: 1;
+    min-height: 0;
+  }
+  .care-command-palette [data-slot="command-list"] {
+    max-height: none;
+    flex: 1;
+  }
+}

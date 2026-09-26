@@ -1,0 +1,173 @@
+.food-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* Sized by where it sits: a full dialog, or the insulin calculator's narrow food column. */
+  container-type: inline-size;
+}
+.food-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: var(--ink-faint);
+}
+.food-picker-search input {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  height: 40px !important;
+  padding: 0 !important;
+}
+.food-picker-search input:focus-visible {
+  outline: none;
+}
+.food-picker-section > strong {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.food-picker-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 7px;
+}
+.food-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--info-border);
+  border-radius: 999px;
+  overflow: hidden;
+  max-width: 100%;
+}
+.food-picker-chip button {
+  border: 0;
+  background: none;
+  color: var(--event-insulin-ink);
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.food-picker-chip button small {
+  color: var(--ink-muted);
+  font-weight: 450;
+  margin-left: 4px;
+}
+.food-picker-chip-remove {
+  border-left: 1px solid var(--line);
+  color: var(--danger-ink);
+  display: grid;
+  place-items: center;
+  padding: 0 10px !important;
+}
+.food-picker-empty {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.food-picker-new {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.food-picker-new > strong {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.food-picker-new-fields {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 8px;
+}
+.food-picker-save-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.food-picker-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.food-picker-items > strong {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.food-picker-item {
+  padding: 12px;
+  background: var(--canvas);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.food-picker-item-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.food-picker-item-title button {
+  background: transparent;
+  border: 0;
+  color: var(--ink-faint);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.food-picker-portion {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.food-picker-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.food-picker-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+}
+.food-picker-total strong {
+  font-size: 22px;
+  color: var(--ink);
+}
+.food-picker-total small {
+  font-size: 13px;
+  font-weight: 400;
+}
+@container (max-width: 520px) {
+  .food-picker-new-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .food-picker-portion {
+    grid-template-columns: 1fr;
+  }
+}
+/* Food logging and the food builder hold the four-field new-food row; the standard dialog
+ * width wraps its labels and misaligns the inputs. */
+.care-dialog.food-entry-dialog,
+.care-dialog.food-builder-dialog {
+  max-width: min(820px, calc(100vw - 32px));
+}
+.food-builder-dialog {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+.food-builder-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}

@@ -1,0 +1,195 @@
+/* Layout for the single-modal dose flow: glucose+food (left) and result/checks/log-it (right). */
+.dose-flow-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Beat the default sm:max-w-lg utility: this is a wide, desktop-first calculation surface. */
+@media (min-width: 781px) {
+  .dose-flow-dialog {
+    width: min(1100px, 94vw) !important;
+    max-width: min(1100px, 94vw) !important;
+    max-height: min(920px, 92vh) !important;
+  }
+}
+.dose-flow-dialog > [data-slot="dialog-header"] {
+  flex: none;
+  padding-right: 28px;
+}
+.dose-flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.dose-flow-dialog > [data-slot="dialog-header"] [data-slot="dialog-description"] {
+  margin: 0;
+}
+.dose-flow > .calc-modes {
+  margin: 0;
+}
+.dose-flow-columns {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+  align-items: start;
+}
+.dose-flow-col-left {
+  min-width: 0;
+}
+.dose-flow-col-right {
+  min-width: 0;
+}
+@media (min-width: 781px) {
+  /* The columns row fills whatever height is left in the dialog after the header, note, and
+     mode toggle — so the right column's height is exact, not guessed, and needs no outer scroll. */
+  .dose-flow {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .dose-flow > .calc-modes {
+    flex: none;
+  }
+  .dose-flow-columns {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .dose-flow-col-left {
+    overflow-y: auto;
+    min-height: 0;
+  }
+  .dose-flow-col-right {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* Safety net: if content still can't fit at very small heights, scroll inside the column
+       rather than spilling past the dialog. */
+    overflow-y: auto;
+  }
+  .dose-flow-scroll-top {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .dose-flow-pinned {
+    flex: none;
+  }
+}
+.dose-flow-section {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 10px 14px;
+  margin: 0 0 10px;
+}
+.dose-flow-section .food-picker {
+  margin: 12px 0;
+}
+.dose-flow-pinned .math-breakdown {
+  margin: 4px 0 6px;
+}
+.dose-flow-pinned .calc-result {
+  margin: 0 0 6px;
+}
+.dose-flow-pinned .calc-result strong {
+  font-size: 24px;
+}
+.dose-flow-pinned .dose-flow-section {
+  margin-bottom: 8px;
+}
+.dose-flow-section h3 {
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 0 0 10px;
+}
+.dose-flow-pinned .dose-flow-section h3 {
+  margin-bottom: 6px;
+}
+.dose-flow-pinned .dose-flow-atomic-note {
+  margin: 2px 0;
+}
+/* Two aligned rows: reading + meter HI/LO, then source + sync. */
+.dose-flow-glucose-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.dose-flow-glucose-row + .dose-flow-glucose-row {
+  margin-top: 10px;
+}
+.dose-flow-glucose-row .calc-modes {
+  margin: 0;
+  min-height: 47px;
+  box-sizing: border-box;
+}
+.dose-flow-glucose-row .calc-modes button {
+  padding: 0 14px;
+  font-size: 13px;
+}
+.dose-flow-sync-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  min-height: 47px;
+}
+.dose-flow-linked-foods {
+  margin-top: 6px;
+}
+.dose-flow-review-gate {
+  margin: 0 0 14px;
+}
+.dose-flow-checks {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+}
+.dose-flow-checks summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 4px 0;
+}
+.dose-flow-checks[open] summary {
+  margin-bottom: 8px;
+}
+.dose-flow-checks .notice {
+  margin: 6px 0;
+}
+.dose-flow-scroll-top > .dose-adjustment {
+  margin: 0 0 14px;
+}
+.dose-flow-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dose-flow-log > h3 {
+  margin: 0;
+}
+.dose-flow-log .calc-log-button {
+  margin-top: 2px;
+}
+.dose-flow-atomic-note {
+  font-size: 12px;
+}
+@media (max-width: 780px) {
+  .dose-flow-dialog {
+    height: 100dvh;
+    max-height: 100dvh !important;
+  }
+  /* Narrow screens: single column, full-height sheet — everything flows and scrolls normally. */
+  .dose-flow-columns {
+    display: block;
+  }
+}
+@media (max-width: 520px) {
+  .dose-flow-glucose-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,226 @@
+/* 404 / error scenes. Built from the dashboard chart-panel tokens, so Blood and Sugar
+ * recolor them with the rest of the app. The fingerstick drop is red in every theme:
+ * --danger-strong is red everywhere except Blood, where danger is amber and the accent is red. */
+
+.status-scene {
+  --status-drop: var(--danger-strong);
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  max-width: none;
+  margin: 0;
+  padding: 48px 24px;
+}
+[data-theme="blood"] .status-scene {
+  --status-drop: var(--accent-solid);
+}
+
+.status-scene ::selection {
+  background: var(--accent-wash);
+  color: var(--accent-wash-ink);
+}
+
+.status-scene-body {
+  width: 100%;
+  max-width: 640px;
+}
+
+.status-scene-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--chart-panel-bg);
+  color: var(--chart-panel-ink);
+  box-shadow: 0 18px 40px -22px rgb(var(--shadow-rgb) / 0.55);
+}
+
+/* Numeral on the left, status pill pinned top right, both clear of the 400 ceiling rule. */
+.status-scene-reading {
+  position: absolute;
+  top: 22px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.status-scene-reading strong {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.status-scene-reading span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chart-panel-ink) 16%, transparent);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.status-scene-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.status-scene-band {
+  fill: var(--chart-panel-ink);
+  opacity: 0.1;
+}
+.status-scene-rule {
+  stroke: var(--chart-panel-ink);
+  stroke-dasharray: 3 5;
+  opacity: 0.3;
+}
+.status-scene-ceiling {
+  stroke: var(--chart-alert-high);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  opacity: 0.85;
+}
+.status-scene-axis {
+  fill: var(--chart-panel-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.status-scene-trace {
+  fill: none;
+  stroke: var(--chart-sensor);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.status-scene-gap {
+  stroke: var(--chart-sensor);
+  stroke-width: 2;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+.status-scene-dot {
+  fill: var(--chart-sensor);
+}
+.status-scene-ring {
+  fill: none;
+  stroke: var(--chart-sensor);
+  stroke-width: 1.5;
+  opacity: 0.5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.status-scene-flag rect {
+  fill: var(--chart-alert-high);
+}
+.status-scene-flag text {
+  fill: var(--chart-panel-bg);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+.status-scene-drop {
+  fill: var(--status-drop);
+  stroke: var(--chart-panel-ink);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.status-scene-copy {
+  padding: 32px 4px 0;
+}
+.status-scene-copy h1 {
+  margin-bottom: 12px;
+  text-wrap: balance;
+}
+.status-scene-copy > p {
+  max-width: 34rem;
+  color: var(--ink-muted);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.status-scene-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.status-scene-actions .button {
+  min-height: 44px;
+  padding-inline: 16px;
+}
+/* globals.css pins primary text to white, which fails on Dark's light accent. */
+.status-scene-actions .button.primary {
+  color: var(--on-accent-solid);
+}
+.status-scene .status-scene-reference {
+  margin-top: 24px;
+  color: var(--ink-faint);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* One authored moment: the trace draws in, then the endpoint lights up and pulses. The
+ * static frame is the finished chart, so reduced motion loses nothing but the draw. */
+@media (prefers-reduced-motion: no-preference) {
+  .status-scene-trace {
+    stroke-dasharray: 1;
+    animation: status-scene-draw 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .status-scene-gap,
+  .status-scene-dot,
+  .status-scene-flag,
+  .status-scene-drop {
+    animation: status-scene-arrive 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1.1s both;
+  }
+  .status-scene-pulse {
+    animation: status-scene-pulse 1.8s ease-out 1.5s infinite both;
+  }
+}
+@keyframes status-scene-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes status-scene-arrive {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes status-scene-pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@media (max-width: 560px) {
+  .status-scene {
+    padding: 24px 16px;
+    align-items: start;
+  }
+  /* The chart scales down with the viewport, leaving no headroom above the 400 rule,
+   * so the reading moves into the flow above the chart. */
+  .status-scene-reading {
+    position: static;
+    padding: 18px 16px 0;
+  }
+  .status-scene-reading strong {
+    font-size: 44px;
+  }
+  .status-scene-copy h1 {
+    font-size: 30px;
+    letter-spacing: -0.03em;
+  }
+}

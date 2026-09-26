@@ -1,0 +1,464 @@
+"use client";
+import { Checkbox } from "@/components/ui/checkbox";
+import { planFieldSchemas, type Plan } from "@/lib/care";
+
+/**
+ * Every clinic-packet plan setting this component edits. `lowThreshold`, `ketoneCheckAbove` and
+ * `patternRule` are required (no defaults; blank until entered from the family's care plan). The
+ * rest are optional features, each switched on only by its own toggle — off means the field is
+ * left out of the saved plan entirely.
+ */
+export const planSettingsKeys = [
+  "lowThreshold",
+  "ketoneCheckAbove",
+  "patternRule",
+  "correctionCallCheck",
+  "sickDayChecks",
+  "lowTreatment",
+  "overnightCheck",
+  "snackInsulinFromCarbs",
+  "rescueMedication",
+  "meter",
+] as const;
+export type PlanSettingsKey = (typeof planSettingsKeys)[number];
+export type PlanSettingsDraft = Partial<Pick<Plan, PlanSettingsKey>>;
+
+/** The plan settings keys with a missing (when required) or out-of-range value. */
+export function planSettingsIssues(draft: PlanSettingsDraft): PlanSettingsKey[] {
+  return planSettingsKeys.filter((key) => !planFieldSchemas[key].safeParse(draft[key]).success);
+}
+
+/** A number field bound to a possibly-NaN value, so a blank input never becomes a fabricated 0. */
+function NumberField({
+  label,
+  helper,
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  required,
+  disabled,
+  invalid,
+}: {
+  label: string;
+  helper?: string;
+  value: number | undefined;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step?: number | "any";
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min={min}
+        max={max}
+        step={step}
+        required={required}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        value={value !== undefined && Number.isFinite(value) ? value : ""}
+        onChange={(event) => onChange(event.target.value === "" ? NaN : Number(event.target.value))}
+      />
+      {helper && <small>{helper}</small>}
+    </label>
+  );
+}
+
+/** A text field bound to a possibly-blank string, for the optional free-text plan settings. */
+function TextField({
+  label,
+  helper,
+  value,
+  onChange,
+  type = "text",
+  maxLength,
+  required,
+  disabled,
+  invalid,
+}: {
+  label: string;
+  helper?: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  type?: "text" | "time" | "date";
+  maxLength?: number;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        type={type}
+        maxLength={maxLength}
+        required={required}
+        disabled={disabled}
+        aria-invalid={invalid || undefined}
+        value={value ?? ""}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {helper && <small>{helper}</small>}
+    </label>
+  );
+}
+
+/** An optional feature: a checkbox that switches the whole group on or off. Off removes the key. */
+function ToggleGroup({
+  legend,
+  helper,
+  enabled,
+  onToggle,
+  disabled,
+  children,
+}: {
+  legend: string;
+  helper: string;
+  enabled: boolean;
+  onToggle: (on: boolean) => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="plan-settings-group">
+      <label className="check-row">
+        <Checkbox
+          checked={enabled}
+          disabled={disabled}
+          onCheckedChange={(checked) => onToggle(checked === true)}
+        />
+        <span>{legend}</span>
+      </label>
+      <small>{helper}</small>
+      {enabled && <div className="two-fields">{children}</div>}
+    </div>
+  );
+}
+
+export function PlanSettingsFields({
+  draft,
+  onChange,
+  invalid = [],
+  disabled,
+}: {
+  draft: PlanSettingsDraft;
+  onChange: (draft: PlanSettingsDraft, changed: PlanSettingsKey) => void;
+  invalid?: readonly PlanSettingsKey[];
+  disabled?: boolean;
+}) {
+  const flagged = (key: PlanSettingsKey) => invalid.includes(key);
+  function set<K extends PlanSettingsKey>(key: K, value: PlanSettingsDraft[K]) {
+    onChange({ ...draft, [key]: value }, key);
+  }
+  function remove(key: PlanSettingsKey) {
+    const next = { ...draft };
+    delete next[key];
+    onChange(next, key);
+  }
+  return (
+    <fieldset className="care-contact-fields plan-settings-fields" disabled={disabled}>
+      <legend>Plan safety settings</legend>
+      <p>
+        Enter these from your current care plan. Carby never suggests or fills in a value for you.
+      </p>
+      <div className="two-fields">
+        <NumberField
+          label="Treat a low below (mg/dL)"
+          helper="From your care plan: the number below which you treat a low."
+          value={draft.lowThreshold}
+          onChange={(value) => set("lowThreshold", value)}
+          min={40}
+          max={150}
+          required
+          disabled={disabled}
+          invalid={flagged("lowThreshold")}
+        />
+        <NumberField
+          label="Check ketones above (mg/dL)"
+          helper="From your care plan: the glucose number above which you check ketones."
+          value={draft.ketoneCheckAbove}
+          onChange={(value) => set("ketoneCheckAbove", value)}
+          min={100}
+          max={400}
+          required
+          disabled={disabled}
+          invalid={flagged("ketoneCheckAbove")}
+        />
+        <NumberField
+          label="Pattern: high days in a row"
+          helper="From your care plan: how many days in a row above your high range counts as a pattern."
+          value={draft.patternRule?.highDays}
+          onChange={(value) =>
+            set("patternRule", { lowDays: draft.patternRule?.lowDays ?? NaN, highDays: value })
+          }
+          min={2}
+          max={7}
+          required
+          disabled={disabled}
+          invalid={flagged("patternRule")}
+        />
+        <NumberField
+          label="Pattern: low days in a row"
+          helper="From your care plan: how many days in a row below the low number counts as a pattern."
+          value={draft.patternRule?.lowDays}
+          onChange={(value) =>
+            set("patternRule", { highDays: draft.patternRule?.highDays ?? NaN, lowDays: value })
+          }
+          min={1}
+          max={7}
+          required
+          disabled={disabled}
+          invalid={flagged("patternRule")}
+        />
+      </div>
+      <ToggleGroup
+        legend="Correction call check"
+        helper="From your care plan: call the care team if glucose stays above a number for a set time after a correction dose. Optional."
+        enabled={!!draft.correctionCallCheck}
+        onToggle={(on) =>
+          on
+            ? set("correctionCallCheck", { above: NaN, hours: NaN })
+            : remove("correctionCallCheck")
+        }
+        disabled={disabled}
+      >
+        <NumberField
+          label="Call above (mg/dL)"
+          value={draft.correctionCallCheck?.above}
+          onChange={(value) =>
+            set("correctionCallCheck", {
+              hours: draft.correctionCallCheck?.hours ?? NaN,
+              above: value,
+            })
+          }
+          min={150}
+          max={600}
+          required
+          disabled={disabled}
+          invalid={flagged("correctionCallCheck")}
+        />
+        <NumberField
+          label="Hours after the correction"
+          value={draft.correctionCallCheck?.hours}
+          onChange={(value) =>
+            set("correctionCallCheck", {
+              above: draft.correctionCallCheck?.above ?? NaN,
+              hours: value,
+            })
+          }
+          min={0.5}
+          max={12}
+          step={0.5}
+          required
+          disabled={disabled}
+          invalid={flagged("correctionCallCheck")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Sick-day checks"
+        helper="From your care plan: how often to check glucose and ketones during illness. Optional."
+        enabled={!!draft.sickDayChecks}
+        onToggle={(on) =>
+          on
+            ? set("sickDayChecks", { glucoseHours: NaN, ketoneHours: NaN })
+            : remove("sickDayChecks")
+        }
+        disabled={disabled}
+      >
+        <NumberField
+          label="Check glucose every (hours)"
+          value={draft.sickDayChecks?.glucoseHours}
+          onChange={(value) =>
+            set("sickDayChecks", {
+              ketoneHours: draft.sickDayChecks?.ketoneHours ?? NaN,
+              glucoseHours: value,
+            })
+          }
+          min={0.5}
+          max={12}
+          step={0.5}
+          required
+          disabled={disabled}
+          invalid={flagged("sickDayChecks")}
+        />
+        <NumberField
+          label="Check ketones every (hours)"
+          value={draft.sickDayChecks?.ketoneHours}
+          onChange={(value) =>
+            set("sickDayChecks", {
+              glucoseHours: draft.sickDayChecks?.glucoseHours ?? NaN,
+              ketoneHours: value,
+            })
+          }
+          min={0.5}
+          max={12}
+          step={0.5}
+          required
+          disabled={disabled}
+          invalid={flagged("sickDayChecks")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Low-treatment amount"
+        helper="From your care plan: how many grams to treat a low with, and when to recheck. Optional."
+        enabled={!!draft.lowTreatment}
+        onToggle={(on) =>
+          on ? set("lowTreatment", { grams: NaN, recheckMinutes: NaN }) : remove("lowTreatment")
+        }
+        disabled={disabled}
+      >
+        <NumberField
+          label="Grams of fast-acting carbohydrate"
+          value={draft.lowTreatment?.grams}
+          onChange={(value) =>
+            set("lowTreatment", {
+              recheckMinutes: draft.lowTreatment?.recheckMinutes ?? NaN,
+              grams: value,
+            })
+          }
+          min={1}
+          max={60}
+          step="any"
+          required
+          disabled={disabled}
+          invalid={flagged("lowTreatment")}
+        />
+        <NumberField
+          label="Recheck after (minutes)"
+          value={draft.lowTreatment?.recheckMinutes}
+          onChange={(value) =>
+            set("lowTreatment", { grams: draft.lowTreatment?.grams ?? NaN, recheckMinutes: value })
+          }
+          min={5}
+          max={60}
+          required
+          disabled={disabled}
+          invalid={flagged("lowTreatment")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Overnight check"
+        helper="From your care plan: a scheduled overnight check, and the last night it applies. Optional."
+        enabled={!!draft.overnightCheck}
+        onToggle={(on) =>
+          on ? set("overnightCheck", { time: "", until: "" }) : remove("overnightCheck")
+        }
+        disabled={disabled}
+      >
+        <TextField
+          label="Scheduled time"
+          value={draft.overnightCheck?.time}
+          onChange={(value) =>
+            set("overnightCheck", { until: draft.overnightCheck?.until ?? "", time: value })
+          }
+          type="time"
+          required
+          disabled={disabled}
+          invalid={flagged("overnightCheck")}
+        />
+        <TextField
+          label="Last night it applies"
+          value={draft.overnightCheck?.until}
+          onChange={(value) =>
+            set("overnightCheck", { time: draft.overnightCheck?.time ?? "", until: value })
+          }
+          type="date"
+          required
+          disabled={disabled}
+          invalid={flagged("overnightCheck")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Snack insulin cutoff"
+        helper="From your care plan: snacks under this many grams of carbohydrate get no insulin. This is a notice only — Carby's dose math does not change. Optional."
+        enabled={draft.snackInsulinFromCarbs !== undefined}
+        onToggle={(on) =>
+          on ? set("snackInsulinFromCarbs", NaN) : remove("snackInsulinFromCarbs")
+        }
+        disabled={disabled}
+      >
+        <NumberField
+          label="Grams of carbohydrate"
+          value={draft.snackInsulinFromCarbs}
+          onChange={(value) => set("snackInsulinFromCarbs", value)}
+          min={1}
+          max={100}
+          step="any"
+          required
+          disabled={disabled}
+          invalid={flagged("snackInsulinFromCarbs")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Rescue medication"
+        helper="From your care plan: the name of the emergency rescue medication. Optional."
+        enabled={draft.rescueMedication !== undefined}
+        onToggle={(on) => (on ? set("rescueMedication", "") : remove("rescueMedication"))}
+        disabled={disabled}
+      >
+        <TextField
+          label="Medication name"
+          value={draft.rescueMedication}
+          onChange={(value) => set("rescueMedication", value)}
+          maxLength={60}
+          required
+          disabled={disabled}
+          invalid={flagged("rescueMedication")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Glucose meter"
+        helper="From your care plan: your meter's name and its HI/LO display limits. Optional."
+        enabled={!!draft.meter}
+        onToggle={(on) => (on ? set("meter", { hi: NaN, lo: NaN }) : remove("meter"))}
+        disabled={disabled}
+      >
+        <TextField
+          label="Meter name (optional)"
+          value={draft.meter?.name}
+          onChange={(value) =>
+            set("meter", {
+              hi: draft.meter?.hi ?? NaN,
+              lo: draft.meter?.lo ?? NaN,
+              name: value,
+            })
+          }
+          maxLength={60}
+          disabled={disabled}
+        />
+        <NumberField
+          label="HI reads above"
+          value={draft.meter?.hi}
+          onChange={(value) =>
+            set("meter", { ...draft.meter, lo: draft.meter?.lo ?? NaN, hi: value })
+          }
+          min={100}
+          max={1000}
+          required
+          disabled={disabled}
+          invalid={flagged("meter")}
+        />
+        <NumberField
+          label="LO reads below"
+          value={draft.meter?.lo}
+          onChange={(value) =>
+            set("meter", { ...draft.meter, hi: draft.meter?.hi ?? NaN, lo: value })
+          }
+          min={10}
+          max={100}
+          required
+          disabled={disabled}
+          invalid={flagged("meter")}
+        />
+      </ToggleGroup>
+    </fieldset>
+  );
+}

@@ -1,0 +1,124 @@
+/* Still above range once the review time arrives: hard to miss, but still a timing reminder. */
+.care-redesign .care-header-reminder.is-escalated {
+  border: 2px solid var(--danger-strong);
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-strong) 14%, transparent);
+  animation: care-reminder-attention 2.4s ease-in-out infinite;
+}
+.care-header-reminder.is-escalated strong {
+  color: var(--danger-strong);
+}
+.care-reminder-alert-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--danger-strong);
+  color: var(--danger-bg);
+}
+.care-reminder-alert-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--danger-strong);
+  animation: care-reminder-ring 1.6s ease-out infinite;
+}
+@keyframes care-reminder-attention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger-strong) 14%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--danger-strong) 26%, transparent);
+  }
+}
+@keyframes care-reminder-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-redesign .care-header-reminder.is-escalated,
+  .care-reminder-alert-icon::after {
+    animation: none;
+  }
+}
+
+/* Overnight check close, due or missed: full width above the header, aligned with its content. */
+.overnight-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px max(24px, calc((100vw - 1480px) / 2));
+  background: var(--event-correction-bg);
+  border-bottom: 1px solid var(--event-food-border);
+  color: var(--event-correction-ink);
+}
+.overnight-banner.is-due {
+  background: var(--warning-bg);
+  border-bottom-color: var(--warning-border);
+  color: var(--warning-ink);
+}
+.overnight-banner.is-missed {
+  background: var(--danger-bg);
+  border-bottom: 2px solid var(--danger-strong);
+  color: var(--danger-ink);
+}
+.overnight-banner > svg {
+  flex: none;
+}
+.overnight-banner-copy {
+  display: flex;
+  flex: 1 1 240px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.4;
+}
+.overnight-banner-copy strong {
+  font-size: 15px;
+  font-weight: 750;
+}
+.overnight-banner-copy span {
+  font-size: 12px;
+}
+.overnight-banner .button {
+  flex: none;
+  min-height: 36px;
+}
+@media (max-width: 999px) {
+  .overnight-banner {
+    padding-inline: 20px;
+  }
+}
+@media (max-width: 680px) {
+  .overnight-banner {
+    padding-inline: 14px;
+  }
+  .overnight-banner .button {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 380px) {
+  .overnight-banner {
+    padding-inline: 10px;
+  }
+}
+@media print {
+  .overnight-banner {
+    display: none;
+  }
+}

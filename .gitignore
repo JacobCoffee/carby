@@ -1,0 +1,71 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/.vinext/
+/out/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+next-env.d.ts
+/dist/
+/.wrangler/
+# Local sign-in secret written by scripts/local-runtime.mjs; never publish it.
+/.carby-local/
+
+# Legacy local tool state from earlier setups; never publish it.
+/.openai/
+/.sites-runtime/
+/.agents/
+/.codex/
+/outputs/
+/work/
+
+# Local data and generated caches
+__pycache__/
+*.pyc
+*.tsbuildinfo
+*.sqlite
+*.sqlite3
+*.db
+*.bundle
+/backups/
+/exports/
+
+# Local agent/tool state and private exports; never publish them.
+/.claude/
+/.impeccable/
+/plan.json
+*.ndjson
+*.csv
+*.log
+*.key

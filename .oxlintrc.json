@@ -1,0 +1,112 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "nextjs"],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "typeAware": true,
+    "typeCheck": false
+  },
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    ".next/**",
+    ".vinext/**",
+    ".wrangler/**",
+    ".sites-runtime/**",
+    "dist/**",
+    "out/**",
+    "coverage/**",
+    "next-env.d.ts"
+  ],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/error-boundaries": "error",
+    "react/globals": "error",
+    "react/immutability": "error",
+    "react/incompatible-library": "warn",
+    "react/preserve-manual-memoization": "error",
+    "react/purity": "error",
+    "react/refs": "error",
+    "react/set-state-in-effect": "error",
+    "react/set-state-in-render": "error",
+    "react/static-components": "error",
+    "react/unsupported-syntax": "warn",
+    "react/use-memo": "error",
+
+    "react/display-name": "error",
+    "react/jsx-no-comment-textnodes": "error",
+    "react/no-unescaped-entities": "error",
+
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-require-imports": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "eslint/no-array-constructor": "error",
+    "eslint/no-unused-expressions": "warn",
+    "eslint/no-unused-vars": "warn",
+
+    "nextjs/google-font-display": "warn",
+    "nextjs/google-font-preconnect": "warn",
+    "nextjs/next-script-for-ga": "warn",
+    "nextjs/no-async-client-component": "warn",
+    "nextjs/no-before-interactive-script-outside-document": "warn",
+    "nextjs/no-css-tags": "warn",
+    "nextjs/no-head-element": "warn",
+    "nextjs/no-img-element": "warn",
+    "nextjs/no-page-custom-font": "warn",
+    "nextjs/no-styled-jsx-in-document": "warn",
+    "nextjs/no-title-in-document-head": "warn",
+    "nextjs/no-typos": "warn",
+    "nextjs/no-unwanted-polyfillio": "warn",
+
+    "import/default": "off",
+    "import/namespace": "off",
+    "import/no-anonymous-default-export": "warn",
+
+    "jsx-a11y/alt-text": ["error", { "img": ["Image"] }],
+    "jsx-a11y/anchor-has-content": "warn",
+    "jsx-a11y/anchor-is-valid": "warn",
+    "jsx-a11y/aria-activedescendant-has-tabindex": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/control-has-associated-label": "warn",
+    "jsx-a11y/heading-has-content": "warn",
+    "jsx-a11y/interactive-supports-focus": "warn",
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/media-has-caption": "warn",
+    "jsx-a11y/mouse-events-have-key-events": "warn",
+    "jsx-a11y/no-aria-hidden-on-focusable": "warn",
+    "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/no-interactive-element-to-noninteractive-role": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-to-interactive-role": "warn",
+    "jsx-a11y/no-noninteractive-tabindex": "warn",
+    "jsx-a11y/no-redundant-roles": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/prefer-tag-over-role": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["components/ui/**/*.tsx", "components/ui/**/*.ts", "hooks/use-mobile.ts"],
+      "rules": {
+        "eslint/no-unused-vars": "off",
+        "react/purity": "off",
+        "react/set-state-in-effect": "off"
+      }
+    },
+    {
+      "files": ["components/ui/chart.tsx"],
+      "rules": {
+        "typescript/restrict-template-expressions": "warn"
+      }
+    }
+  ]
+}
