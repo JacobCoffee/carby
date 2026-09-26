@@ -1,0 +1,626 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-26T23:17:16+00:00",
+  "title": "Design System: Carby",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Canvas",
+        "canonical": "#f5f7fc",
+        "cssVar": "--canvas",
+        "tonalRamp": [
+          "#121d3b",
+          "#1d3162",
+          "#294589",
+          "#3558b1",
+          "#5a7bce",
+          "#89a1dc",
+          "#b8c7ea",
+          "#ebeff9"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "cssVar": "--surface",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Sunken Surface",
+        "canonical": "#eef3fa",
+        "cssVar": "--surface-sunken",
+        "tonalRamp": [
+          "#11233b",
+          "#1d3a63",
+          "#29518a",
+          "#3468b1",
+          "#598ace",
+          "#89acdc",
+          "#b8cdea",
+          "#ebf1f9"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1c2940",
+        "cssVar": "--ink",
+        "tonalRamp": [
+          "#172235",
+          "#273959",
+          "#36507c",
+          "#4666a0",
+          "#6a88be",
+          "#95aad0",
+          "#bfcce3",
+          "#edf1f7"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5b6c85",
+        "cssVar": "--ink-muted",
+        "tonalRamp": [
+          "#1f252d",
+          "#343d4c",
+          "#49566a",
+          "#5d6f88",
+          "#8090a8",
+          "#a4b0c1",
+          "#c8cfda",
+          "#f0f2f5"
+        ]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "#8a9bb2",
+        "cssVar": "--ink-faint",
+        "tonalRamp": [
+          "#1e252e",
+          "#333e4d",
+          "#47566c",
+          "#5b6f8a",
+          "#7e91aa",
+          "#a3b0c2",
+          "#c8d0db",
+          "#f0f2f5"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "#dfe6f0",
+        "cssVar": "--line",
+        "tonalRamp": [
+          "#182434",
+          "#293c57",
+          "#39547a",
+          "#496b9c",
+          "#6d8dbb",
+          "#97aece",
+          "#c0cee2",
+          "#eef1f7"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Line",
+        "canonical": "#c7d3e3",
+        "cssVar": "--line-strong",
+        "tonalRamp": [
+          "#1a2433",
+          "#2b3d55",
+          "#3c5577",
+          "#4d6d99",
+          "#708fb8",
+          "#99afcc",
+          "#c2cfe0",
+          "#eef2f6"
+        ]
+      },
+      "accent-solid": {
+        "role": "primary",
+        "displayName": "Monitor Blue",
+        "canonical": "#3457e5",
+        "cssVar": "--accent-solid",
+        "tonalRamp": [
+          "#091444",
+          "#0e2271",
+          "#14309e",
+          "#1a3dcb",
+          "#4162e7",
+          "#778fee",
+          "#aebcf5",
+          "#e8ecfc"
+        ]
+      },
+      "accent-deep": {
+        "role": "primary",
+        "displayName": "Deep Monitor Blue",
+        "canonical": "#2f51d5",
+        "cssVar": "--accent-deep",
+        "tonalRamp": [
+          "#0d1740",
+          "#15276a",
+          "#1e3695",
+          "#2746bf",
+          "#4d6adb",
+          "#8095e5",
+          "#b3bff0",
+          "#eaedfb"
+        ]
+      },
+      "accent-wash": {
+        "role": "primary",
+        "displayName": "Blue Wash",
+        "canonical": "#edf1ff",
+        "cssVar": "--accent-wash",
+        "tonalRamp": [
+          "#00114c",
+          "#001c80",
+          "#0028b2",
+          "#0033e6",
+          "#2958ff",
+          "#6688ff",
+          "#a3b8ff",
+          "#e5ebff"
+        ]
+      },
+      "accent-wash-ink": {
+        "role": "primary",
+        "displayName": "Blue Wash Ink",
+        "canonical": "#2348c8",
+        "cssVar": "--accent-wash-ink",
+        "tonalRamp": [
+          "#0b1741",
+          "#13276d",
+          "#1b3798",
+          "#2246c3",
+          "#496adf",
+          "#7d95e8",
+          "#b1bff1",
+          "#e9edfb"
+        ]
+      },
+      "on-accent-solid": {
+        "role": "primary",
+        "displayName": "On Monitor Blue",
+        "canonical": "#ffffff",
+        "cssVar": "--on-accent-solid",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
+      "focus-ring": {
+        "role": "primary",
+        "displayName": "Focus Ring",
+        "canonical": "#6b8eff",
+        "cssVar": "--focus-ring",
+        "tonalRamp": [
+          "#00124c",
+          "#001e80",
+          "#002ab2",
+          "#0036e6",
+          "#295bff",
+          "#668aff",
+          "#a3b9ff",
+          "#e5ecff"
+        ]
+      },
+      "chart-panel-bg": {
+        "role": "secondary",
+        "displayName": "Chart Panel",
+        "canonical": "#2f51d5",
+        "cssVar": "--chart-panel-bg",
+        "tonalRamp": [
+          "#0d1740",
+          "#15276a",
+          "#1e3695",
+          "#2746bf",
+          "#4d6adb",
+          "#8095e5",
+          "#b3bff0",
+          "#eaedfb"
+        ]
+      },
+      "chart-panel-ink": {
+        "role": "secondary",
+        "displayName": "Chart Panel Ink",
+        "canonical": "#ffffff",
+        "cssVar": "--chart-panel-ink",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#737373",
+          "#949494",
+          "#b2b2b2",
+          "#d1d1d1",
+          "#f2f2f2"
+        ]
+      },
+      "chart-panel-ink-muted": {
+        "role": "secondary",
+        "displayName": "Chart Panel Muted Ink",
+        "canonical": "#d7e2ff",
+        "cssVar": "--chart-panel-ink-muted",
+        "tonalRamp": [
+          "#00154c",
+          "#002380",
+          "#0031b2",
+          "#003fe6",
+          "#2964ff",
+          "#6690ff",
+          "#a3bcff",
+          "#e5edff"
+        ]
+      },
+      "chart-sensor": {
+        "role": "secondary",
+        "displayName": "Sensor Cyan",
+        "canonical": "#a6e7f4",
+        "cssVar": "--chart-sensor",
+        "tonalRamp": [
+          "#083a44",
+          "#0e6171",
+          "#14889f",
+          "#19aecc",
+          "#40cce7",
+          "#77daee",
+          "#ade9f5",
+          "#e8f9fc"
+        ]
+      },
+      "chart-alert-high": {
+        "role": "secondary",
+        "displayName": "High Amber",
+        "canonical": "#ffc37e",
+        "cssVar": "--chart-alert-high",
+        "tonalRamp": [
+          "#4c2900",
+          "#804400",
+          "#b25f00",
+          "#e67b00",
+          "#ff9b29",
+          "#ffb866",
+          "#ffd4a3",
+          "#fff3e5"
+        ]
+      },
+      "chart-alert-low": {
+        "role": "secondary",
+        "displayName": "Low Pink",
+        "canonical": "#ffb6da",
+        "cssVar": "--chart-alert-low",
+        "tonalRamp": [
+          "#4c0026",
+          "#80003f",
+          "#b20058",
+          "#e60071",
+          "#ff2992",
+          "#ff66b1",
+          "#ffa3d0",
+          "#ffe5f2"
+        ]
+      },
+      "chart-device": {
+        "role": "secondary",
+        "displayName": "Device Lilac",
+        "canonical": "#e7c8ff",
+        "cssVar": "--chart-device",
+        "tonalRamp": [
+          "#2b004c",
+          "#480080",
+          "#6500b2",
+          "#8100e6",
+          "#a229ff",
+          "#bc66ff",
+          "#d7a3ff",
+          "#f4e5ff"
+        ]
+      },
+      "chart-review": {
+        "role": "secondary",
+        "displayName": "Review Cream",
+        "canonical": "#ffe3a6",
+        "cssVar": "--chart-review",
+        "tonalRamp": [
+          "#4c3400",
+          "#805700",
+          "#b27a00",
+          "#e69d00",
+          "#ffbc29",
+          "#ffcf66",
+          "#ffe2a3",
+          "#fff7e5"
+        ]
+      },
+      "success-ink": {
+        "role": "status",
+        "displayName": "Success Ink",
+        "canonical": "#1c7a4c",
+        "cssVar": "--success-ink",
+        "tonalRamp": [
+          "#0e3e27",
+          "#186841",
+          "#21915a",
+          "#2bbb74",
+          "#51d795",
+          "#83e2b4",
+          "#b4eed2",
+          "#eafaf2"
+        ]
+      },
+      "warning-bg": {
+        "role": "status",
+        "displayName": "Warning Wash",
+        "canonical": "#fff3d6",
+        "cssVar": "--warning-bg",
+        "tonalRamp": [
+          "#4c3600",
+          "#805a00",
+          "#b27e00",
+          "#e6a200",
+          "#ffc029",
+          "#ffd266",
+          "#ffe4a3",
+          "#fff8e5"
+        ]
+      },
+      "warning-ink": {
+        "role": "status",
+        "displayName": "Warning Ink",
+        "canonical": "#7a4a06",
+        "cssVar": "--warning-ink",
+        "tonalRamp": [
+          "#492c04",
+          "#7a4a06",
+          "#aa6708",
+          "#db850b",
+          "#f5a533",
+          "#f8be6d",
+          "#fbd8a8",
+          "#fef4e7"
+        ]
+      },
+      "danger-strong": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "#b03e3e",
+        "cssVar": "--danger-strong",
+        "tonalRamp": [
+          "#391414",
+          "#5e2121",
+          "#842e2e",
+          "#aa3c3c",
+          "#c76161",
+          "#d78e8e",
+          "#e7bbbb",
+          "#f8ecec"
+        ]
+      },
+      "danger-ink": {
+        "role": "status",
+        "displayName": "Danger Ink",
+        "canonical": "#9b362f",
+        "cssVar": "--danger-ink",
+        "tonalRamp": [
+          "#3b1412",
+          "#62221e",
+          "#89302a",
+          "#b03d35",
+          "#cd625b",
+          "#db8f8a",
+          "#eabcb9",
+          "#f9eceb"
+        ]
+      }
+    },
+    "themes": {
+      "source": "app/theme.css",
+      "names": [
+        "light",
+        "dark",
+        "blood",
+        "amoled",
+        "sugar"
+      ],
+      "note": "Frontmatter values are the light theme; the other themes remap the same token names."
+    },
+    "shadows": [
+      {
+        "name": "hero-glow",
+        "value": "0 10px 25px color-mix(in srgb, var(--chart-panel-bg) 8.6%, transparent)",
+        "purpose": "The glucose card."
+      },
+      {
+        "name": "floating",
+        "value": "0 10px 24px rgb(var(--shadow-rgb) / 14.1%)",
+        "purpose": "Popovers, tooltips and callouts over content."
+      },
+      {
+        "name": "raised-selection",
+        "value": "inset 0 0 0 1px var(--chart-panel-border), 0 2px 4px rgb(var(--shadow-rgb) / 13.3%)",
+        "purpose": "Selected segment in a segmented control."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "0.15s–0.2s ease-out",
+        "purpose": "Hover, focus, colour and opacity state changes."
+      },
+      {
+        "name": "chart-span",
+        "value": "320ms quartic ease-out (requestAnimationFrame)",
+        "purpose": "Chart range and zoom glides (hooks/use-eased-span.ts)."
+      },
+      {
+        "name": "range-pill-spring",
+        "value": "460ms linear(0, 0.071, 0.231, 0.418, 0.596, 0.745, 0.86, 0.941, 0.993, 1.023, 1.036, 1.038, 1.035, 1.028, 1.021, 1.014, 1.009, 1.005, 1.002, 1)",
+        "purpose": "The chart range switch's selected pill; the only spring in the system."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "columns",
+        "value": "999px"
+      },
+      {
+        "name": "tablet",
+        "value": "780px"
+      },
+      {
+        "name": "phone",
+        "value": "680px"
+      },
+      {
+        "name": "narrow-phone",
+        "value": "480px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action in a view or dialog.",
+      "html": "<button type=\"button\" class=\"ds-btn ds-btn-primary\">Save entry</button>",
+      "css": ".ds-btn { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 13px; border-radius: 9px; border: 1px solid transparent; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color .15s ease-out; } .ds-btn:focus-visible { outline: 3px solid var(--focus-ring, #6b8eff); outline-offset: 3px; } .ds-btn-primary { background: var(--accent-solid, #3457e5); color: var(--on-accent-solid, #fff); } .ds-btn-primary:hover { background: var(--accent-deep, #2f51d5); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions.",
+      "html": "<button type=\"button\" class=\"ds-btn-o\">Download all data</button>",
+      "css": ".ds-btn-o { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: inline-flex; align-items: center; min-height: 42px; padding: 10px 13px; border-radius: 9px; border: 1px solid var(--line, #dfe6f0); background: var(--surface, #fff); color: var(--event-insulin-ink, #4453b8); font-size: 14px; font-weight: 600; cursor: pointer; } .ds-btn-o:hover { background: var(--surface-sunken, #eef3fa); } .ds-btn-o:focus-visible { outline: 3px solid var(--focus-ring, #6b8eff); outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Button",
+      "kind": "button",
+      "refersTo": "text-button",
+      "description": "Inline action; its container supplies the gap.",
+      "html": "<button type=\"button\" class=\"ds-text-btn\">Edit period</button>",
+      "css": ".ds-text-btn { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: none; border: 0; padding: 10px 0; color: var(--accent-solid, #3457e5); font-size: 13px; font-weight: 600; cursor: pointer; } .ds-text-btn:hover { text-decoration: underline; text-underline-offset: 3px; } .ds-text-btn:focus-visible { outline: 3px solid var(--focus-ring, #6b8eff); outline-offset: 3px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled 43px input, 16px text so iOS never zooms.",
+      "html": "<label class=\"ds-field\"><span>Carbs (g)</span><input inputmode=\"decimal\" placeholder=\"45\"></label>",
+      "css": ".ds-field { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; flex-direction: column; gap: 7px; } .ds-field span { font-size: 14px; color: var(--ink-muted, #5b6c85); } .ds-field input { height: 43px; padding: 10px 11px; border: 1px solid var(--line, #dfe6f0); border-radius: 8px; background: var(--surface, #fff); color: var(--ink, #1c2940); font: inherit; font-size: 16px; outline: none; } .ds-field input:focus { border-color: var(--focus-ring, #6b8eff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-deep, #2f51d5) 6.3%, transparent); } .ds-field input::placeholder { color: var(--ink-faint, #8a9bb2); }"
+    },
+    {
+      "name": "Workspace Tabs",
+      "kind": "nav",
+      "refersTo": "nav-tab-active",
+      "description": "Top-level views; active tab in Blue Wash.",
+      "html": "<nav class=\"ds-nav\"><button type=\"button\" class=\"is-active\">Today</button><button type=\"button\">Logbook</button><button type=\"button\">Insights</button><button type=\"button\">Reports</button></nav>",
+      "css": ".ds-nav { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; flex-wrap: wrap; gap: 8px; } .ds-nav button { min-height: 44px; padding: 10px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-muted, #5b6c85); font-size: 14px; font-weight: 650; cursor: pointer; } .ds-nav button:hover { background: var(--surface-sunken, #eef3fa); } .ds-nav button.is-active { background: var(--accent-wash, #edf1ff); color: var(--accent-wash-ink, #2348c8); } .ds-nav button:focus-visible { outline: 3px solid var(--focus-ring, #6b8eff); outline-offset: 3px; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Resting surface for every section.",
+      "html": "<section class=\"ds-panel\"><h2>Daily log</h2><p>Every entry for the selected day.</p></section>",
+      "css": ".ds-panel { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--surface, #fff); border: 1px solid var(--line, #dfe6f0); border-radius: 17px; padding: 23px; color: var(--ink, #1c2940); } .ds-panel h2 { margin: 0 0 4px; font-size: 20px; font-weight: 650; letter-spacing: -0.45px; } .ds-panel p { margin: 0; font-size: 14px; color: var(--ink-muted, #5b6c85); }"
+    },
+    {
+      "name": "Glucose Card",
+      "kind": "custom",
+      "refersTo": "glucose-panel",
+      "description": "The heartbeat: the one saturated filled panel, with the current reading.",
+      "html": "<div class=\"ds-glucose\"><span class=\"ds-overline\">LATEST LOGGED · TODAY</span><div class=\"ds-reading\">242<span>mg/dL</span></div><svg viewBox=\"0 0 300 60\" aria-hidden=\"true\"><path d=\"M0 44 C40 40 60 48 90 46 S140 12 170 14 S230 36 260 30 300 28 300 28\" fill=\"none\" stroke=\"var(--chart-sensor, #a6e7f4)\" stroke-width=\"3\" stroke-linecap=\"round\"/></svg></div>",
+      "css": ".ds-glucose { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--chart-panel-bg, #2f51d5); color: var(--chart-panel-ink, #fff); border-radius: 19px; padding: 26px 27px 16px; box-shadow: 0 10px 25px color-mix(in srgb, var(--chart-panel-bg, #2f51d5) 8.6%, transparent); } .ds-overline { font-size: 11px; font-weight: 650; letter-spacing: 1.35px; color: var(--chart-panel-ink-muted, #d7e2ff); } .ds-reading { font-size: 62px; font-weight: 650; letter-spacing: -2px; line-height: 1.3; font-variant-numeric: tabular-nums; } .ds-reading span { font-size: 16px; font-weight: 500; letter-spacing: 0; margin-left: 8px; color: var(--chart-panel-ink-muted, #d7e2ff); } .ds-glucose svg { display: block; width: 100%; height: 60px; }"
+    },
+    {
+      "name": "Layer Chip",
+      "kind": "chip",
+      "description": "Chart legend chip that toggles its layer; dashed when off.",
+      "html": "<div class=\"ds-chips\"><button type=\"button\" class=\"ds-chip\" aria-pressed=\"true\"><i></i>Food</button><button type=\"button\" class=\"ds-chip\" aria-pressed=\"false\"><i></i>Rapid-acting</button></div>",
+      "css": ".ds-chips { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: var(--chart-panel-bg, #2f51d5); border-radius: 12px; } .ds-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--chart-panel-ink, #fff) 22%, transparent); background: transparent; color: var(--chart-panel-ink, #fff); font-size: 13px; cursor: pointer; transition: background-color .15s ease-out; } .ds-chip i { width: 10px; height: 10px; border-radius: 3px; background: var(--chart-alert-high, #ffc37e); } .ds-chip:hover { background: color-mix(in srgb, var(--chart-panel-ink, #fff) 14%, transparent); } .ds-chip[aria-pressed=\"false\"] { border-style: dashed; color: var(--chart-panel-ink-muted, #d7e2ff); } .ds-chip[aria-pressed=\"false\"] i { opacity: .35; } .ds-chip:focus-visible { outline: 2px solid var(--chart-panel-ink, #fff); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Bedside Monitor",
+    "overview": "**Creative North Star: \"The Bedside Monitor\"**\n\nCarby is read by someone who is tired, worried or unwell: at 3 AM, on a phone, between a meal and a dose. Like a good bedside monitor, one saturated panel carries the vital sign, the current glucose and its trace. Everything around it stays quiet and orderly and steps back. The interface earns trust by being calm and exact, not by decorating.\n\nDensity is moderate. Screens are grouped panels on a pale canvas with clear headings, tabular numbers and generous touch targets. Colour carries meaning, never mood:\n\n- the chart panel is the heartbeat;\n- event hues name kinds of record (food, insulin, device, review);\n- danger and warning stay unmistakable in every theme.\n\nFive themes (light, dark, blood, amoled, sugar) are personal covers over the same token names. Blood and sugar are playful surfaces, but they must never blur a warning into the accent.",
+    "keyCharacteristics": [
+      "One filled, saturated panel per screen: the glucose card, drawn in `chart-panel` tokens.",
+      "Flat, bordered surfaces. Real shadow belongs to the hero panel and floating layers.",
+      "Tabular numerals wherever values line up.",
+      "Motion is short ease-out state changes, plus one spring on the chart's range switch.",
+      "Every value shown is recorded or computed from the plan. Missing data is drawn as missing."
+    ],
+    "rules": [
+      {
+        "name": "The One Heartbeat Rule",
+        "body": "Only the glucose card (and its siblings, the night card and the insights headline) is a saturated filled panel, and it uses `chart-panel` tokens. Nothing else gets a filled accent background larger than a button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Distinct Alarm Rule",
+        "body": "Danger and warning tokens are chosen per theme to differ from that theme's accent. In blood, danger is amber with a pale ring, not another red. Never signal an alert with the accent colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warning Ink Rule",
+        "body": "Pale `chart-review` is unreadable as text on light surfaces, so warning text uses `warning-ink`. `chart-review` text is allowed only on the chart panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token-Only Rule",
+        "body": "Colour comes from `app/theme.css` tokens, never literal hex values in components. The clinician report uses only `--report-*` tokens, and printing always restores white paper.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Numbers that sit in columns or change in place (readings, units, times, dates in the chart) use `font-variant-numeric: tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Eight-Pixel Rule",
+        "body": "Adjacent buttons never touch. Button groups are flex or grid containers with a gap of at least 8px and wrapping, at every width. No margins on individual buttons and no non-breaking spaces.",
+        "section": "layout"
+      }
+    ],
+    "dos": [
+      "fill large panels with `chart-panel` tokens and keep accents for text and controls.",
+      "check every change in light, dark, blood, amoled and sugar, including contrast of any text on the chart panel.",
+      "keep at least 8px between buttons at 780px, 999px and phone widths.",
+      "use `lucide-react` icons at 15–19px. Decorative icons get `aria-hidden`, and icon-only buttons get an `aria-label`.",
+      "keep state transitions short (0.15–0.2s ease-out) and turn motion off under `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "hardcode hex colours or restyle a single button inline. Use the existing button classes.",
+      "use `.notice` for healthy or neutral status. It is styled as an amber warning.",
+      "plot a HI/LO or High/Low status as a number, or draw over a data gap.",
+      "add a second primary action to a view or dialog.",
+      "colour a warning or danger state with the theme's accent."
+    ]
+  }
+}

@@ -63,7 +63,11 @@ __pycache__/
 
 # Local agent/tool state and private exports; never publish them.
 /.claude/
-/.impeccable/
+# Impeccable: the shared hook config and design sidecar are tracked; local consent, caches
+# and live-mode state are not.
+/.impeccable/*
+!/.impeccable/config.json
+!/.impeccable/design.json
 /plan.json
 *.ndjson
 *.csv
