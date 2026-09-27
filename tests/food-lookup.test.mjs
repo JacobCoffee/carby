@@ -268,3 +268,34 @@ test("a name search shows one row for identical copies of a product", async () =
     ],
   );
 });
+
+test("a per-100 g search hit takes the label serving from its product record", async () => {
+  const coco = { code: "4830040867419", product_name: "Magic Spoon Coco cereal" };
+  const hit = (code, carbs) => ({ ...coco, code, nutriments: { carbohydrates_100g: carbs } });
+  const { fetch, calls } = stubFetch([
+    [OFF_SEARCH, { hits: [hit(coco.code, 40.5405405405405), hit("123", 36.8)] }],
+    [
+      `${OFF_PRODUCT}${coco.code}`,
+      {
+        status: 1,
+        product: {
+          ...coco,
+          serving_size: "37.0g",
+          serving_quantity: 37,
+          nutriments: { carbohydrates_100g: 40.5405405405405, carbohydrates_serving: 15 },
+        },
+      },
+    ],
+    [OFF_PRODUCT, "fail"],
+  ]);
+  const result = await searchFoods("magic spoon coco", deps(fetch, null));
+  assert.deepEqual(
+    result.matches.map((m) => [m.id, m.servings.map((s) => [s.carbs, s.servingSize, s.unit])]),
+    [
+      [coco.code, [[15, 37, "g"]]],
+      // The product record didn't answer, so the per-100 g row stays.
+      ["123", [[36.8, 100, "g"]]],
+    ],
+  );
+  assert.equal(calls.filter((c) => c.url.startsWith(OFF_PRODUCT)).length, 2);
+});
