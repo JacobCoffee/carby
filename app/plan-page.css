@@ -13,9 +13,10 @@
 }
 
 /* Index */
+/* Sticks just below the folded header strip (its padding plus the sheet's rounded lip). */
 .plan-index {
   position: sticky;
-  top: 24px;
+  top: calc(var(--bar-pad-y) + var(--sheet-radius) + 24px);
   min-width: 0;
 }
 .plan-index-head h1 {
