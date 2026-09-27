@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/person-request";
 import { useEffect, useMemo, useState } from "react";
 import { Activity } from "lucide-react";
 import { dateKey, type CgmReading, type Entry } from "@/lib/care";
@@ -24,7 +25,7 @@ type Loaded =
   | { key: string; error: string };
 
 async function fetchSummary(startDay: string, endDay: string, signal: AbortSignal) {
-  const response = await fetch(`/api/cgm/summary?start=${startDay}&end=${endDay}`, {
+  const response = await apiFetch(`/api/cgm/summary?start=${startDay}&end=${endDay}`, {
     cache: "no-store",
     signal,
   });

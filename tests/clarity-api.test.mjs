@@ -278,7 +278,10 @@ pgTest(
       assert.equal(expired.status, 422);
       const { error } = await body(expired);
       assert.match(error, /Generate a new one/);
-      assert.equal((await body(await GET())).lastError, error);
+      assert.equal(
+        (await body(await GET(new Request("https://test.example/api/clarity")))).lastError,
+        error,
+      );
       assert.equal((await db.get("SELECT COUNT(*)::int AS n FROM cgm_readings")).n, 0);
     } finally {
       await teardown(db, clarity);

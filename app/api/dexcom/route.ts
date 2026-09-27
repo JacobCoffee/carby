@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database } from "@/db/raw";
 import { publicDexcomDefaults, resolveDexcomCredentials } from "@/lib/dexcom-defaults";
 import { fetchShare, seal, unseal, type ShareCredentials } from "@/lib/dexcom-share";
@@ -73,19 +74,22 @@ async function saveReadings(
   return changed;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in first." }, 401);
+  const access = await accessFor(request, user, "read");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
-    const row = await connection(user.userId);
+    const row = await connection(owner);
     return reply({
       connected: !!row,
       lastSync: row?.last_sync ?? null,
       lastAttemptAt: row?.last_attempt_at ?? null,
       lastError: row?.last_error ?? null,
-      latestShareAt: await latestShareAt(user.userId, row?.latest_reading_at),
+      latestShareAt: await latestShareAt(owner, row?.latest_reading_at),
       // Username and region only: publicDexcomDefaults has no password field to leak.
-      defaults: publicDexcomDefaults(user.userId),
+      defaults: publicDexcomDefaults(owner),
     });
   } catch {
     return reply({ error: "Connection status is unavailable." }, 503);
@@ -105,12 +109,16 @@ export async function POST(request: Request) {
   } catch {
     return reply({ error: "Invalid JSON request." }, 400);
   }
+  // Anyone who can see the person may refresh their Share readings; connecting is for owners.
+  const access = await accessFor(request, user, body.action === "sync" ? "read" : "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
     const db = database();
     if (body.action === "connect") {
       // A typed password wins; a configured one applies only when this request asks for it and
       // still names the configured account. The checks below judge the resolved values either way.
-      const { username, password, region } = resolveDexcomCredentials(user.userId, body);
+      const { username, password, region } = resolveDexcomCredentials(owner, body);
       if (
         !username ||
         username.length > 200 ||
@@ -141,15 +149,15 @@ export async function POST(request: Request) {
           },
           422,
         );
-      const encrypted = await seal({ ...credentials, sessionId }, user.userId),
+      const encrypted = await seal({ ...credentials, sessionId }, owner),
         latestAt = newestReadingAt(readings);
-      const count = await saveReadings(user.userId, readings),
+      const count = await saveReadings(owner, readings),
         now = new Date().toISOString();
       await db
         .prepare(
           "INSERT INTO dexcom_connections (owner, credentials, last_sync, latest_reading_at, last_attempt_at, last_error, updated) VALUES ($1, $2, $3, $4, $5, NULL, $6) ON CONFLICT(owner) DO UPDATE SET credentials = excluded.credentials, last_sync = excluded.last_sync, latest_reading_at = excluded.latest_reading_at, last_attempt_at = excluded.last_attempt_at, last_error = NULL, updated = excluded.updated",
         )
-        .bind(user.userId, encrypted, now, latestAt, now, now)
+        .bind(owner, encrypted, now, latestAt, now, now)
         .run();
       return reply({
         connected: true,
@@ -162,7 +170,7 @@ export async function POST(request: Request) {
       });
     }
     if (body.action === "sync") {
-      const row = await connection(user.userId);
+      const row = await connection(owner);
       if (!row) return reply({ error: "Connect Dexcom Share first." }, 400);
       const elapsed = row.last_sync ? Date.now() - Date.parse(row.last_sync) : Infinity;
       if (body.force !== true && elapsed >= 0 && elapsed < 240000)
@@ -173,19 +181,19 @@ export async function POST(request: Request) {
           lastError: row.last_error,
           count: 0,
           alreadyRecent: true,
-          latestShareAt: await latestShareAt(user.userId, row.latest_reading_at),
+          latestShareAt: await latestShareAt(owner, row.latest_reading_at),
         });
       const attemptedAt = new Date().toISOString();
       await db
         .prepare("UPDATE dexcom_connections SET last_attempt_at = $1 WHERE owner = $2")
-        .bind(attemptedAt, user.userId)
+        .bind(attemptedAt, owner)
         .run();
-      const credentials = await unseal(row.credentials, user.userId);
+      const credentials = await unseal(row.credentials, owner);
       const { readings, sessionId, rawCount } = await fetchShare(credentials);
       if (rawCount > 0 && readings.length === 0)
         throw new Error("Dexcom Share returned values without readable glucose readings.");
-      const encrypted = await seal({ ...credentials, sessionId }, user.userId);
-      const count = await saveReadings(user.userId, readings),
+      const encrypted = await seal({ ...credentials, sessionId }, owner);
+      const count = await saveReadings(owner, readings),
         now = new Date().toISOString(),
         fetchedAt = newestReadingAt(readings);
       const lastError =
@@ -198,7 +206,7 @@ export async function POST(request: Request) {
         .prepare(
           "UPDATE dexcom_connections SET credentials = $1, last_sync = $2, last_error = $3, latest_reading_at = CASE WHEN latest_reading_at IS NULL OR latest_reading_at < $4 THEN $5 ELSE latest_reading_at END WHERE owner = $6",
         )
-        .bind(encrypted, now, lastError, fetchedAt, fetchedAt, user.userId)
+        .bind(encrypted, now, lastError, fetchedAt, fetchedAt, owner)
         .run();
       return reply({
         connected: true,
@@ -208,7 +216,7 @@ export async function POST(request: Request) {
         count,
         rawCount,
         latestShareAt: await latestShareAt(
-          user.userId,
+          owner,
           row.latest_reading_at && (!fetchedAt || row.latest_reading_at > fetchedAt)
             ? row.latest_reading_at
             : fetchedAt,
@@ -226,7 +234,7 @@ export async function POST(request: Request) {
       try {
         await database()
           .prepare("UPDATE dexcom_connections SET last_error = $1 WHERE owner = $2")
-          .bind(safeMessage, user.userId)
+          .bind(safeMessage, owner)
           .run();
       } catch {
         /* Keep the original sync error. */
@@ -240,11 +248,11 @@ export async function DELETE(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in first." }, 401);
   if (!sameOrigin(request)) return reply({ error: "Request origin rejected." }, 403);
+  const access = await accessFor(request, user, "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
-    await database()
-      .prepare("DELETE FROM dexcom_connections WHERE owner = $1")
-      .bind(user.userId)
-      .run();
+    await database().prepare("DELETE FROM dexcom_connections WHERE owner = $1").bind(owner).run();
     return reply({ connected: false });
   } catch {
     return reply({ error: "Could not disconnect Dexcom." }, 503);

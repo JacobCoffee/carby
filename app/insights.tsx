@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/person-request";
 import { CARE_CHANGED } from "@/lib/live-refresh";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Activity, BarChart3, Clock3, Utensils } from "lucide-react";
@@ -310,7 +311,7 @@ function Insights({ active, entries, cgm, timezone, patientName, illnesses = [],
     historyController.current = controller;
     setHistoryStatus("loading");
     try {
-      const response = await fetch("/api/care?scope=insights", {
+      const response = await apiFetch("/api/care?scope=insights", {
         cache: "no-store",
         signal: controller.signal,
         headers: historyEtag.current ? { "If-None-Match": historyEtag.current } : {},

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/person-request";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { dateKey } from "@/lib/care";
 import {
@@ -15,7 +16,7 @@ type Mode = "setup" | "edit";
 type StepId = "welcome" | "name" | "role" | "diagnosis";
 
 async function saveProfile(profile: Profile): Promise<Profile> {
-  const response = await fetch("/api/care", {
+  const response = await apiFetch("/api/care", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "profile", profile }),

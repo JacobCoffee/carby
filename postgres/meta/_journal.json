@@ -36,6 +36,13 @@
       "when": 1790454484236,
       "tag": "0004_cgm_sensors",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790464706943,
+      "tag": "0005_people",
+      "breakpoints": true
     }
   ]
 }

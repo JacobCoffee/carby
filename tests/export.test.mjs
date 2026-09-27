@@ -84,7 +84,7 @@ function within(promise, label) {
 }
 /** Read the real response body chunk by chunk, as a download does. */
 async function download() {
-  const response = await exportBackup();
+  const response = await exportBackup(new Request("https://test.example/api/export"));
   assert.equal(response.status, 200);
   assert.match(response.headers.get("Content-Type"), /application\/x-ndjson/);
   const reader = response.body.getReader(),
@@ -335,7 +335,9 @@ pgTest(
       );
       // The browser path reads the whole body with text(); it must reach the footer too.
       const text = await within(
-        exportBackup().then((response) => response.text()),
+        exportBackup(new Request("https://test.example/api/export")).then((response) =>
+          response.text(),
+        ),
         "response.text() export",
       );
       assert.equal(JSON.parse(text.trimEnd().split("\n").at(-1)).kind, "footer");
@@ -594,7 +596,7 @@ pgTest("signed-out requests are refused", async () => {
   const env = await setup(SOURCE);
   try {
     globalThis.exportTestDb = env.adapter;
-    const response = await exportBackup();
+    const response = await exportBackup(new Request("https://test.example/api/export"));
     assert.equal(response.status, 401);
   } finally {
     await teardown(env);

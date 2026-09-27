@@ -1,0 +1,148 @@
+/* Header switcher: sized like the Search trigger beside it. */
+.person-menu-trigger {
+  height: 44px;
+  min-height: 44px;
+  max-width: 220px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 0 10px 0 6px;
+  background: var(--surface);
+  font-size: 14px;
+  gap: 8px;
+  flex: none;
+}
+.person-menu-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent-solid);
+  font-size: 13px;
+  font-weight: 650;
+}
+.person-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.person-menu {
+  min-width: 240px;
+  padding: 6px;
+}
+.person-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.person-menu-item small {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.setup-header-person {
+  margin-left: auto;
+}
+@media (max-width: 900px) {
+  .person-menu-name {
+    display: none;
+  }
+  .person-menu-trigger {
+    padding: 0 8px 0 6px;
+  }
+}
+
+/* Sharing dialog */
+.sharing-dialog {
+  max-width: min(600px, calc(100vw - 32px)) !important;
+}
+.sharing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.sharing-section h3 {
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.sharing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sharing-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.sharing-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.sharing-who strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+.sharing-who small {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.sharing-role {
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+.sharing-actions,
+.sharing-link-actions,
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.sharing-actions .sharing-role-select {
+  width: 140px;
+}
+.sharing-link {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sharing-link input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.invite-actions {
+  margin-top: 28px;
+}
+.invite-card .notice {
+  margin-top: 16px;
+}
+.invite-card p + p {
+  margin-top: 12px;
+}
+
+/* Viewers see the log without the ways to add to it. */
+.view-only-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}

@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch, personHref } from "@/lib/person-request";
+import { usePersonAccess } from "./person-context";
 import { useEffect, useState } from "react";
 import {
   currentSensor,
@@ -40,6 +42,7 @@ export default function ReportCgm({
   showCharts: boolean;
   now: number;
 }) {
+  const { person } = usePersonAccess();
   // The server buckets days in the saved plan's zone, so a zone change (or a Clarity sync, which
   // also announces CARE_CHANGED) must refetch rather than keep the old figures.
   const [clock, setClock] = useState(Date.now);
@@ -53,7 +56,7 @@ export default function ReportCgm({
   useEffect(() => {
     const controller = new AbortController();
     const json = async <T,>(url: string) => {
-      const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+      const response = await apiFetch(url, { cache: "no-store", signal: controller.signal });
       const data = (await response.json().catch(() => ({}))) as T & { error?: string };
       if (!response.ok) throw new Error(data.error ?? "CGM summary is unavailable.");
       return data;
@@ -206,7 +209,10 @@ export default function ReportCgm({
           <ul>
             {pdfs.map((pdf) => (
               <li key={pdf.id}>
-                <a href={`/api/clarity/report?id=${encodeURIComponent(pdf.id)}`} download>
+                <a
+                  href={personHref(`/api/clarity/report?id=${encodeURIComponent(pdf.id)}`, person)}
+                  download
+                >
                   {reportDay(pdf.startDate)} – {reportDay(pdf.endDate)}
                 </a>{" "}
                 · {reportKindNames(pdf.reports)}

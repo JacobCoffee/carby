@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch, personHref } from "@/lib/person-request";
+import { usePersonAccess } from "./person-context";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { dateKey } from "@/lib/care";
@@ -16,7 +18,7 @@ type Loaded =
   | { key: string; error: string };
 
 async function json<T>(url: string, signal: AbortSignal) {
-  const response = await fetch(url, { cache: "no-store", signal });
+  const response = await apiFetch(url, { cache: "no-store", signal });
   const data = (await response.json().catch(() => ({}))) as T & { error?: string };
   if (!response.ok) throw new Error(data.error ?? "The long-term record is unavailable.");
   return data;
@@ -52,6 +54,7 @@ const tenth = (value: number) => Math.round(value * 10) / 10;
  * sensor Clarity has reported, and every Clarity PDF archived. Screen only; it does not print.
  */
 export default function CgmHistory({ active, timezone }: { active: boolean; timezone: string }) {
+  const { person } = usePersonAccess();
   // Re-read whenever the care log changes, so a Clarity sync shows up.
   const [clock, setClock] = useState(Date.now);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -251,7 +254,10 @@ export default function CgmHistory({ active, timezone }: { active: boolean; time
                       </span>
                       <a
                         className="button subtle"
-                        href={`/api/clarity/report?id=${encodeURIComponent(report.id)}`}
+                        href={personHref(
+                          `/api/clarity/report?id=${encodeURIComponent(report.id)}`,
+                          person,
+                        )}
                         download
                       >
                         Download

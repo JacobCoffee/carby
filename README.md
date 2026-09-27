@@ -45,6 +45,20 @@ New accounts start empty. The setup screen asks you to enter your care plan or i
 
 Edit these later in **Care tools > Care plan**.
 
+## Several people and shared care
+
+One account can keep logs for several people, such as two children, and several accounts can share one person's log. Use the name menu at the right of the header to switch people or **Add a person**. Each person has their own care plan, time zone, saved foods, Dexcom connection and backups.
+
+Owners open **Sharing and access** from the same menu to create a single-use invite link (valid for 7 days) and to change or remove access. The person invited signs in with their own account, which must still be allowed by `CARBY_ALLOWED_USERS` or `CARBY_ALLOWED_EMAILS`.
+
+| Role      | Can                                                                         |
+| --------- | --------------------------------------------------------------------------- |
+| Owner     | Everything, including the care plan, profile, Dexcom, backups and sharing.  |
+| Caregiver | See everything and log care. Can't change the care plan, Dexcom or sharing. |
+| Viewer    | See everything. Can't log or change anything.                               |
+
+Every person keeps at least one owner. Changes record who made them, and sharing changes appear in the change history.
+
 ## Self-hosting
 
 [.env.example](.env.example) documents every variable. A deployment needs:
@@ -74,9 +88,10 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 ## Backups
 
-**Care tools > Download all data** saves a backup. On another install, choose **Import a backup** during setup.
+**Care tools > Download all data** saves a backup of the person you're viewing (owners only). On another install, choose **Import a backup** during setup.
 
-- Importing into a non-empty account replaces everything. Download first.
+- Importing into a person who already has records replaces everything they have. Download first.
+- A backup holds one person's records, not who they're shared with. Invite people again afterward.
 - Dexcom connections, Clarity codes, and archived Clarity PDFs are not included. Reconnect afterward.
 - Backups may contain encrypted Dexcom credentials. Keep them private.
 
