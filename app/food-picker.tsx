@@ -1,16 +1,59 @@
 "use client";
-import { useId, useState, type KeyboardEvent } from "react";
-import { Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { Loader2, Pencil, Plus, ScanBarcode, Search, Star, Trash2, X } from "lucide-react";
 import type { FoodItem, SavedFood } from "@/lib/care";
+import {
+  FOOD_QUERY_MIN,
+  foodLookupResultSchema,
+  foodSourceLabels,
+  type FoodLookupResult,
+  type FoodMatch,
+  type FoodServing,
+  type FoodSource,
+} from "@/lib/food-lookup";
+import { apiFetch } from "@/lib/person-request";
 import {
   amountInServingUnits,
   parseFoodBasis,
   volumeMl,
   type FoodBasisFields,
 } from "@/lib/portions";
+import BarcodeScanner from "./barcode-scanner";
 import "./food-picker.css";
 
 const fmt = (n: number) => Number(n.toFixed(2)).toString();
+
+type Lookup =
+  | { status: "idle" }
+  | { status: "busy" }
+  | { status: "error"; message: string }
+  | { status: "done"; barcode: boolean; result: FoodLookupResult };
+
+const LOOKUP_FAILED = "Food lookup isn’t available right now. Enter the label values below.";
+
+/** Anything typed as digits is a barcode; the server checks it is a real one. */
+const isBarcode = (value: string) => /^[\d\s-]+$/.test(value.trim());
+
+/** The brand leads the name, so "Original Potato Crisps" is saved as "Pringles Original Potato Crisps". */
+function matchName(match: FoodMatch): string {
+  const { name, brand } = match;
+  if (!brand || name.toLowerCase().includes(brand.toLowerCase())) return name;
+  return `${brand} ${name}`.slice(0, 100).trim();
+}
+
+function lookupNotice(lookup: Extract<Lookup, { status: "done" }>): string | null {
+  const { matches, unavailable } = lookup.result;
+  if (unavailable.length) {
+    const names = unavailable.map((s) => foodSourceLabels[s]).join(" or ");
+    return matches.length
+      ? `Couldn’t reach ${names}.`
+      : `Couldn’t reach ${names}, so it may still list this food. Try again, or enter the label values below.`;
+  }
+  if (matches.length) return null;
+  return lookup.barcode
+    ? "No product found for this barcode. Enter the label values below."
+    : "No foods with carbs found. Try other words, or enter the label values below.";
+}
 
 /** A food line being built: a serving basis (from a saved food, a recent food, or a
  * fresh quick-add) plus the portion actually eaten. */
@@ -207,6 +250,11 @@ export function FoodPicker({
   });
   const [busyFoodId, setBusyFoodId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ key: string; fields: FoodBasisFields } | null>(null);
+  const [lookupQuery, setLookupQuery] = useState("");
+  const [lookup, setLookup] = useState<Lookup>({ status: "idle" });
+  const [filledFrom, setFilledFrom] = useState<FoodSource | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const lookupId = useRef(0);
   const formId = useId();
 
   function commit(next: Draft[]) {
@@ -267,6 +315,50 @@ export function FoodPicker({
       savedFoodId,
     });
     setNewFood({ name: "", carbs: "", servingSize: "1", unit: "", save: true });
+    setFilledFrom(null);
+  }
+
+  async function lookUp(input: string) {
+    const value = input.trim();
+    const barcode = isBarcode(value);
+    if (!barcode && value.length < FOOD_QUERY_MIN) return;
+    const id = ++lookupId.current;
+    setLookup({ status: "busy" });
+    let next: Lookup;
+    try {
+      const params = new URLSearchParams(barcode ? { barcode: value } : { q: value });
+      const response = await apiFetch(`/api/foods?${params}`);
+      const json: unknown = await response.json().catch(() => null);
+      const error = (json as { error?: unknown } | null)?.error;
+      const parsed = foodLookupResultSchema.safeParse(json);
+      next = parsed.success
+        ? { status: "done", barcode, result: parsed.data }
+        : { status: "error", message: typeof error === "string" ? error : LOOKUP_FAILED };
+    } catch {
+      next = { status: "error", message: LOOKUP_FAILED };
+    }
+    // A newer lookup started meanwhile; its answer is the one to show.
+    if (id === lookupId.current) setLookup(next);
+  }
+
+  /** Fills the new-food fields for checking; nothing is added until "Add this food". */
+  function fillFromMatch(match: FoodMatch, serving: FoodServing | null) {
+    setNewFood({
+      ...newFood,
+      name: matchName(match),
+      carbs: serving ? String(serving.carbs) : "",
+      servingSize: serving ? String(serving.servingSize) : "1",
+      unit: serving?.unit ?? "",
+    });
+    setFilledFrom(match.source);
+    lookupId.current++;
+    setLookup({ status: "idle" });
+  }
+
+  function scanned(gtin: string) {
+    setScanning(false);
+    setLookupQuery(gtin);
+    void lookUp(gtin);
   }
 
   function startEdit(draft: Draft) {
@@ -406,11 +498,101 @@ export function FoodPicker({
 
       <div className="food-picker-new">
         <strong>Add a new food</strong>
+        <div className="food-picker-lookup">
+          <label className="food-picker-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="sr-only">Look up a food by name or barcode</span>
+            <input
+              type="search"
+              placeholder="Look up by name or barcode…"
+              value={lookupQuery}
+              onChange={(event) => setLookupQuery(event.target.value)}
+              // Inside entry and calculator forms: Enter looks up and never submits them.
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                void lookUp(lookupQuery);
+              }}
+            />
+          </label>
+          <div className="food-picker-lookup-actions">
+            <button
+              type="button"
+              className="button outline"
+              disabled={
+                lookup.status === "busy" ||
+                (!isBarcode(lookupQuery) && lookupQuery.trim().length < FOOD_QUERY_MIN)
+              }
+              onClick={() => void lookUp(lookupQuery)}
+            >
+              {lookup.status === "busy" ? (
+                <>
+                  <Loader2 size={15} className="spin" aria-hidden="true" />
+                  Looking up…
+                </>
+              ) : (
+                "Look up"
+              )}
+            </button>
+            <button type="button" className="button outline" onClick={() => setScanning(true)}>
+              <ScanBarcode size={15} aria-hidden="true" />
+              Scan barcode
+            </button>
+          </div>
+        </div>
+        {lookup.status === "error" && (
+          <p className="helper" role="status">
+            {lookup.message}
+          </p>
+        )}
+        {lookup.status === "done" && (
+          <div className="food-picker-results">
+            {lookup.result.matches.map((match) => (
+              <div className="food-picker-result" key={`${match.source}-${match.id}`}>
+                <span>
+                  <strong>{match.name}</strong>{" "}
+                  <small>
+                    {[match.brand, foodSourceLabels[match.source]].filter(Boolean).join(" · ")}
+                  </small>
+                </span>
+                <div className="food-picker-chip-row">
+                  {match.servings.length ? (
+                    match.servings.map((serving) => (
+                      <span className="food-picker-chip" key={serving.label}>
+                        <button type="button" onClick={() => fillFromMatch(match, serving)}>
+                          {fmt(serving.carbs)} g carbs <small>per {serving.label}</small>
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="food-picker-chip">
+                      <button type="button" onClick={() => fillFromMatch(match, null)}>
+                        Use this name <small>no carbs listed</small>
+                      </button>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {lookupNotice(lookup) && (
+              <p className="food-picker-empty" role="status">
+                {lookupNotice(lookup)}
+              </p>
+            )}
+          </div>
+        )}
+        {filledFrom && (
+          <p className="helper food-picker-source" role="status">
+            Filled in from {foodSourceLabels[filledFrom]}. Check each value against the package
+            label before adding.
+          </p>
+        )}
         <FoodBasisInputs
           fields={newFood}
           onChange={(fields) => setNewFood({ ...newFood, ...fields })}
           onEnter={() => void addNewFood()}
         />
+        <BarcodeScanner open={scanning} onOpenChange={setScanning} onDetected={scanned} />
         <label className="food-picker-save-toggle">
           <input
             type="checkbox"
