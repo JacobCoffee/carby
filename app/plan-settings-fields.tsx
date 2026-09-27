@@ -172,7 +172,7 @@ export function PlanSettingsFields({
       <div className="two-fields">
         <NumberField
           label="Treat a low below (mg/dL)"
-          helper="From your care plan: the number below which you treat a low."
+          helper="The number below which you treat a low."
           value={draft.lowThreshold}
           onChange={(value) => set("lowThreshold", value)}
           min={40}
@@ -183,7 +183,7 @@ export function PlanSettingsFields({
         />
         <NumberField
           label="Check ketones above (mg/dL)"
-          helper="From your care plan: the glucose number above which you check ketones."
+          helper="The glucose number above which you check ketones."
           value={draft.ketoneCheckAbove}
           onChange={(value) => set("ketoneCheckAbove", value)}
           min={100}
@@ -194,7 +194,7 @@ export function PlanSettingsFields({
         />
         <NumberField
           label="Pattern: high days in a row"
-          helper="From your care plan: how many days in a row above your high range counts as a pattern."
+          helper="How many days in a row above your high range counts as a pattern."
           value={draft.patternRule?.highDays}
           onChange={(value) =>
             set("patternRule", { lowDays: draft.patternRule?.lowDays ?? NaN, highDays: value })
@@ -207,7 +207,7 @@ export function PlanSettingsFields({
         />
         <NumberField
           label="Pattern: low days in a row"
-          helper="From your care plan: how many days in a row below the low number counts as a pattern."
+          helper="How many days in a row below the low number counts as a pattern."
           value={draft.patternRule?.lowDays}
           onChange={(value) =>
             set("patternRule", { highDays: draft.patternRule?.highDays ?? NaN, lowDays: value })
@@ -221,7 +221,7 @@ export function PlanSettingsFields({
       </div>
       <ToggleGroup
         legend="Correction call check"
-        helper="From your care plan: call the care team if glucose stays above a number for a set time after a correction dose. Optional."
+        helper="Your plan’s rule for calling the care team when glucose stays above a number for a set time after a correction dose. Optional."
         enabled={!!draft.correctionCallCheck}
         onToggle={(on) =>
           on
@@ -264,7 +264,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Sick-day checks"
-        helper="From your care plan: how often to check glucose and ketones during illness. Optional."
+        helper="How often to check glucose and ketones during illness. Optional."
         enabled={!!draft.sickDayChecks}
         onToggle={(on) =>
           on
@@ -308,7 +308,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Low-treatment amount"
-        helper="From your care plan: how many grams to treat a low with, and when to recheck. Optional."
+        helper="How many grams to treat a low with, and when to recheck. Optional."
         enabled={!!draft.lowTreatment}
         onToggle={(on) =>
           on ? set("lowTreatment", { grams: NaN, recheckMinutes: NaN }) : remove("lowTreatment")
@@ -346,7 +346,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Overnight check"
-        helper="From your care plan: a scheduled overnight check, and the last night it applies. Optional."
+        helper="A scheduled overnight check, and the last night it applies. Optional."
         enabled={!!draft.overnightCheck}
         onToggle={(on) =>
           on ? set("overnightCheck", { time: "", until: "" }) : remove("overnightCheck")
@@ -378,7 +378,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Snack insulin cutoff"
-        helper="From your care plan: snacks under this many grams of carbohydrate get no insulin. This is a notice only — Carby's dose math does not change. Optional."
+        helper="The carbohydrate amount below which your plan gives snacks no insulin. This is a notice only — Carby’s dose math does not change. Optional."
         enabled={draft.snackInsulinFromCarbs !== undefined}
         onToggle={(on) =>
           on ? set("snackInsulinFromCarbs", NaN) : remove("snackInsulinFromCarbs")
@@ -399,7 +399,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Rescue medication"
-        helper="From your care plan: the name of the emergency rescue medication. Optional."
+        helper="The name of the emergency rescue medication. Optional."
         enabled={draft.rescueMedication !== undefined}
         onToggle={(on) => (on ? set("rescueMedication", "") : remove("rescueMedication"))}
         disabled={disabled}
@@ -416,7 +416,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Glucose meter"
-        helper="From your care plan: your meter's name and its HI/LO display limits. Optional."
+        helper="Your meter’s name and its HI/LO display limits. Optional."
         enabled={!!draft.meter}
         onToggle={(on) => (on ? set("meter", { hi: NaN, lo: NaN }) : remove("meter"))}
         disabled={disabled}

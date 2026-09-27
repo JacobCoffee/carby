@@ -37,7 +37,7 @@ Open <http://localhost:5173>. This starts PostgreSQL in Docker, runs migrations,
 
 ## First run
 
-New accounts start empty. The setup screen asks you to enter your care plan or import a backup. Carby has no clinical defaults; every value comes from your plan.
+New accounts start empty. Setup walks through your care plan one step at a time and ends with a review of every value before you save. You can import a backup instead. Carby has no clinical defaults; every value comes from your plan.
 
 - **Required:** the glucose level you treat a low below, the level you check ketones above, and how many days in a row make a pattern.
 - **Optional:** care contacts, emergency and sick-day instructions, low-treatment amount, meter HI/LO limits, and similar. Each turns on one feature. Instructions are shown exactly as you enter them. None of these changes dose calculations.
