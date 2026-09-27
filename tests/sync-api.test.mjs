@@ -155,10 +155,13 @@ pgTest("changes wait while prod is unreachable and go once it's back", async () 
     await post({ action: "plan", plan });
     prodUp = false;
     await post({ action: "entry", entry: reading(110) });
+    // Saves and refreshes send in the background; let each attempt finish before prod returns.
+    await flush();
     assert.equal(await stored(prod), null);
     const { sync: status } = await (await care.GET(new Request(`${origin}/api/care`))).json();
     assert.equal(status.pending, 1);
     assert.match(status.error, /ECONNREFUSED/);
+    await flush();
     prodUp = true;
     await flush();
     assert.equal((await stored(prod)).glucose, 110);
