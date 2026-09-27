@@ -15,7 +15,13 @@ import {
   type GlucoseLevels,
 } from "@/lib/glucose-metrics";
 import { CARE_CHANGED } from "@/lib/live-refresh";
-import { foodResponseRanking, mealResponses, MIN_MEALS_FOR_RANKING } from "@/lib/meal-response";
+import { doseResponses, doseTiming, MIN_DOSES_FOR_TIMING } from "@/lib/dose-response";
+import {
+  foodResponseRanking,
+  mealResponses,
+  mealsWithoutInsulin,
+  MIN_MEALS_FOR_RANKING,
+} from "@/lib/meal-response";
 import "./cgm-overview.css";
 
 const PERIODS = [14, 30, 90, 365] as const;
@@ -39,6 +45,10 @@ async function fetchSummary(startDay: string, endDay: string, signal: AbortSigna
 const pct = (value: number | null | undefined) => (value == null ? "—" : `${value}%`);
 const below70 = (levels: GlucoseLevels) => Math.round((levels.veryLow + levels.low) * 10) / 10;
 const above180 = (levels: GlucoseLevels) => Math.round((levels.high + levels.veryHigh) * 10) / 10;
+const signed = (change: number | null) =>
+  change === null ? "—" : `${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change)}`;
+const minutesLabel = (minutes: number) =>
+  minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`;
 
 export function LevelsBar({ levels }: { levels: GlucoseLevels }) {
   return (
@@ -186,6 +196,15 @@ export default function CgmOverview({
   );
   const ranking = useMemo(() => foodResponseRanking(responses), [responses]);
   const recentMeals = responses.filter((r) => r.status === "ok").slice(0, 5);
+  const uncovered = mealsWithoutInsulin(responses);
+  const doses = useMemo(
+    () => (active ? doseResponses(entries, cgm, clock) : []),
+    [active, entries, cgm, clock],
+  );
+  const rapidTiming = doseTiming(doses, "Rapid-acting");
+  const rapidClean = doses.filter((d) => d.insulin === "Rapid-acting" && d.status === "ok");
+  const longDoses = doses.filter((d) => d.insulin === "Long-acting");
+  const longClean = longDoses.filter((d) => d.status === "ok");
   const dateTime = useMemo(
     () =>
       new Intl.DateTimeFormat("en-US", {
@@ -405,6 +424,15 @@ export default function CgmOverview({
                 A food appears here once it is part of {MIN_MEALS_FOR_RANKING} comparable meals.
               </p>
             )}
+            {uncovered && (
+              <p className="insights-small">
+                With no rapid-acting insulin logged from an hour before to 30 minutes after,{" "}
+                {uncovered.meals} meals (median {uncovered.medianCarbs} g carbs) rose{" "}
+                {uncovered.riseCapped ? "at least " : ""}
+                {signed(uncovered.medianRise)} mg/dL, peaking at about {uncovered.medianPeakMinutes}{" "}
+                min.
+              </p>
+            )}
             {recentMeals.length > 0 && (
               <ul className="cgm-meal-list">
                 {recentMeals.map((r) => (
@@ -426,6 +454,96 @@ export default function CgmOverview({
                 ))}
               </ul>
             )}
+          </div>
+          <div className="cgm-overview-section">
+            <h4>After insulin</h4>
+            <p className="insights-small">
+              How glucose moved after doses with no food logged from an hour before to the end of
+              the window, and no other rapid-acting insulin in the three hours before. What
+              happened, not how much to give.
+            </p>
+            {rapidTiming ? (
+              <dl className="cgm-metrics">
+                <div>
+                  <dt>Fastest fall</dt>
+                  <dd>
+                    {rapidTiming.fastestFallFrom === null
+                      ? "—"
+                      : `${rapidTiming.fastestFallFrom}–${rapidTiming.fastestFallFrom + 15} min`}
+                  </dd>
+                  <small>After rapid-acting, median of {rapidTiming.doses} doses</small>
+                </div>
+                <div>
+                  <dt>Lowest point</dt>
+                  <dd>
+                    {rapidTiming.medianLowestMinutes === null
+                      ? "—"
+                      : `${rapidTiming.medianLowestMinutes} min`}
+                  </dd>
+                  <small>Within 3 hours of the dose</small>
+                </div>
+                <div>
+                  <dt>Change at 2 h</dt>
+                  <dd>
+                    {signed(rapidTiming.changes.find((c) => c.minutes === 120)?.change ?? null)}
+                  </dd>
+                  <small>
+                    mg/dL ·{" "}
+                    {rapidTiming.changes
+                      .filter((c) => c.minutes !== 120)
+                      .map((c) => `${minutesLabel(c.minutes)} ${signed(c.change)}`)
+                      .join(" · ")}
+                  </small>
+                </div>
+              </dl>
+            ) : (
+              <p className="insights-small">
+                Rapid-acting timing appears once {MIN_DOSES_FOR_TIMING} doses like this are logged (
+                {rapidClean.length} so far).
+              </p>
+            )}
+            {rapidClean.length > 0 && (
+              <ul className="cgm-meal-list">
+                {rapidClean.slice(0, 5).map((d) => (
+                  <li key={d.entryId}>
+                    <span>
+                      {dateTime.format(new Date(d.at))} · {d.units} u rapid-acting
+                    </span>
+                    <span>
+                      From {d.baseline} · 1 h {signed(d.changes[1].change)} · 2 h{" "}
+                      {signed(d.changes[3].change)}
+                      {d.fastestFall
+                        ? ` · fastest fall ${d.fastestFall.from}–${d.fastestFall.from + 15} min`
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {longDoses.length > 0 &&
+              (longClean.length > 0 ? (
+                <ul className="cgm-meal-list">
+                  {longClean.slice(0, 5).map((d) => (
+                    <li key={d.entryId}>
+                      <span>
+                        {dateTime.format(new Date(d.at))} · {d.units} u long-acting
+                      </span>
+                      <span>
+                        From {d.baseline} ·{" "}
+                        {d.changes
+                          .filter((c) => [120, 240, 480].includes(c.minutes))
+                          .map((c) => `${minutesLabel(c.minutes)} ${signed(c.change)}`)
+                          .join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="insights-small">
+                  Long-acting doses appear here when no food or rapid-acting insulin was logged near
+                  them (none of {longDoses.length} so far).
+                </p>
+              ))}
           </div>
           <p className="insights-method">
             <Activity size={15} aria-hidden="true" /> Standard CGM ranges (54, 70, 180, 250 mg/dL).
