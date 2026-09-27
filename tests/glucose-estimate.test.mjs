@@ -94,3 +94,24 @@ test("HIGH readings count as the sensor limit, so the range tops out at HIGH", (
   assert.equal(estimateLabel(end.high), "HIGH");
   assert.equal(estimateLabel(142), "142");
 });
+
+test("when the last day turns noisier, the range widens to its misses instead of averaging them away", () => {
+  const history = (recentNoise) =>
+    series(days(4), now, (t) =>
+      Math.round(
+        180 +
+          100 * Math.sin((2 * Math.PI * t) / (5 * H)) +
+          (now - t < 24 * H ? recentNoise : 8) * noise(t),
+      ),
+    );
+  const width = (cgm) => {
+    const estimate = glucoseEstimate(cgm, now);
+    assert.equal(estimate.state, "ready");
+    return estimate.points[2].high - estimate.points[2].low;
+  };
+  // Averaged over all four days the noisy day would only widen the 30-minute range by half.
+  assert.ok(
+    width(history(30)) >= 2.5 * width(history(8)),
+    `${width(history(30))} vs ${width(history(8))}`,
+  );
+});

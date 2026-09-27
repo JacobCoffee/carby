@@ -5,8 +5,9 @@ import { uniqueCgm } from "./cgm-metrics";
  * Where CGM glucose is likely to be over the next two hours, from CGM readings alone: a damped
  * trend fitted on the person's own history. For each horizon it learns how much of the last 15,
  * 30 and 60 minutes' change carried on (with no pull toward an average, which misleads when days
- * shift, as during illness), and the range is how far those fits missed in the past. It starts
- * at the current reading, can't see food, insulin or activity, and nothing here feeds dosing.
+ * shift, as during illness). The range is how far that fit missed on the most recent day, which
+ * it was not fitted on, so it reflects misses the fit didn't already account for. It starts at
+ * the current reading, can't see food, insulin or activity, and nothing here feeds dosing.
  * The settings below are statistical, not clinical values.
  */
 export const ESTIMATE_MINUTES = 120;
@@ -15,6 +16,10 @@ export const ESTIMATE_STEP_MINUTES = 15;
 const RANGE_PERCENTILES = [10, 50, 90] as const;
 /** Fewer past examples than this at any horizon give no estimate: about 17 hours of readings. */
 export const MIN_EXAMPLES = 200;
+/** The range comes from misses in this last stretch, predicted by a fit on the history before it… */
+const CALIBRATION_MINUTES = 24 * 60;
+/** …when it holds at least this many; otherwise from the fit's own misses on all history. */
+const MIN_CALIBRATION = 100;
 const GRID_MINUTES = 5;
 const LAG_MINUTES = [15, 30, 60];
 /** The current reading must be this recent. */
@@ -117,29 +122,39 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
     const ahead = minutes / GRID_MINUTES;
     const xs: number[][] = [];
     const ys: number[] = [];
+    /** Whether each example's outcome falls in the calibration stretch. */
+    const recentOutcome: boolean[] = [];
+    const calibrationStart = size - CALIBRATION_MINUTES / GRID_MINUTES;
     for (let i = 0; i + ahead < size; i++) {
       const x = changes(i);
       const [value, later] = [grid[i], grid[i + ahead]];
       if (!x || value === null || later === null) continue;
       xs.push(x);
       ys.push(later - value);
+      recentOutcome.push(i + ahead >= calibrationStart);
     }
     examples = Math.min(examples, xs.length);
     if (xs.length < MIN_EXAMPLES) return { state: "learning", examples: xs.length };
+    const calibration = recentOutcome.filter(Boolean).length;
+    const split = calibration >= MIN_CALIBRATION && xs.length - calibration >= MIN_EXAMPLES;
     // Least squares with no intercept, lightly regularized so near-duplicate lags stay stable.
     const a = lags.map(() => lags.map(() => 0));
     const b = lags.map(() => 0);
-    for (let r = 0; r < xs.length; r++)
+    for (let r = 0; r < xs.length; r++) {
+      if (split && recentOutcome[r]) continue;
       for (let p = 0; p < lags.length; p++) {
         b[p] += xs[r][p] * ys[r];
         for (let q = 0; q < lags.length; q++) a[p][q] += xs[r][p] * xs[r][q];
       }
+    }
     const ridge = (1e-6 * a.reduce((sum, row, p) => sum + row[p], 0)) / lags.length;
     a.forEach((row, p) => (row[p] += ridge));
     const weights = solve(a, b);
     if (!weights) return { state: "learning", examples: xs.length };
     const fit = (x: number[]) => x.reduce((sum, v, p) => sum + v * weights[p], 0);
-    const misses = xs.map((x, r) => ys[r] - fit(x)).sort((m, n) => m - n);
+    const misses = xs
+      .flatMap((x, r) => (!split || recentOutcome[r] ? [ys[r] - fit(x)] : []))
+      .sort((m, n) => m - n);
     const [low, median, high] = RANGE_PERCENTILES.map((p) => {
       const miss =
         misses[Math.min(misses.length - 1, Math.max(0, Math.ceil((p / 100) * misses.length) - 1))];
