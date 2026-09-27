@@ -62,6 +62,14 @@ export function amountInServingUnits(food: Portioned): number {
   return from && to ? (amount * from) / to : amount;
 }
 
+/**
+ * How much was eaten, in the unit it was measured in, for recording with its carbs: servings
+ * become an amount of the food's unit; a typed amount stays in the unit it was typed in.
+ */
+export function amountEaten(food: Portioned): number {
+  return food.byServing ? amountInServingUnits(food) : parsePortion(food.servings);
+}
+
 /** A food's label as typed into a form: what one serving is and how many carbs it holds. */
 export type FoodBasisFields = { name: string; carbs: string; servingSize: string; unit: string };
 export type FoodBasis = { name: string; carbs: number; servingSize: number; unit: string };

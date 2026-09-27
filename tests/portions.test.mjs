@@ -1,6 +1,12 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { parsePortion, amountInServingUnits, parseFoodBasis, volumeMl } from "../lib/portions.ts";
+import {
+  amountEaten,
+  amountInServingUnits,
+  parseFoodBasis,
+  parsePortion,
+  volumeMl,
+} from "../lib/portions.ts";
 
 test("parsePortion reads vulgar fractions, mixed fractions, decimals, and slash fractions", () => {
   assert.equal(parsePortion("½"), 0.5);
@@ -55,6 +61,18 @@ test("amountInServingUnits converts a typed amount between volume units", () => 
 test("amountInServingUnits leaves an unconvertible unit pair as a raw amount", () => {
   const food = { servings: "3", servingSize: "1", unit: "slice", amountUnit: "slice" };
   assert.equal(amountInServingUnits(food), 3);
+});
+
+test("amountEaten keeps a typed amount in the unit it was typed in", () => {
+  // 16 tbsp of a food labeled per cup is a whole cup's carbs, recorded as 16 tbsp, not 1 tbsp.
+  const tbsp = { servings: "16", servingSize: "1", unit: "cup", amountUnit: "tbsp" };
+  assert.equal(amountEaten({ ...tbsp, byServing: false }), 16);
+  assert.equal(amountInServingUnits({ ...tbsp, byServing: false }), 1);
+  // Servings are recorded as an amount of the food's own unit.
+  assert.equal(
+    amountEaten({ servings: "2/3", servingSize: "37", unit: "g", byServing: true }),
+    37 * (2 / 3),
+  );
 });
 
 test("parseFoodBasis reads a food label and never turns a blank into a number", () => {
