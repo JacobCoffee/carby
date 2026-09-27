@@ -523,6 +523,12 @@
   line-height: 1.5;
   z-index: 4;
 }
+/* The period under the cursor closes the readout, set off from the readings above it. */
+.care-redesign .plot-tooltip .plot-tooltip-period {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, var(--chart-panel-ink) 16%, transparent);
+}
 .care-redesign .plot-empty {
   color: var(--chart-panel-ink-muted);
   background: var(--chart-panel-bg);

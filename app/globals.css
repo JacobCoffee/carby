@@ -2810,7 +2810,7 @@ main {
   padding: 9px 11px;
   border: 1px solid var(--info-border);
   border-radius: 9px;
-  background: rgb(var(--shadow-rgb) / 94.9%);
+  background: rgb(var(--shadow-rgb));
   color: var(--chart-panel-ink);
   box-shadow: 0 9px 24px rgb(var(--shadow-rgb) / 40%);
   pointer-events: none;

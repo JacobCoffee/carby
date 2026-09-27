@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { dodgeLane } from "@/lib/chart-lanes";
+import { mergeReadings } from "@/lib/chart-readout";
 import { useEasedSpan } from "@/hooks/use-eased-span";
 import { ChartLegend, type ChartLayer } from "./chart-legend";
 import { mealLinks, mealDoseFoods } from "@/lib/meal-log";
@@ -808,6 +809,10 @@ const GlucoseChart = memo(function GlucoseChart({
         ]
       : [];
   });
+  const cursorIllness =
+    cursor === null
+      ? []
+      : illnessBands.filter((band) => cursor >= band.start && cursor <= band.end);
   const correctionMinute = correctionAt ? minuteOf(correctionAt) : null;
   const showCorrection =
     day === today &&
@@ -1392,10 +1397,6 @@ const GlucoseChart = memo(function GlucoseChart({
                 rx="1.5"
                 fill="var(--chart-device)"
               />
-              <title>
-                {periodKindLabels[periodKind(illness)]} · {illnessLabel(illness, timezone)}
-                {illness.note ? ` · ${illness.note}` : ""}
-              </title>
             </g>
           ))}
           {dayTicks.map(
@@ -1752,13 +1753,14 @@ const GlucoseChart = memo(function GlucoseChart({
               })}
             </strong>
             {sameTime.length ? (
-              sameTime.map((r, i) => (
+              mergeReadings(sameTime).map((r, i) => (
                 <span key={r.at + r.source + i}>
                   {when(r.at)} ·{" "}
                   {r.value !== null
                     ? `${r.value} mg/dL`
                     : `${r.status?.toUpperCase()} ${r.status === "High" ? "(>400)" : "(<40)"} · exact value unknown`}{" "}
-                  · {glucoseLevelNames[glucoseLevel(r, ranges)]} <small>{r.source}</small>
+                  · {glucoseLevelNames[glucoseLevel(r, ranges)]}{" "}
+                  <small>{r.sources.join(", ")}</small>
                 </span>
               ))
             ) : (
@@ -1808,6 +1810,13 @@ const GlucoseChart = memo(function GlucoseChart({
               <span key={e.at + e.type + i}>
                 {when(e.at)} · {e.type}
                 {e.value !== null ? ` · ${e.value} mg/dL` : ""} <small>Dexcom event</small>
+              </span>
+            ))}
+            {cursorIllness.map(({ illness }) => (
+              <span key={illness.id} className="plot-tooltip-period">
+                {periodKindLabels[periodKind(illness)]}
+                {illness.note ? ` · ${illness.note}` : ""}{" "}
+                <small>{illnessLabel(illness, timezone)}</small>
               </span>
             ))}
           </div>

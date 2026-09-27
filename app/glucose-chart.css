@@ -139,6 +139,8 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The flag's `line-height: 1` is too short a box for descenders once overflow clips it. */
+  line-height: 1.4;
 }
 .chart-band-tag strong {
   flex: 0 1 auto;
