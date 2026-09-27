@@ -1085,11 +1085,16 @@
     flex: 1 1 100%;
     min-width: 0;
   }
+  /* All seven ranges share one row, however narrow: wrapping split them 5 and 2. */
   .care-redesign .chart-navigation > .chart-range {
     flex: 1 1 0;
     min-width: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .care-redesign .chart-navigation > .chart-range button {
+    min-width: 0;
+    padding-inline: 0;
   }
   .care-redesign .chart-navigation > button {
     flex: none;
