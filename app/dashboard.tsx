@@ -142,6 +142,8 @@ import { currentShareForCorrection } from "@/lib/correction-reading";
 import { correctionMarkerAt } from "@/lib/correction-marker";
 import { mealRatioAt } from "@/lib/report-analysis";
 import { foodDosePrompt, type FoodDosePrompt } from "@/lib/food-dose-prompt";
+import type { SyncStatus } from "@/lib/sync";
+import { SyncNotice } from "./sync-notice";
 import { correctionReviewStatus, readingAboveRange } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
@@ -215,6 +217,7 @@ type CareSnapshot = {
   cgm: CgmReading[];
   dexcomEvents: DexcomEvent[];
   historyLimited?: boolean;
+  sync?: SyncStatus | null;
   sensor?: SensorSession | null;
   clarity?: ClarityFreshness | null;
   error?: string;
@@ -332,6 +335,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     pendingPlan = useRef<Plan | null>(null);
 
   const [historyLimited, setHistoryLimited] = useState(false);
+  const [syncState, setSyncState] = useState<SyncStatus | null>(null);
   const [sensor, setSensor] = useState<SensorSession | null>(null),
     [claritySync, setClaritySync] = useState<ClarityFreshness | null>(null);
   // Gaps from being out of range of the phone or receiver fill in from Clarity on their own.
@@ -536,6 +540,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           setAppointments(data.appointments ?? []);
           setEntries(data.entries);
           setHistoryLimited(!!data.historyLimited);
+          setSyncState(data.sync ?? null);
           setSensor(data.sensor ?? null);
           setClaritySync(data.clarity ?? null);
           setSavedFoods(data.savedFoods ?? []);
@@ -2154,6 +2159,18 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                   Sync details
                 </button>
               </div>
+            )}
+            {syncState && (
+              <SyncNotice
+                status={syncState}
+                busy={saving}
+                canManage={canManage}
+                onResolve={(action) =>
+                  void mutate({ action }).then((ok) => {
+                    if (ok) void load(true);
+                  })
+                }
+              />
             )}
             {historyLimited && (
               <p className="notice" role="status">

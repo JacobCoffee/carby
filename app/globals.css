@@ -4423,6 +4423,11 @@ main {
 .care-workspace-sync-warning p {
   flex: 1 1 220px;
 }
+.sync-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .care-workspace-sync-warning .care-workspace-sync-button {
   background: var(--surface);
   color: var(--event-correction-ink);
