@@ -1,3 +1,5 @@
+import { savedFoodSchema } from "./care";
+
 /** Volume unit conversions to milliliters, for converting a portion typed in one
  * volume unit (say, cups) into a food's labeled serving unit (say, mL). */
 export const volumeMl: Record<string, number> = {
@@ -58,4 +60,30 @@ export function amountInServingUnits(food: Portioned): number {
   const from = volumeMl[food.amountUnit ?? food.unit];
   const to = volumeMl[food.unit];
   return from && to ? (amount * from) / to : amount;
+}
+
+/** A food's label as typed into a form: what one serving is and how many carbs it holds. */
+export type FoodBasisFields = { name: string; carbs: string; servingSize: string; unit: string };
+export type FoodBasis = { name: string; carbs: number; servingSize: number; unit: string };
+
+const foodBasisSchema = savedFoodSchema.pick({
+  name: true,
+  carbs: true,
+  serving: true,
+  unit: true,
+});
+
+/** Reads typed label fields with the saved-food limits. Null when any field is blank or out
+ * of range, so a food never gets a made-up carb count or serving. */
+export function parseFoodBasis(fields: FoodBasisFields): FoodBasis | null {
+  const number = (value: string) => (value.trim() === "" ? NaN : Number(value));
+  const parsed = foodBasisSchema.safeParse({
+    name: fields.name,
+    carbs: number(fields.carbs),
+    serving: number(fields.servingSize),
+    unit: fields.unit,
+  });
+  if (!parsed.success) return null;
+  const { name, carbs, serving, unit } = parsed.data;
+  return { name, carbs, servingSize: serving, unit };
 }

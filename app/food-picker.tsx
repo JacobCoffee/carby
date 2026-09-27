@@ -1,8 +1,13 @@
 "use client";
 import { useId, useState, type FormEvent } from "react";
-import { Plus, Search, Star, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 import type { FoodItem, SavedFood } from "@/lib/care";
-import { amountInServingUnits, volumeMl } from "@/lib/portions";
+import {
+  amountInServingUnits,
+  parseFoodBasis,
+  volumeMl,
+  type FoodBasisFields,
+} from "@/lib/portions";
 import "./food-picker.css";
 
 const fmt = (n: number) => Number(n.toFixed(2)).toString();
@@ -103,6 +108,60 @@ function PortionField({ draft, onChange }: { draft: Draft; onChange: (next: Draf
   );
 }
 
+/** The label fields for a food: shared by "Add a new food" and editing a food in this meal. */
+function FoodBasisInputs({
+  fields,
+  onChange,
+}: {
+  fields: FoodBasisFields;
+  onChange: (next: FoodBasisFields) => void;
+}) {
+  return (
+    <div className="food-picker-new-fields">
+      <label className="field">
+        <span>Name</span>
+        <input
+          value={fields.name}
+          onChange={(event) => onChange({ ...fields, name: event.target.value })}
+          placeholder="Food name"
+        />
+      </label>
+      <label className="field">
+        <span>Carbs per serving (g)</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          max={1000}
+          step="any"
+          value={fields.carbs}
+          onChange={(event) => onChange({ ...fields, carbs: event.target.value })}
+          placeholder="0"
+        />
+      </label>
+      <label className="field">
+        <span>Serving size</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0.01}
+          step="any"
+          value={fields.servingSize}
+          onChange={(event) => onChange({ ...fields, servingSize: event.target.value })}
+        />
+      </label>
+      <label className="field">
+        <span>Unit</span>
+        <input
+          value={fields.unit}
+          onChange={(event) => onChange({ ...fields, unit: event.target.value })}
+          placeholder="cup, slice, piece"
+        />
+      </label>
+    </div>
+  );
+}
+
 export type FoodPickerProps = {
   savedFoods: SavedFood[];
   items: FoodItem[];
@@ -132,6 +191,7 @@ export function FoodPicker({
     save: true,
   });
   const [busyFoodId, setBusyFoodId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ key: string; fields: FoodBasisFields } | null>(null);
   const formId = useId();
 
   function commit(next: Draft[]) {
@@ -170,31 +230,62 @@ export function FoodPicker({
 
   async function submitNewFood(event: FormEvent) {
     event.preventDefault();
-    const carbs = Number(newFood.carbs);
-    const servingSize = Number(newFood.servingSize);
-    if (!newFood.name.trim() || !Number.isFinite(carbs) || carbs < 0) return;
-    if (!Number.isFinite(servingSize) || servingSize <= 0 || !newFood.unit.trim()) return;
+    const basis = parseFoodBasis(newFood);
+    if (!basis) return;
     let savedFoodId: string | undefined;
     if (newFood.save) {
       const id = crypto.randomUUID();
       const saved = await onSaveFood({
         id,
-        name: newFood.name.trim(),
-        carbs,
-        serving: servingSize,
-        unit: newFood.unit.trim(),
+        name: basis.name,
+        carbs: basis.carbs,
+        serving: basis.servingSize,
+        unit: basis.unit,
       });
       if (saved) savedFoodId = id;
     }
     addDraft({
-      name: newFood.name.trim(),
-      unit: newFood.unit.trim(),
-      servingSize,
-      carbsPerServing: carbs,
-      amountUnit: newFood.unit.trim(),
+      name: basis.name,
+      unit: basis.unit,
+      servingSize: basis.servingSize,
+      carbsPerServing: basis.carbs,
+      amountUnit: basis.unit,
       savedFoodId,
     });
     setNewFood({ name: "", carbs: "", servingSize: "1", unit: "", save: true });
+  }
+
+  function startEdit(draft: Draft) {
+    setEditing({
+      key: draft.key,
+      fields: {
+        name: draft.name,
+        carbs: String(draft.carbsPerServing),
+        servingSize: String(draft.servingSize),
+        unit: draft.unit,
+      },
+    });
+  }
+
+  /** Applies edited label values to one meal line; the portion eaten stays as typed. */
+  function saveEdit(draft: Draft) {
+    const basis = editing && parseFoodBasis(editing.fields);
+    if (!basis) return;
+    commit(
+      drafts.map((d) =>
+        d.key === draft.key
+          ? {
+              ...d,
+              name: basis.name,
+              unit: basis.unit,
+              servingSize: basis.servingSize,
+              carbsPerServing: basis.carbs,
+              amountUnit: d.amountUnit === d.unit ? basis.unit : d.amountUnit,
+            }
+          : d,
+      ),
+    );
+    setEditing(null);
   }
 
   async function saveDraftAsFavorite(draft: Draft) {
@@ -301,48 +392,10 @@ export function FoodPicker({
 
       <form className="food-picker-new" onSubmit={(event) => void submitNewFood(event)}>
         <strong>Add a new food</strong>
-        <div className="food-picker-new-fields">
-          <label className="field">
-            <span>Name</span>
-            <input
-              value={newFood.name}
-              onChange={(event) => setNewFood({ ...newFood, name: event.target.value })}
-              placeholder="Food name"
-            />
-          </label>
-          <label className="field">
-            <span>Carbs per serving (g)</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={1000}
-              step="any"
-              value={newFood.carbs}
-              onChange={(event) => setNewFood({ ...newFood, carbs: event.target.value })}
-              placeholder="0"
-            />
-          </label>
-          <label className="field">
-            <span>Serving size</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0.01}
-              step="any"
-              value={newFood.servingSize}
-              onChange={(event) => setNewFood({ ...newFood, servingSize: event.target.value })}
-            />
-          </label>
-          <label className="field">
-            <span>Unit</span>
-            <input
-              value={newFood.unit}
-              onChange={(event) => setNewFood({ ...newFood, unit: event.target.value })}
-              placeholder="cup, slice, piece"
-            />
-          </label>
-        </div>
+        <FoodBasisInputs
+          fields={newFood}
+          onChange={(fields) => setNewFood({ ...newFood, ...fields })}
+        />
         <label className="food-picker-save-toggle">
           <input
             type="checkbox"
@@ -351,11 +404,7 @@ export function FoodPicker({
           />
           Save for next time
         </label>
-        <button
-          type="submit"
-          className="button outline"
-          disabled={!newFood.name.trim() || newFood.carbs === ""}
-        >
+        <button type="submit" className="button outline" disabled={!parseFoodBasis(newFood)}>
           <Plus size={15} />
           Add this food
         </button>
@@ -366,6 +415,8 @@ export function FoodPicker({
           <strong>This meal</strong>
           {drafts.map((draft) => {
             const carbs = draftCarbs(draft);
+            const edit = editing?.key === draft.key ? editing : null;
+            const editValid = edit !== null && parseFoodBasis(edit.fields) !== null;
             return (
               <div className="food-picker-item" key={draft.key}>
                 <div className="food-picker-item-title">
@@ -378,21 +429,67 @@ export function FoodPicker({
                     <X size={16} />
                   </button>
                 </div>
-                <PortionField
-                  draft={draft}
-                  onChange={(next) => commit(drafts.map((d) => (d.key === draft.key ? next : d)))}
-                />
+                {edit ? (
+                  <div className="food-picker-edit">
+                    <FoodBasisInputs
+                      fields={edit.fields}
+                      onChange={(fields) => setEditing({ key: draft.key, fields })}
+                    />
+                    {!editValid && (
+                      <p className="helper" role="status">
+                        Enter a name, carbs, serving size and unit.
+                      </p>
+                    )}
+                    <div className="food-picker-edit-actions">
+                      <button
+                        type="button"
+                        className="button outline"
+                        disabled={!editValid}
+                        onClick={() => saveEdit(draft)}
+                      >
+                        Save changes
+                      </button>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => setEditing(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <PortionField
+                    draft={draft}
+                    onChange={(next) => commit(drafts.map((d) => (d.key === draft.key ? next : d)))}
+                  />
+                )}
                 <div className="food-picker-item-footer">
-                  <small>{Number.isFinite(carbs) ? fmt(carbs) : "—"} g carbs</small>
-                  <button
-                    type="button"
-                    className="text-button"
-                    disabled={busyFoodId === draft.key}
-                    onClick={() => void saveDraftAsFavorite(draft)}
-                  >
-                    <Star size={13} />
-                    {draft.savedFoodId ? "Update saved food" : "Save this food"}
-                  </button>
+                  <small>
+                    {Number.isFinite(carbs) ? fmt(carbs) : "—"} g carbs ·{" "}
+                    {fmt(draft.carbsPerServing)} g per {fmt(draft.servingSize)} {draft.unit}
+                  </small>
+                  <div className="food-picker-item-actions">
+                    {!edit && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => startEdit(draft)}
+                      >
+                        <Pencil size={13} aria-hidden="true" />
+                        Edit food
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={busyFoodId === draft.key || edit !== null}
+                      onClick={() => void saveDraftAsFavorite(draft)}
+                    >
+                      <Star size={13} aria-hidden="true" />
+                      {draft.savedFoodId ? "Update saved food" : "Save this food"}
+                    </button>
+                  </div>
                 </div>
               </div>
             );

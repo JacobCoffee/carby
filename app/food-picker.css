@@ -128,8 +128,25 @@
 }
 .food-picker-item-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+.food-picker-item-actions,
+.food-picker-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.food-picker-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.food-picker-edit .helper {
+  margin: 0;
 }
 .food-picker-total {
   display: flex;

@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { parsePortion, amountInServingUnits, volumeMl } from "../lib/portions.ts";
+import { parsePortion, amountInServingUnits, parseFoodBasis, volumeMl } from "../lib/portions.ts";
 
 test("parsePortion reads vulgar fractions, mixed fractions, decimals, and slash fractions", () => {
   assert.equal(parsePortion("½"), 0.5);
@@ -55,4 +55,26 @@ test("amountInServingUnits converts a typed amount between volume units", () => 
 test("amountInServingUnits leaves an unconvertible unit pair as a raw amount", () => {
   const food = { servings: "3", servingSize: "1", unit: "slice", amountUnit: "slice" };
   assert.equal(amountInServingUnits(food), 3);
+});
+
+test("parseFoodBasis reads a food label and never turns a blank into a number", () => {
+  assert.deepEqual(
+    parseFoodBasis({ name: " Cinnamon bread ", carbs: "21", servingSize: "1", unit: " slice " }),
+    { name: "Cinnamon bread", carbs: 21, servingSize: 1, unit: "slice" },
+  );
+  const food = { name: "Bread", carbs: "21", servingSize: "1", unit: "slice" };
+  for (const [field, value] of [
+    ["carbs", ""],
+    ["carbs", "1001"],
+    ["carbs", "-1"],
+    ["servingSize", ""],
+    ["servingSize", "0"],
+    ["unit", " "],
+    ["name", ""],
+  ])
+    assert.equal(
+      parseFoodBasis({ ...food, [field]: value }),
+      null,
+      `${field}=${JSON.stringify(value)}`,
+    );
 });
