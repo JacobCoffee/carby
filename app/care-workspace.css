@@ -1,5 +1,8 @@
 /* The visual layer is deliberately isolated for a UI-only rollback. */
 .care-redesign {
+  --bar-pad-x: max(24px, calc((100vw - 1480px) / 2));
+  --bar-pad-y: 14px;
+  --sheet-radius: 18px;
   color: var(--ink);
   background: var(--canvas);
   min-height: 100dvh;
@@ -12,7 +15,6 @@
   --bar-glass: color-mix(in srgb, var(--chart-panel-ink) 11%, transparent);
   --bar-glass-hover: color-mix(in srgb, var(--chart-panel-ink) 18%, transparent);
   --bar-glass-line: color-mix(in srgb, var(--chart-panel-ink) 20%, transparent);
-  --bar-pad-x: max(24px, calc((100vw - 1480px) / 2));
   position: relative;
   inset: auto;
   width: 100%;
@@ -21,17 +23,35 @@
   display: flex;
   flex-wrap: wrap;
   gap: 14px 28px;
-  padding: 14px var(--bar-pad-x);
+  padding: var(--bar-pad-y) var(--bar-pad-x);
   background: var(--chart-panel-bg);
   color: var(--bar-ink);
   /* Matches the fill in most themes; draws the edge where the panel is as dark as the canvas. */
   border-bottom: 1px solid var(--chart-panel-border);
   box-shadow: none;
 }
-/* With reminders, the canvas tray closes the bar: no bottom padding, and a canvas-side line. */
-.care-redesign .topbar.care-workspace-topbar:has(> .care-header-reminders) {
-  padding-bottom: 0;
-  border-bottom-color: var(--line);
+/* The page is a sheet that slides up over the header as it scrolls. The bar stays pinned
+ * underneath, and the sheet's rounded top overlaps it so the bar shows in the corners. */
+.care-redesign .topbar.care-workspace-topbar:has(+ .care-sheet) {
+  position: sticky;
+  top: 0;
+  z-index: 0;
+  padding-bottom: calc(var(--bar-pad-y) + var(--sheet-radius));
+}
+.care-sheet {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(-1 * var(--sheet-radius));
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  background: var(--canvas);
+  box-shadow: 0 -10px 24px -14px rgb(var(--shadow-rgb) / 24%);
+}
+@media print {
+  .care-sheet {
+    margin-top: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 .care-redesign .topbar.care-workspace-topbar .carby-brand {
   color: var(--bar-ink);
@@ -128,8 +148,7 @@
   color: var(--chart-panel-bg);
 }
 /* The accent focus ring disappears on an accent bar, so controls on the bar ring in its ink. */
-.care-redesign .topbar.care-workspace-topbar > :not(.care-header-reminders) :focus-visible,
-.care-redesign .topbar.care-workspace-topbar > .carby-brand:focus-visible {
+.care-redesign .topbar.care-workspace-topbar :focus-visible {
   outline: 3px solid var(--bar-ink);
   outline-offset: 3px;
 }
@@ -968,10 +987,11 @@
   .care-redesign .workspace-report-nav {
     display: none;
   }
-  .care-redesign .topbar.care-workspace-topbar {
+  .care-redesign {
     --bar-pad-x: 20px;
+  }
+  .care-redesign .topbar.care-workspace-topbar {
     gap: 16px;
-    padding: 14px var(--bar-pad-x);
   }
   .care-redesign main {
     padding: 24px 20px 32px;
@@ -998,9 +1018,11 @@
 }
 @media (max-width: 680px) {
   /* The wordmark and every tool share the first row; the tabs take the second. */
-  .care-redesign .topbar.care-workspace-topbar {
+  .care-redesign {
     --bar-pad-x: 12px;
-    padding: 10px var(--bar-pad-x);
+    --bar-pad-y: 10px;
+  }
+  .care-redesign .topbar.care-workspace-topbar {
     min-height: 72px;
     flex-wrap: wrap;
     gap: 12px 10px;
@@ -1278,8 +1300,10 @@
   }
 }
 @media (max-width: 380px) {
-  .care-redesign .topbar.care-workspace-topbar {
+  .care-redesign {
     --bar-pad-x: 10px;
+  }
+  .care-redesign .topbar.care-workspace-topbar {
     gap: 12px 8px;
   }
   .care-redesign .topbar.care-workspace-topbar .carby-brand svg {
@@ -1776,20 +1800,16 @@
   overflow-wrap: anywhere;
 }
 
-/* Current reminders stay in the shared header on every care tab. They sit in a full-width canvas
- * tray whose rounded top closes the header bar. Chips share the row evenly and wrap to a new row
- * once each would drop below its minimum width. */
+/* Current reminders open the page sheet, full width above the content, and slide over the header
+ * with it. Chips share the row evenly and wrap to a new row once each would drop below its
+ * minimum width. */
 .care-header-reminders {
   display: flex;
   flex-wrap: wrap;
-  order: 4;
   gap: 10px;
   min-width: 0;
-  flex-basis: calc(100% + 2 * var(--bar-pad-x, 0px));
-  margin-inline: calc(-1 * var(--bar-pad-x, 0px));
-  padding: 12px var(--bar-pad-x, 0px);
-  border-radius: 18px 18px 0 0;
-  background: var(--canvas);
+  padding: 12px var(--bar-pad-x);
+  border-bottom: 1px solid var(--line);
   color: var(--ink);
 }
 .care-redesign .care-header-reminder {
