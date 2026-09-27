@@ -43,7 +43,7 @@ New accounts start empty. Setup walks through your care plan one step at a time 
 - **Optional:** care contacts, emergency and sick-day instructions, low-treatment amount, meter HI/LO limits, and similar. Each turns on one feature. Instructions are shown exactly as you enter them. None of these changes dose calculations.
 - **Time zone:** all dates and times display in the care plan's zone.
 
-Edit these later in **Care tools > Care plan**.
+Edit these later on the care plan page (**Care tools > Care plan**, or `/plan`). It lists each section with a one-line summary and opens one section at a time. Before anything is saved, you review each changed value, old and new, and confirm it matches your clinician's instructions. **Plan history** shows what changed in each saved version.
 
 On a wider screen, add records from the **Log** button in the bottom-right corner; on a phone, use the bar along the bottom. With a keyboard, press `?` to see every shortcut: `L` then `G` logs glucose, `G` then `I` opens Insights, and `⌘K` searches every command.
 

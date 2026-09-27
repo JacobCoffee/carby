@@ -1,0 +1,484 @@
+/* The care plan page: an index of sections beside one open section. Edits collect in a floating
+ * save bar and are saved from a review of every changed value. Phones show the index, then one
+ * section at a time. */
+.plan-main {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px 128px;
+}
+
+/* Index */
+.plan-index {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+.plan-index-head h1 {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.85px;
+  text-wrap: balance;
+}
+.plan-index-head p {
+  margin-top: 6px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.plan-index nav {
+  margin-top: 24px;
+}
+.plan-index-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-index-list + .plan-index-list {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.plan-index-link {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color 0.15s ease-out;
+}
+.plan-index-link > svg {
+  justify-self: center;
+  color: var(--ink-muted);
+}
+.plan-index-link:hover {
+  background: var(--surface-sunken);
+}
+.plan-index-link:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.plan-index-link[aria-current="page"] {
+  background: var(--accent-wash);
+  color: var(--accent-wash-ink);
+}
+.plan-index-link[aria-current="page"] > svg,
+.plan-index-link[aria-current="page"] small {
+  color: var(--accent-wash-ink);
+}
+.plan-index-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.plan-index-title {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.plan-index-optional {
+  margin-left: 6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+}
+.plan-index-copy small {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-index-chevron {
+  display: none;
+}
+/* The mark column: empty when saved, a dot for unsaved edits, a warning for a missing value. */
+.plan-index-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+.plan-index-link[data-state="changed"] .plan-index-mark::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+}
+.plan-index-link[data-state="changed"] small {
+  color: var(--accent-wash-ink);
+  font-weight: 600;
+}
+.plan-index-link[data-state="attention"] .plan-index-mark {
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+}
+.plan-index-link[data-state="attention"] small {
+  color: var(--warning-ink);
+  font-weight: 600;
+}
+
+/* Panel */
+.plan-panel {
+  min-width: 0;
+  min-height: 480px;
+  padding: 28px 32px 32px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface);
+}
+.plan-panel-back {
+  display: none;
+}
+.plan-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+}
+.plan-panel-head h2 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.plan-panel-head h2:focus {
+  outline: none;
+}
+.plan-panel-head h2:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.plan-panel > .notice {
+  max-width: none;
+  margin: 0 0 20px;
+}
+/* The panel is already the card, so the shared setup form styles supply only the fields. */
+.care-redesign .plan-form.care-setup-form {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.plan-form[hidden] {
+  display: none;
+}
+.plan-form-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.care-setup-form .plan-intro {
+  max-width: 62ch;
+  margin: 0 0 22px;
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.care-setup-form .plan-form-row {
+  margin-top: 20px;
+}
+.care-setup-form .plan-form-fields fieldset + fieldset {
+  margin-top: 8px;
+}
+/* The panel heading already names the section's first group, so its legend is for screen readers. */
+.plan-lead-legend > fieldset:first-of-type > legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.care-setup-form .plan-lead-legend > .glucose-range-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.care-setup-form .plan-lead-legend > fieldset:first-of-type > p:first-of-type {
+  max-width: 62ch;
+  margin: 0 0 22px;
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.care-setup-form .plan-lead-legend > .field {
+  margin-top: 16px;
+}
+
+/* Overview: the setup review groups, saved values only. */
+.plan-overview .setup-review-group:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+.plan-overview-note {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+.plan-overview-empty {
+  margin: 6px 0 0;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+
+/* Changed values, used by the review and by each saved version in history. */
+.plan-change-list {
+  display: grid;
+  gap: 14px;
+}
+.plan-change-list h3 {
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.plan-change-list ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-change-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  gap: 4px 16px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.plan-change-label {
+  color: var(--ink-muted);
+}
+.plan-change-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.plan-change-values del {
+  color: var(--ink-faint);
+  text-decoration-color: var(--ink-faint);
+}
+.plan-change-values ins {
+  color: var(--ink);
+  font-weight: 650;
+  text-decoration: none;
+}
+.plan-change-values svg {
+  flex: none;
+  color: var(--ink-faint);
+}
+
+/* History */
+.plan-history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-history-list > li {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.plan-history-list > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.plan-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 10px;
+}
+.plan-history-head h3 {
+  font-size: 15px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Save bar: floats above the page while there are unsaved edits. */
+.plan-savebar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  width: min(760px, calc(100% - 32px));
+  padding: 12px 12px 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: 0 10px 24px rgb(var(--shadow-rgb) / 14.1%);
+  transform: translateX(-50%);
+  animation: plan-savebar-in 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+/* The summary wraps inside its own space so the buttons keep their row. */
+.plan-savebar p {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 14px;
+  text-wrap: pretty;
+}
+.plan-savebar p strong {
+  font-weight: 650;
+}
+.plan-savebar p span {
+  color: var(--ink-muted);
+}
+.plan-savebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+@keyframes plan-savebar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
+/* Review */
+.plan-review-dialog {
+  max-width: min(680px, calc(100vw - 32px)) !important;
+}
+.plan-review-confirm {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.plan-review-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Header: the way back to the day sits with the person menu, as glass on the bar. */
+.plan-leave span {
+  white-space: nowrap;
+}
+
+@media (max-width: 999px) {
+  .plan-main {
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 28px;
+    padding-inline: 20px;
+  }
+  .plan-panel {
+    padding: 24px;
+  }
+}
+/* Phones and narrow tablets: the index is the landing view, and a section opens on its own. */
+@media (max-width: 780px) {
+  .plan-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 20px 14px calc(148px + env(safe-area-inset-bottom));
+  }
+  .plan-main[data-view="index"] .plan-panel,
+  .plan-main[data-view="section"] .plan-index {
+    display: none;
+  }
+  .plan-index {
+    position: static;
+  }
+  .plan-index-link {
+    grid-template-columns: 20px minmax(0, 1fr) 16px;
+    min-height: 60px;
+  }
+  .plan-index-chevron {
+    display: block;
+    color: var(--ink-faint);
+  }
+  .plan-index-link[aria-current="page"] {
+    background: none;
+    color: var(--ink);
+  }
+  .plan-index-link[aria-current="page"] > svg,
+  .plan-index-link[aria-current="page"] small {
+    color: var(--ink-muted);
+  }
+  .plan-panel {
+    min-height: 0;
+    padding: 16px 16px 24px;
+    border-radius: 16px;
+  }
+  .plan-panel-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+  .plan-panel-head h2 {
+    font-size: 22px;
+  }
+  .plan-change-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-savebar {
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+    transform: none;
+    animation-name: plan-savebar-up;
+  }
+  .plan-savebar-actions {
+    width: 100%;
+  }
+  .plan-savebar-actions .button {
+    flex: 1 1 140px;
+  }
+  .plan-leave span {
+    display: none;
+  }
+}
+@keyframes plan-savebar-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-savebar {
+    animation: none;
+  }
+}
+@media print {
+  .plan-savebar,
+  .plan-page > .topbar {
+    display: none !important;
+  }
+}

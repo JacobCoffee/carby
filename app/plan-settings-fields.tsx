@@ -33,7 +33,7 @@ export function planSettingsIssues(draft: PlanSettingsDraft): PlanSettingsKey[] 
 }
 
 /** A number field bound to a possibly-NaN value, so a blank input never becomes a fabricated 0. */
-function NumberField({
+export function NumberField({
   label,
   helper,
   value,

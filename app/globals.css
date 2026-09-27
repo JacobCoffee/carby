@@ -837,9 +837,6 @@ footer {
   overflow-y: auto;
   padding: 27px !important;
 }
-.plan-dialog {
-  max-width: min(820px, calc(100vw - 32px)) !important;
-}
 .entry-form {
   display: flex;
   flex-direction: column;
@@ -865,18 +862,6 @@ footer {
 .danger-button {
   color: var(--danger-bg);
   background: var(--danger-strong);
-}
-.plan-history article {
-  border-bottom: 1px solid var(--line);
-  padding: 16px 0;
-}
-.plan-history strong {
-  font-size: 14px;
-}
-.plan-history p {
-  font-size: 14px;
-  color: var(--ink-muted);
-  margin-top: 6px;
 }
 .error-banner {
   background: var(--danger-bg);
