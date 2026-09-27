@@ -2416,27 +2416,358 @@
 .care-setup-form[hidden] {
   display: none !important;
 }
-.setup-import-choice {
-  margin-top: 32px;
+
+/* Care plan setup: a step rail beside one step at a time. */
+.care-setup {
+  --setup-ease: cubic-bezier(0.25, 1, 0.5, 1);
 }
-.setup-import-choice h2 {
-  font-size: 19px;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+.setup-rail {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  animation: setup-rise 460ms var(--setup-ease) both;
+}
+.setup-rail .notice {
+  max-width: none;
+  margin-top: 20px;
+  font-size: 14px;
+}
+.setup-step-list {
+  display: grid;
+  gap: 2px;
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.setup-step-list button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+.setup-step-list button:hover:not(:disabled) {
+  background: var(--surface-sunken);
   color: var(--ink);
 }
-.care-setup-intro .setup-import-choice p {
-  margin: 8px 0 16px;
+.setup-step-list button:disabled {
+  cursor: default;
+  color: var(--ink-faint);
+}
+.setup-step-list button:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.setup-step-list [data-state="done"] {
+  color: var(--ink);
+}
+.setup-step-list [data-state="current"],
+.setup-step-list [data-state="current"]:hover:not(:disabled) {
+  background: var(--accent-wash);
+  color: var(--accent-wash-ink);
+}
+.setup-step-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 200ms ease-out;
+}
+[data-state="current"] .setup-step-mark {
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--on-accent-solid);
+}
+[data-state="done"] .setup-step-mark {
+  background: var(--accent-wash);
+  border-color: transparent;
+  color: var(--accent-wash-ink);
+}
+[data-state="done"] .setup-step-mark svg {
+  animation: setup-check 360ms var(--setup-ease) both;
+}
+[data-state="attention"] .setup-step-mark {
+  background: var(--warning-bg);
+  border-color: var(--warning-ink);
+  color: var(--warning-ink);
+}
+.setup-panel {
+  position: relative;
+  overflow: hidden;
+  padding-top: 34px;
+  animation: setup-rise 460ms 70ms var(--setup-ease) both;
+}
+/* A hairline along the top of the card that fills as the steps are finished. */
+.setup-progress {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--surface-sunken);
+}
+.setup-progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent-solid);
+  transform-origin: left;
+  transition: transform 520ms var(--setup-ease);
+}
+.care-setup-form .setup-steps {
+  margin: 0;
+}
+.setup-panel[data-direction="forward"] .setup-step:not([hidden]) {
+  animation: setup-step-forward 380ms var(--setup-ease) both;
+}
+.setup-panel[data-direction="back"] .setup-step:not([hidden]) {
+  animation: setup-step-back 380ms var(--setup-ease) both;
+}
+.setup-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-bottom: 12px;
+}
+.setup-step-head h2:focus {
+  outline: none;
+}
+.setup-step-head h2:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.setup-optional {
+  align-self: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.setup-step-count {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.care-setup-form .setup-step-intro {
+  max-width: 62ch;
+  margin: 0 0 24px;
+  color: var(--ink-muted);
   font-size: 15px;
   line-height: 1.6;
 }
-.setup-import-choice .button {
-  min-height: 44px;
-  padding-inline: 16px;
-  background: var(--surface);
+/* The step heading already names the first group, so its legend is for screen readers only. */
+.setup-step[data-lead-legend="hidden"] > fieldset:first-of-type > legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
-.setup-import-choice .button[aria-pressed="true"] {
-  border-color: var(--accent-deep);
+.care-setup-form .setup-step .glucose-range-fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.setup-step fieldset + fieldset {
+  margin-top: 8px;
+}
+.setup-reveal {
+  animation: setup-reveal 280ms var(--setup-ease) both;
+}
+.setup-import-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+}
+.care-setup-form .setup-import-offer p {
+  flex: 1 1 240px;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.care-setup-form .setup-step .setup-safety {
+  margin: 28px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.setup-review-group {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.setup-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.setup-review-head h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+.setup-review-group dl {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.setup-review-group dl > div {
+  display: contents;
+}
+.setup-review-group dt {
+  color: var(--ink-muted);
+}
+.setup-review-group dd {
+  margin: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.care-setup-form .setup-review-empty {
+  margin: 8px 0 0;
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+.setup-review-group + .check-row {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.setup-actions:has(> :only-child) {
+  justify-content: flex-end;
+}
+.care-setup-form .setup-actions .button {
+  padding-inline: 18px;
+}
+.setup-finished-check {
+  animation: setup-check 420ms var(--setup-ease) both;
+}
+.setup-import {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  animation: setup-rise 380ms var(--setup-ease) both;
+}
+.setup-import > .button {
+  justify-self: start;
+}
+@keyframes setup-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes setup-step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+    filter: blur(3px);
+  }
+}
+@keyframes setup-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+    filter: blur(3px);
+  }
+}
+@keyframes setup-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes setup-check {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-12deg);
+  }
+}
+@keyframes setup-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 850px) {
+  .setup-rail {
+    position: static;
+  }
+  .setup-step-list {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .setup-review-group dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .setup-review-group dd + dt {
+    margin-top: 8px;
+  }
+  .care-setup-form .setup-actions .button {
+    flex: 1 1 140px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup-rail,
+  .setup-panel,
+  .setup-import,
+  .setup-reveal,
+  .setup-finished-check,
+  [data-state="done"] .setup-step-mark svg {
+    animation: none;
+  }
+  .setup-panel[data-direction] .setup-step:not([hidden]) {
+    animation: setup-fade 140ms ease-out both;
+  }
+  .setup-progress span {
+    transition: none;
+  }
 }
 .backup-import h2:focus {
   outline: none;
@@ -2646,11 +2977,6 @@
 }
 .backup-actions .button {
   min-height: 48px;
-}
-@media (max-width: 850px) {
-  .setup-import-choice {
-    margin-top: 22px;
-  }
 }
 @media (max-width: 480px) {
   .backup-actions .button {
