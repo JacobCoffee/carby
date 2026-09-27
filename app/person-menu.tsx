@@ -100,7 +100,7 @@ export default function PersonMenu({ name, timezone }: { name?: string; timezone
             <UserPlus size={17} aria-hidden="true" />
             Add a person
           </DropdownMenuItem>
-          {timezone && access.role === "owner" && (
+          {timezone && (
             <DropdownMenuItem onSelect={() => setSharingOpen(true)}>
               <Users size={17} aria-hidden="true" />
               Sharing and access
@@ -114,7 +114,7 @@ export default function PersonMenu({ name, timezone }: { name?: string; timezone
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      {timezone && access.role === "owner" && (
+      {timezone && (
         <SharingDialog
           open={sharingOpen}
           onOpenChange={setSharingOpen}
