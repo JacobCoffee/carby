@@ -22,10 +22,12 @@ import {
 } from "@/lib/food-lookup";
 import { apiFetch } from "@/lib/person-request";
 import {
+  amountEaten,
   amountInServingUnits,
   parseFoodBasis,
   volumeMl,
   type FoodBasisFields,
+  type Portioned,
 } from "@/lib/portions";
 import BarcodeScanner from "./barcode-scanner";
 import LabelReader, { type LabelFill } from "./label-reader";
@@ -79,24 +81,25 @@ type Draft = {
   savedFoodId?: string;
 };
 
-function draftAmount(draft: Draft): number {
-  return amountInServingUnits({
+function draftPortion(draft: Draft): Portioned {
+  return {
     servings: draft.portion,
     servingSize: String(draft.servingSize),
     unit: draft.unit,
     amountUnit: draft.measureIn === "servings" ? draft.unit : draft.amountUnit,
     byServing: draft.measureIn === "servings",
-  });
+  };
 }
 
 function draftCarbs(draft: Draft): number {
-  const amount = draftAmount(draft);
+  const amount = amountInServingUnits(draftPortion(draft));
   return Number.isFinite(amount) ? (draft.carbsPerServing / draft.servingSize) * amount : NaN;
 }
 
 function draftToItem(draft: Draft): FoodItem {
   const carbs = draftCarbs(draft);
-  const amount = draftAmount(draft);
+  // Recorded in the unit it was measured in, so the item's carbs are for that amount of that unit.
+  const amount = amountEaten(draftPortion(draft));
   return {
     name: draft.name.trim() || "Unspecified food",
     carbs: Number.isFinite(carbs) ? Math.max(0, Math.min(1000, carbs)) : 0,
