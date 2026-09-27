@@ -46,6 +46,7 @@ const fieldSteps: Record<PlanField, FieldStep | null> = {
   correctionQuietHours: "safety",
   snackInsulinFromCarbs: "safety",
   longActingReminderHours: "safety",
+  usualChangePercent: "safety",
   rescueMedication: "safety",
   meter: "safety",
   basal: "schedule",
@@ -193,6 +194,13 @@ export function planSummary(plan: Plan): SummaryGroup[] {
           plan.longActingReminderHours === undefined
             ? NOT_SET
             : `Within ${plan.longActingReminderHours} hours of the scheduled time`,
+      },
+      {
+        label: "Change from usual",
+        value:
+          plan.usualChangePercent === undefined
+            ? NOT_SET
+            : `Ask when the week's average moves ${plan.usualChangePercent}% or more`,
       },
       { label: "Rescue medication", value: plan.rescueMedication ?? NOT_SET },
       {

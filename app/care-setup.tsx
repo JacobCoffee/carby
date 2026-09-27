@@ -72,6 +72,7 @@ const fieldLabels: Record<PlanField, string> = {
   correctionQuietHours: "overnight correction review hours",
   snackInsulinFromCarbs: "snack insulin cutoff",
   longActingReminderHours: "long-acting reminder window",
+  usualChangePercent: "change from usual",
   rescueMedication: "rescue medication",
   meter: "glucose meter",
   otherContacts: "other care contacts",
@@ -157,6 +158,7 @@ export default function CareSetup({
     correctionQuietHours: saved.correctionQuietHours,
     snackInsulinFromCarbs: saved.snackInsulinFromCarbs,
     longActingReminderHours: saved.longActingReminderHours,
+    usualChangePercent: saved.usualChangePercent,
     rescueMedication: saved.rescueMedication,
     meter: saved.meter,
   });
