@@ -70,7 +70,7 @@ test("a household serving on the label becomes its own option", () => {
     nutriments: { carbohydrates_serving: 21, carbohydrates_100g: 70 },
   });
   assert.deepEqual(match.servings, [
-    { label: "2 cookies (30 g)", servingSize: 2, unit: "cookies", carbs: 21 },
+    { label: "2 cookies (30 g)", servingSize: 2, unit: "cookies", carbs: 21, grams: 30 },
     { label: "30 g", servingSize: 30, unit: "g", carbs: 21 },
   ]);
 });
@@ -106,7 +106,7 @@ test("the printed serving unit wins over a conflicting unit field", () => {
     nutriments: { carbohydrates_serving: 17, carbohydrates_100g: 6.83 },
   });
   assert.deepEqual(match.servings, [
-    { label: "1 cup (249 g)", servingSize: 1, unit: "cup", carbs: 17 },
+    { label: "1 cup (249 g)", servingSize: 1, unit: "cup", carbs: 17, grams: 249 },
     { label: "249 g", servingSize: 249, unit: "g", carbs: 17 },
   ]);
 });

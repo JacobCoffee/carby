@@ -15,6 +15,8 @@ const servingSchema = z.object({
   servingSize: z.number().positive().max(1000),
   unit: z.string().trim().min(1).max(40),
   carbs: z.number().min(0).max(1000),
+  /** What the serving weighs, when it is a measure like a cup and the label prints its grams. */
+  grams: z.number().positive().max(1000).optional(),
 });
 export type FoodServing = z.infer<typeof servingSchema>;
 const matchSchema = z.object({
@@ -150,6 +152,7 @@ export function parseOpenFoodFactsProduct(product: unknown): FoodMatch | null {
         servingSize: household.size,
         unit: household.unit,
         carbs: perServing,
+        ...(quantity && quantityUnit === "g" ? { grams: quantity } : {}),
       });
     if (quantity && quantityUnit)
       servings.push({

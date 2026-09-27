@@ -94,6 +94,8 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 In **Add a new food**, type a food name or barcode and choose **Look up**, choose **Scan barcode** to use the camera, or choose **Photo of label** to read a Nutrition Facts panel. Picking a result fills in the carbs, serving size and unit (and the name, for lookups), and nothing is added until you check the values against the package and choose **Add this food**.
 
+A food whose serving is a measure like "1 cup" can also keep what that serving weighs (**Serving weight (g)**, filled in when the label prints it, as in "1 cup (37 g)"). Then a portion can be logged in servings, cups or grams.
+
 - Barcodes are looked up in [Open Food Facts](https://world.openfoodfacts.org) first, then in [USDA FoodData Central](https://fdc.nal.usda.gov) if Open Food Facts doesn't know the product or lists no carbs. Name searches ask both; FoodData Central also covers plain foods such as fruit and rice.
 - FoodData Central needs `USDA_API_KEY` ([free key](https://fdc.nal.usda.gov/api-key-signup)). Without it, only Open Food Facts is used.
 - Only the barcode or the search words leave Carby. Values come from each database as published and can be wrong, so check them against the label.
