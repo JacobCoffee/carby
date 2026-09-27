@@ -72,7 +72,7 @@ function foodNames(entry: Entry): string[] {
 }
 
 /** Index of the first reading at or after `at`. */
-function firstAtOrAfter(times: number[], at: number) {
+export function firstAtOrAfter(times: number[], at: number) {
   let lo = 0,
     hi = times.length;
   while (lo < hi) {
@@ -184,10 +184,40 @@ export function mealResponses(entries: Entry[], cgm: CgmReading[], now: number):
   return responses.reverse();
 }
 
-function median(values: number[]) {
+/** The middle value, rounded to a whole number when it falls between two. */
+export function median(values: number[]) {
   const sorted = [...values].sort((a, b) => a - b),
     mid = sorted.length >> 1;
   return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+export type UncoveredMeals = {
+  meals: number;
+  medianCarbs: number;
+  /** A lower bound when `riseCapped`. */
+  medianRise: number;
+  medianPeakMinutes: number;
+  riseCapped: boolean;
+};
+
+/**
+ * Complete, comparable meals with no rapid-acting insulin logged from an hour before to 30
+ * minutes after: how far glucose rose with nothing logged to bring it down. Null with fewer than
+ * three such meals.
+ */
+export function mealsWithoutInsulin(
+  responses: MealResponse[],
+  minMeals = MIN_MEALS_FOR_RANKING,
+): UncoveredMeals | null {
+  const meals = responses.filter((r) => r.status === "ok" && r.rise !== null && r.rapidUnits === 0);
+  if (meals.length < minMeals) return null;
+  return {
+    meals: meals.length,
+    medianCarbs: median(meals.map((r) => r.carbs)),
+    medianRise: median(meals.map((r) => r.rise!)),
+    medianPeakMinutes: median(meals.map((r) => r.peakMinutes!)),
+    riseCapped: meals.some((r) => r.riseCapped),
+  };
 }
 
 /**
