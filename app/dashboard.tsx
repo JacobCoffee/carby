@@ -35,6 +35,7 @@ import {
   Siren,
   Candy,
   Users,
+  Keyboard,
 } from "lucide-react";
 import {
   Dialog,
@@ -83,6 +84,7 @@ import LogMenu, { type LogAction } from "./log-menu";
 import { useHoverMenu } from "./hover-menu";
 import ShortcutsDialog from "./shortcuts-dialog";
 import { createShortcutMatcher } from "@/lib/shortcuts";
+import { SHOW_HINTS } from "./button-hints";
 import { usePersonAccess } from "./person-context";
 import { can, personLabel } from "@/lib/people";
 import { personHref } from "@/lib/person-request";
@@ -1691,6 +1693,13 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         onSelect: () => void refreshAll(),
       },
       {
+        id: "show-hints",
+        label: "Show button hints",
+        icon: <Keyboard size={17} />,
+        keywords: ["keyboard", "hints", "buttons", "press", "navigate"],
+        onSelect: () => window.dispatchEvent(new Event(SHOW_HINTS)),
+      },
+      {
         id: "data-dexcom",
         label: `Dexcom ${shareDelayed ? "· data delayed" : dexcomConnected ? "· connected" : "· import"}`,
         icon: <Upload size={17} />,
@@ -1863,19 +1872,19 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           <CarbyWordmark />
         </Link>
         <TabsList className="workspace-nav" aria-label="Main navigation">
-          <TabsTrigger value="daily">
+          <TabsTrigger value="daily" title="Daily care · G then D">
             <Activity size={17} />
             <span>Daily care</span>
           </TabsTrigger>
-          <TabsTrigger value="insights" disabled={loading || !!error}>
+          <TabsTrigger value="insights" disabled={loading || !!error} title="Insights · G then I">
             <BarChart3 size={17} />
             <span>Insights</span>
           </TabsTrigger>
-          <TabsTrigger value="logbook" disabled={loading || !!error}>
+          <TabsTrigger value="logbook" disabled={loading || !!error} title="Logbook · G then L">
             <BookOpen size={17} />
             <span>Logbook</span>
           </TabsTrigger>
-          <TabsTrigger value="reports" disabled={loading || !!error}>
+          <TabsTrigger value="reports" disabled={loading || !!error} title="Reports · G then R">
             <FileDown size={17} />
             <span>Reports</span>
           </TabsTrigger>

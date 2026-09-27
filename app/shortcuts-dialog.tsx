@@ -13,6 +13,8 @@ import ShortcutKeys from "./shortcut-keys";
 const GENERAL: { label: string; keys: string[][] }[] = [
   { label: "Search commands", keys: [["⌘", "K"], ["/"]] },
   { label: "Keyboard shortcuts", keys: [["?"], ["⌘", "/"]] },
+  { label: "Button hints, even in a dialog or field", keys: [["⌥", "F"]] },
+  { label: "Save the open dialog", keys: [["⌘", "↵"]] },
 ];
 
 /**
@@ -34,7 +36,9 @@ export default function ShortcutsDialog({
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>
-            Press the keys one after another, not together. They work anywhere outside a text field.
+            Press letter keys one after another, not together. They work anywhere outside a text
+            field; keys with ⌘ or ⌥ are pressed together. With button hints, type the letter shown
+            on a button to press it.
           </DialogDescription>
         </DialogHeader>
         <div className="shortcuts-groups">

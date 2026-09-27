@@ -30,6 +30,7 @@ export const SHORTCUTS: Shortcut[] = [
   { id: "nav-next-day", keys: ["]"], label: "Next day", group: "Day" },
   { id: "nav-today", keys: ["t"], label: "Go to today", group: "Day" },
   { id: "data-refresh", keys: ["r"], label: "Refresh data", group: "General" },
+  { id: "show-hints", keys: ["f"], label: "Show button hints", group: "General" },
 ];
 
 const byId = new Map(SHORTCUTS.map((shortcut) => [shortcut.id, shortcut]));

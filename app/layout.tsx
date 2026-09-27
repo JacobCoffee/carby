@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./theme.css";
 import "./globals.css";
+import ButtonHints from "./button-hints";
 
 export const metadata: Metadata = {
   title: "Carby · Daily care",
@@ -45,7 +46,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <ButtonHints />
+      </body>
     </html>
   );
 }

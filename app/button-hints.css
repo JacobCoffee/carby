@@ -1,0 +1,27 @@
+/* Button hints: a keycap at each control's corner, above dialogs and menus. */
+.button-hints {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+.button-hints .button-hint {
+  position: fixed;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  /* A ring in the page colour keeps it apart from accent-filled panels such as the chart. */
+  box-shadow:
+    0 0 0 1.5px var(--surface),
+    0 1px 4px rgb(var(--shadow-rgb) / 35%);
+}
+.button-hints .button-hint-typed {
+  opacity: 0.55;
+}
