@@ -265,6 +265,32 @@ export const personInvites = pgTable(
   ],
 );
 /**
+ * Tokens that reach one person's data without a browser session, for Nightscout uploaders and
+ * readers. A token acts as the account that created it, with that account's current role, and
+ * is deleted when the account loses access. Only hashes are stored: SHA-256 of the token as sent,
+ * and SHA-1 for the `api-secret` header Nightscout clients send. Not part of backups.
+ */
+export const apiTokens = pgTable(
+  "api_tokens",
+  {
+    id: text("id").primaryKey(),
+    person: text("person").notNull(),
+    account: text("account").notNull(),
+    label: text("label").notNull(),
+    /** Space-separated: read, upload */
+    scopes: text("scopes").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    secretHash: text("secret_hash").notNull(),
+    created: text("created").notNull(),
+    lastUsed: text("last_used"),
+  },
+  (t) => [
+    uniqueIndex("idx_api_tokens_token").on(t.tokenHash),
+    uniqueIndex("idx_api_tokens_secret").on(t.secretHash),
+    index("idx_api_tokens_person_account").on(t.person, t.account),
+  ],
+);
+/**
  * Records changed here that still have to reach another Carby deployment (one-way sync, only
  * when CARBY_SYNC_PUSH_* is set). One row per record; `previous` is the record's revision
  * before the first unsent change, so the receiver can tell whether it was edited there.

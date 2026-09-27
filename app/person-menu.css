@@ -129,6 +129,39 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
 }
+/* A value to copy beside its Copy button; they stack when the dialog is narrow. */
+.sharing-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+.sharing-copy .field {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.sharing-copy input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+.sharing-token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sharing-scopes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sharing-scopes legend {
+  margin-bottom: 8px;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
 .invite-actions {
   margin-top: 28px;
 }

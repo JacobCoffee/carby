@@ -8,6 +8,15 @@ import {
   personCookie,
 } from "@/app/access";
 import { database, type Database } from "@/db/raw";
+import {
+  allowedScopes,
+  MAX_TOKENS_PER_ACCOUNT,
+  newApiToken,
+  parseScopes,
+  tokenActionSchema,
+  tokenHash,
+  tokenSecret,
+} from "@/lib/api-tokens";
 import { canonicalOrigin } from "@/lib/auth-origin";
 import {
   INVITE_DAYS,
@@ -92,15 +101,59 @@ function dropInvitesOfFormerOwner(db: Database, person: string, account: string)
     )
     .bind(person, account);
 }
+/**
+ * Delete the account's tokens its access no longer covers: all of them once it leaves, and upload
+ * tokens once its role can't log (owner and caregiver log, as in `can`).
+ */
+function dropTokensBeyondAccess(db: Database, person: string, account: string) {
+  return db
+    .prepare(
+      "DELETE FROM api_tokens t WHERE t.person = $1 AND t.account = $2 AND NOT EXISTS (SELECT 1 FROM person_members m WHERE m.person = $1 AND m.account = $2 AND (m.role IN ('owner', 'caregiver') OR t.scopes NOT LIKE '%upload%'))",
+    )
+    .bind(person, account);
+}
 
-/** The people this account reaches, and for owners of the active person, who shares it. */
+/** Owners see every token for the person; everyone else sees their own. */
+async function tokenList(db: Database, person: string, account: string, owner: boolean) {
+  const rows = await db
+    .prepare(
+      "SELECT t.id, t.account, t.label, t.scopes, t.created, t.last_used, m.account_name FROM api_tokens t JOIN person_members m ON m.person = t.person AND m.account = t.account WHERE t.person = $1 AND ($2 OR t.account = $3) ORDER BY t.created DESC",
+    )
+    .bind(person, owner, account)
+    .all<{
+      id: string;
+      account: string;
+      label: string;
+      scopes: string;
+      created: string;
+      last_used: string | null;
+      account_name: string;
+    }>();
+  return rows.results.map((row) => ({
+    id: row.id,
+    label: row.label,
+    scopes: parseScopes(row.scopes),
+    createdBy: row.account_name,
+    created: row.created,
+    lastUsed: row.last_used,
+    yours: row.account === account,
+  }));
+}
+
+/** The people this account reaches, its API tokens, and for owners, who shares the person. */
 export async function GET(request: Request) {
   const access = await personAccess(request, "read");
   if (access instanceof Response) return access;
   try {
     const db = database();
     const people = await listPeople(db, access.user);
-    if (access.role !== "owner") return reply({ person: access.person, role: access.role, people });
+    const owner = access.role === "owner";
+    const tokens = {
+      tokens: await tokenList(db, access.person, access.user.userId, owner),
+      tokenScopes: allowedScopes(access.role),
+      apiUrl: (canonicalOrigin({ APP_URL: process.env.APP_URL }) ?? new URL(request.url)).origin,
+    };
+    if (!owner) return reply({ person: access.person, role: access.role, people, ...tokens });
     const invites = await db
       .prepare(
         "SELECT id, role, created_by_name, created, expires FROM person_invites WHERE person = $1 AND accepted_at IS NULL AND expires > $2 ORDER BY created DESC",
@@ -117,6 +170,7 @@ export async function GET(request: Request) {
       person: access.person,
       role: access.role,
       people,
+      ...tokens,
       members: (await memberList(db, access.person)).map((m) => ({
         ...m,
         you: m.account === access.user.userId,
@@ -153,7 +207,7 @@ export async function POST(request: Request) {
   } catch {
     return reply({ error: "Invalid JSON request." }, 400);
   }
-  const parsed = peopleActionSchema.safeParse(raw);
+  const parsed = peopleActionSchema.or(tokenActionSchema).safeParse(raw);
   if (!parsed.success) return reply({ error: "Invalid request." }, 400);
   const body = parsed.data;
   try {
@@ -210,8 +264,15 @@ export async function POST(request: Request) {
       return reply({ ok: true, person }, 200, personCookie(person, secure(request)));
     }
 
-    // Everything below acts on the person this page was opened for.
-    const access = await accessFor(request, user, body.action === "leave" ? "read" : "manage");
+    // Everything below acts on the person this page was opened for. Anyone may leave, and manage
+    // their own API tokens; the rest is for owners.
+    const access = await accessFor(
+      request,
+      user,
+      body.action === "leave" || body.action === "createToken" || body.action === "revokeToken"
+        ? "read"
+        : "manage",
+    );
     if (access instanceof Response) return access;
     const person = access.person;
 
@@ -268,6 +329,73 @@ export async function POST(request: Request) {
         : reply({ error: "That invite was already used or removed." }, 404);
     }
 
+    if (body.action === "createToken") {
+      if (body.scopes.some((scope) => !allowedScopes(access.role).includes(scope)))
+        return reply({ error: "Viewers can make read-only tokens." }, 403);
+      const count = await db
+        .prepare("SELECT COUNT(*)::int AS n FROM api_tokens WHERE person = $1 AND account = $2")
+        .bind(person, user.userId)
+        .first<{ n: number }>();
+      if ((count?.n ?? 0) >= MAX_TOKENS_PER_ACCOUNT)
+        return reply(
+          { error: `You can have up to ${MAX_TOKENS_PER_ACCOUNT} tokens here. Revoke one first.` },
+          400,
+        );
+      const token = newApiToken();
+      const id = crypto.randomUUID();
+      await changeWithHistory(
+        db,
+        "INSERT INTO api_tokens (id, person, account, label, scopes, token_hash, secret_hash, created) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+        [
+          id,
+          person,
+          user.userId,
+          body.label,
+          body.scopes.join(" "),
+          await tokenHash(token),
+          await tokenSecret(token),
+          now,
+        ],
+        {
+          person,
+          entryId: id,
+          actor: user,
+          action: "token created",
+          before: null,
+          after: { label: body.label, scopes: body.scopes },
+        },
+      ).run();
+      return reply({ ok: true, token });
+    }
+
+    if (body.action === "revokeToken") {
+      const owner = access.role === "owner";
+      const existing = await db
+        .prepare(
+          "SELECT label, scopes FROM api_tokens WHERE id = $1 AND person = $2 AND ($3 OR account = $4)",
+        )
+        .bind(body.id, person, owner, user.userId)
+        .first<{ label: string; scopes: string }>();
+      const revoked = existing
+        ? await changeWithHistory(
+            db,
+            "DELETE FROM api_tokens WHERE id = $1 AND person = $2 AND ($3 OR account = $4) RETURNING id",
+            [body.id, person, owner, user.userId],
+            {
+              person,
+              entryId: body.id,
+              actor: user,
+              action: "token revoked",
+              before: { label: existing.label, scopes: parseScopes(existing.scopes) },
+              after: null,
+            },
+          ).run()
+        : null;
+      return revoked?.meta.changes
+        ? reply({ ok: true })
+        : reply({ error: "That token was already revoked." }, 404);
+    }
+
     const members = await memberList(db, person);
     const account = body.action === "leave" ? user.userId : body.account;
     const current = members.find((m) => m.account === account);
@@ -295,6 +423,7 @@ export async function POST(request: Request) {
           },
         ),
         dropInvitesOfFormerOwner(db, person, account),
+        dropTokensBeyondAccess(db, person, account),
       ]);
       return changed?.meta?.changes
         ? reply({ ok: true })
@@ -327,6 +456,7 @@ export async function POST(request: Request) {
         },
       ),
       dropInvitesOfFormerOwner(db, person, account),
+      dropTokensBeyondAccess(db, person, account),
     ]);
     if (!removed?.meta?.changes)
       return reply({ error: "Sharing changed at the same time. Reload and try again." }, 409);

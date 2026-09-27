@@ -1,5 +1,14 @@
 import { getCurrentUser, type User } from "@/app/auth";
 import { database, type Database } from "@/db/raw";
+import {
+  jwtTokenId,
+  parseScopes,
+  requestCredential,
+  scopeNeed,
+  tokenHash,
+  verifyJwt,
+  type ApiScope,
+} from "@/lib/api-tokens";
 import { profileSchema } from "@/lib/profile";
 import {
   can,
@@ -177,4 +186,82 @@ export function personCookie(person: string | null, secure: boolean): string {
   const value = person === null ? "" : encodeURIComponent(person);
   const age = person === null ? 0 : 400 * 86400;
   return `${PERSON_COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? "; Secure" : ""}`;
+}
+
+/** A request made with an API token: the token's person, and its account's current role. */
+export type TokenAccess = Access & { token: { id: string; label: string; scopes: ApiScope[] } };
+
+/** Nightscout clients read `{ status, message }` errors. */
+function tokenReply(status: 401 | 403 | 503, message: string) {
+  return Response.json({ status, message }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+type TokenRow = {
+  id: string;
+  person: string;
+  account: string;
+  label: string;
+  scopes: string;
+  token_hash: string;
+  last_used: string | null;
+  role: string;
+  account_name: string;
+};
+const TOKEN_SELECT =
+  "SELECT t.id, t.person, t.account, t.label, t.scopes, t.token_hash, t.last_used, m.role, m.account_name FROM api_tokens t JOIN person_members m ON m.person = t.person AND m.account = t.account WHERE ";
+
+/**
+ * The access an API token gives a request, in any form Nightscout clients send it. The token acts
+ * as the account that made it, so it stops working when that account leaves or loses the role
+ * its scope needs. Writes record the account as the actor, named "via" the token's label.
+ */
+export async function tokenAccess(
+  request: Request,
+  scope: ApiScope,
+): Promise<TokenAccess | Response> {
+  const credential = requestCredential(request);
+  if (!credential) return tokenReply(401, "Add a Carby API token to this app.");
+  try {
+    const db = database();
+    const now = new Date();
+    let row: TokenRow | null;
+    if (credential.kind === "jwt") {
+      const id = jwtTokenId(credential.jwt);
+      row = id ? await db.prepare(`${TOKEN_SELECT}t.id = $1`).bind(id).first<TokenRow>() : null;
+      if (row && !(await verifyJwt(credential.jwt, row.token_hash, now.getTime() / 1000)))
+        row = null;
+    } else if (credential.kind === "secret") {
+      row = await db
+        .prepare(`${TOKEN_SELECT}t.secret_hash = $1`)
+        .bind(credential.sha1)
+        .first<TokenRow>();
+    } else {
+      row = await db
+        .prepare(`${TOKEN_SELECT}t.token_hash = $1`)
+        .bind(await tokenHash(credential.token))
+        .first<TokenRow>();
+    }
+    if (!row || !isRole(row.role)) return tokenReply(401, "That Carby API token isn’t valid.");
+    const scopes = parseScopes(row.scopes);
+    if (!scopes.includes(scope) || !can(row.role, scopeNeed[scope]))
+      return tokenReply(
+        403,
+        scope === "upload" ? "This token can’t upload." : "This token can’t read.",
+      );
+    // Record use at most once a minute, so a busy uploader doesn't write on every request.
+    if (!row.last_used || now.getTime() - Date.parse(row.last_used) > 60000)
+      await db
+        .prepare("UPDATE api_tokens SET last_used = $1 WHERE id = $2")
+        .bind(now.toISOString(), row.id)
+        .run();
+    return {
+      user: { userId: row.account, displayName: `${row.account_name} via ${row.label}` },
+      person: row.person,
+      role: row.role,
+      token: { id: row.id, label: row.label, scopes },
+    };
+  } catch (e) {
+    console.error("token check failed", e);
+    return tokenReply(503, "Carby is unavailable right now. Please retry.");
+  }
 }

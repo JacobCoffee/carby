@@ -53,6 +53,8 @@ One account can keep logs for several people, such as two children, and several 
 
 Owners open **Sharing and access** from the same menu to create a single-use invite link (valid for 7 days) and to change or remove access. The person invited signs in with their own account, which must still be allowed by `CARBY_ALLOWED_USERS` or `CARBY_ALLOWED_EMAILS`.
 
+Everyone with access can also make **API tokens** there, under **Connected apps**, so an app can reach the person's log without signing in. A token acts as the account that made it: viewers can make read-only tokens, a token stops working when its account loses access, and changes it makes show in the history as "Mom via xDrip+". Carby shows a token once and stores only its hashes. Owners see and can revoke every token for the person.
+
 | Role      | Can                                                                         |
 | --------- | --------------------------------------------------------------------------- |
 | Owner     | Everything, including the care plan, profile, Dexcom, backups and sharing.  |
