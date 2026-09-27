@@ -4,7 +4,15 @@
   background: var(--canvas);
   min-height: 100dvh;
 }
+/* The header is a bar in the theme's chart-panel colour. Its controls use on-panel ink and
+ * translucent "glass" fills mixed from that ink, so every theme retunes them for free. */
 .care-redesign .topbar.care-workspace-topbar {
+  --bar-ink: var(--chart-panel-ink);
+  --bar-ink-muted: var(--chart-panel-ink-muted);
+  --bar-glass: color-mix(in srgb, var(--chart-panel-ink) 11%, transparent);
+  --bar-glass-hover: color-mix(in srgb, var(--chart-panel-ink) 18%, transparent);
+  --bar-glass-line: color-mix(in srgb, var(--chart-panel-ink) 20%, transparent);
+  --bar-pad-x: max(24px, calc((100vw - 1480px) / 2));
   position: relative;
   inset: auto;
   width: 100%;
@@ -13,10 +21,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 14px 28px;
-  padding: 14px max(24px, calc((100vw - 1480px)/2));
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
+  padding: 14px var(--bar-pad-x);
+  background: var(--chart-panel-bg);
+  color: var(--bar-ink);
+  /* Matches the fill in most themes; draws the edge where the panel is as dark as the canvas. */
+  border-bottom: 1px solid var(--chart-panel-border);
   box-shadow: none;
+}
+/* With reminders, the canvas tray closes the bar: no bottom padding, and a canvas-side line. */
+.care-redesign .topbar.care-workspace-topbar:has(> .care-header-reminders) {
+  padding-bottom: 0;
+  border-bottom-color: var(--line);
+}
+.care-redesign .topbar.care-workspace-topbar .carby-brand {
+  color: var(--bar-ink);
+}
+.care-redesign .topbar.care-workspace-topbar .setup-header-label {
+  color: var(--bar-ink-muted);
 }
 .workspace-nav {
   display: flex;
@@ -28,24 +49,21 @@
 .workspace-nav button {
   border: 0;
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--bar-ink-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 44px;
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 999px;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 650;
   white-space: nowrap;
 }
-.workspace-nav button.active {
-  background: var(--accent-wash);
-  color: var(--accent-wash-ink);
-}
 .workspace-nav button:hover {
-  background: var(--surface-sunken);
+  background: var(--bar-glass);
+  color: var(--bar-ink);
 }
 .workspace-header-tools {
   display: flex;
@@ -69,32 +87,61 @@
   width: 44px;
   min-height: 44px;
   height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
   padding: 0;
-  background: var(--surface);
   transition:
     background-color 0.15s ease-out,
     border-color 0.15s ease-out;
-}
-.care-redesign .topbar.care-workspace-topbar .care-workspace-more[data-open] {
-  background: var(--surface-sunken);
-  border-color: var(--line-strong);
 }
 .care-redesign .care-workspace-more .care-workspace-menu-attention {
   position: absolute;
   top: 8px;
   right: 8px;
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: 0 0 0 2px var(--chart-panel-bg);
 }
+/* Search, Care tools, the person switcher and the plan page's way back are glass on the bar. */
+.care-redesign
+  .topbar.care-workspace-topbar
+  :is(.care-command-trigger, .care-workspace-more, .person-menu-trigger, .plan-leave) {
+  border: 1px solid var(--bar-glass-line);
+  border-radius: 12px;
+  background: var(--bar-glass);
+  color: var(--bar-ink);
+}
+.care-redesign
+  .topbar.care-workspace-topbar
+  :is(.care-command-trigger, .care-workspace-more, .person-menu-trigger, .plan-leave):hover:not(
+    :disabled
+  ),
+.care-redesign
+  .topbar.care-workspace-topbar
+  :is(.care-workspace-more, .person-menu-trigger)[data-open] {
+  background: var(--bar-glass-hover);
+  color: var(--bar-ink);
+}
+.care-redesign .topbar.care-workspace-topbar .care-command-trigger kbd {
+  border-color: transparent;
+  background: var(--bar-glass);
+  color: var(--bar-ink);
+}
+.care-redesign .topbar.care-workspace-topbar .person-menu-avatar {
+  background: var(--bar-ink);
+  color: var(--chart-panel-bg);
+}
+/* The accent focus ring disappears on an accent bar, so controls on the bar ring in its ink. */
+.care-redesign .topbar.care-workspace-topbar > :not(.care-header-reminders) :focus-visible,
+.care-redesign .topbar.care-workspace-topbar > .carby-brand:focus-visible {
+  outline: 3px solid var(--bar-ink);
+  outline-offset: 3px;
+}
+/* Low help keeps its own danger fill, so it never reads as part of the bar. */
 .care-redesign .care-workspace-emergency-link {
   font-size: 14px;
   min-height: 44px;
   height: 44px;
-  background: var(--event-correction-bg);
+  background: var(--danger-bg);
   color: var(--danger-ink);
   border-color: var(--danger-border);
-  border-radius: 11px;
+  border-radius: 12px;
   padding: 0 13px;
 }
 .care-redesign main {
@@ -922,8 +969,9 @@
     display: none;
   }
   .care-redesign .topbar.care-workspace-topbar {
+    --bar-pad-x: 20px;
     gap: 16px;
-    padding: 14px 20px;
+    padding: 14px var(--bar-pad-x);
   }
   .care-redesign main {
     padding: 24px 20px 32px;
@@ -949,17 +997,35 @@
   }
 }
 @media (max-width: 680px) {
+  /* The wordmark and every tool share the first row; the tabs take the second. */
   .care-redesign .topbar.care-workspace-topbar {
-    padding: 12px 14px;
+    --bar-pad-x: 12px;
+    padding: 10px var(--bar-pad-x);
     min-height: 72px;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 12px 10px;
+  }
+  .care-redesign .topbar.care-workspace-topbar .carby-brand {
+    min-height: 44px;
+  }
+  .care-redesign .topbar.care-workspace-topbar .carby-brand svg {
+    width: 92px;
+    height: 36px;
   }
   .workspace-header-tools {
     margin-left: auto;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 8px;
+  }
+  /* The avatar alone names the person; the menu lists everyone. */
+  .care-redesign .topbar.care-workspace-topbar .person-menu-trigger {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .care-redesign .topbar.care-workspace-topbar .person-menu-trigger > svg {
+    display: none;
   }
   .care-redesign .care-workspace-emergency-link {
     font-size: 13px;
@@ -968,14 +1034,19 @@
   .workspace-nav {
     order: 3;
     flex-basis: 100%;
-    padding-top: 2px;
-    gap: 8px;
+  }
+  .care-redesign .topbar.care-workspace-topbar .workspace-nav {
+    gap: 4px;
+    padding: 4px;
+    border-radius: 16px;
+    background: var(--bar-glass);
   }
   .workspace-nav button {
     flex: 1;
     font-size: 14px;
     min-height: 42px;
     padding: 8px 12px;
+    border-radius: 12px;
   }
   .care-redesign .workspace-report-nav {
     display: flex;
@@ -1208,8 +1279,20 @@
 }
 @media (max-width: 380px) {
   .care-redesign .topbar.care-workspace-topbar {
-    padding-inline: 10px;
-    gap: 8px;
+    --bar-pad-x: 10px;
+    gap: 12px 8px;
+  }
+  .care-redesign .topbar.care-workspace-topbar .carby-brand svg {
+    width: 84px;
+    height: 32px;
+  }
+  /* The dot alone carries freshness here; the whole control still refreshes. */
+  .care-redesign .care-header-status {
+    min-width: 40px;
+    justify-content: center;
+  }
+  .care-redesign .care-header-status svg {
+    display: none;
   }
   .care-redesign .care-workspace-emergency-link {
     gap: 4px;
@@ -1250,13 +1333,10 @@
   box-shadow: none;
   transition: background-color 0.15s;
 }
+/* The active tab inverts: a solid chip in bar ink with the bar colour as its text. */
 .care-redesign .workspace-nav button[data-state="active"] {
-  background: var(--accent-wash);
-  color: var(--accent-wash-ink);
-}
-.care-redesign .workspace-nav button:focus-visible {
-  outline: 2px solid var(--accent-deep);
-  outline-offset: 3px;
+  background: var(--bar-ink);
+  color: var(--chart-panel-bg);
 }
 .care-page-panel[hidden] {
   display: none !important;
@@ -1696,15 +1776,21 @@
   overflow-wrap: anywhere;
 }
 
-/* Current reminders stay in the shared header on every care tab. Chips share the row evenly
- * and wrap to a new row once each would drop below its minimum width. */
+/* Current reminders stay in the shared header on every care tab. They sit in a full-width canvas
+ * tray whose rounded top closes the header bar. Chips share the row evenly and wrap to a new row
+ * once each would drop below its minimum width. */
 .care-header-reminders {
   display: flex;
   flex-wrap: wrap;
-  flex-basis: 100%;
   order: 4;
   gap: 10px;
   min-width: 0;
+  flex-basis: calc(100% + 2 * var(--bar-pad-x, 0px));
+  margin-inline: calc(-1 * var(--bar-pad-x, 0px));
+  padding: 12px var(--bar-pad-x, 0px);
+  border-radius: 18px 18px 0 0;
+  background: var(--canvas);
+  color: var(--ink);
 }
 .care-redesign .care-header-reminder {
   display: flex;
@@ -1716,7 +1802,7 @@
   padding: 11px 15px;
   border: 1px solid var(--info-border);
   border-radius: 12px;
-  background: var(--canvas);
+  background: var(--surface);
   color: var(--info-ink);
   line-height: 1.4;
 }
@@ -1892,7 +1978,7 @@
   border: 1px solid transparent;
   border-radius: 11px;
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--bar-ink-muted);
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1903,30 +1989,28 @@
     color 0.15s ease-out;
 }
 .care-redesign .care-header-status:hover:not(:disabled) {
-  background: var(--surface-sunken);
-  border-color: var(--line);
-  color: var(--ink);
-}
-.care-redesign .care-header-status:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
+  background: var(--bar-glass);
+  border-color: var(--bar-glass-line);
+  color: var(--bar-ink);
 }
 .care-redesign .care-header-status:disabled {
   cursor: default;
 }
 .care-redesign .care-header-status svg {
-  color: var(--ink-faint);
+  color: var(--bar-ink-muted);
   transition: color 0.15s ease-out;
 }
 .care-redesign .care-header-status:hover:not(:disabled) svg {
-  color: var(--accent-solid);
+  color: var(--bar-ink);
 }
 .care-header-status-dot {
   position: relative;
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--ink-faint);
+  background: var(--bar-ink-muted);
+  /* A ring in bar ink keeps the status colour legible on every theme's bar. */
+  box-shadow: 0 0 0 1.5px var(--bar-ink);
 }
 .care-header-status[data-state="live"] .care-header-status-dot {
   background: var(--success-strong);
@@ -1934,8 +2018,9 @@
 .care-header-status[data-state="delayed"] .care-header-status-dot {
   background: var(--event-dose-marker);
 }
+/* chart-review is the warning ink that stays readable on the chart-panel colour. */
 .care-header-status[data-state="delayed"] .care-header-status-text {
-  color: var(--warning-ink);
+  color: var(--chart-review);
 }
 /* A slow ring breathes out of the dot while data is live. */
 .care-header-status[data-state="live"] .care-header-status-dot::after {
@@ -2224,7 +2309,7 @@
     height: 40px;
     padding: 0 10px;
     gap: 7px;
-    border-color: var(--line);
+    border-color: var(--bar-glass-line);
   }
 }
 @media (min-width: 681px) {
