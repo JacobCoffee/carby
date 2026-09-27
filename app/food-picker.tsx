@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
 import { Pencil, Plus, Search, Star, Trash2, X } from "lucide-react";
 import type { FoodItem, SavedFood } from "@/lib/care";
 import {
@@ -108,14 +108,25 @@ function PortionField({ draft, onChange }: { draft: Draft; onChange: (next: Draf
   );
 }
 
-/** The label fields for a food: shared by "Add a new food" and editing a food in this meal. */
+/**
+ * The label fields for a food: shared by "Add a new food" and editing a food in this meal.
+ * The picker sits inside entry and calculator forms, so these fields are not a form of their
+ * own (a nested form submits as a page load); Enter runs `onEnter` instead of submitting.
+ */
 function FoodBasisInputs({
   fields,
   onChange,
+  onEnter,
 }: {
   fields: FoodBasisFields;
   onChange: (next: FoodBasisFields) => void;
+  onEnter: () => void;
 }) {
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onEnter();
+  };
   return (
     <div className="food-picker-new-fields">
       <label className="field">
@@ -124,6 +135,7 @@ function FoodBasisInputs({
           value={fields.name}
           onChange={(event) => onChange({ ...fields, name: event.target.value })}
           placeholder="Food name"
+          onKeyDown={onKeyDown}
         />
       </label>
       <label className="field">
@@ -137,6 +149,7 @@ function FoodBasisInputs({
           value={fields.carbs}
           onChange={(event) => onChange({ ...fields, carbs: event.target.value })}
           placeholder="0"
+          onKeyDown={onKeyDown}
         />
       </label>
       <label className="field">
@@ -148,6 +161,7 @@ function FoodBasisInputs({
           step="any"
           value={fields.servingSize}
           onChange={(event) => onChange({ ...fields, servingSize: event.target.value })}
+          onKeyDown={onKeyDown}
         />
       </label>
       <label className="field">
@@ -156,6 +170,7 @@ function FoodBasisInputs({
           value={fields.unit}
           onChange={(event) => onChange({ ...fields, unit: event.target.value })}
           placeholder="cup, slice, piece"
+          onKeyDown={onKeyDown}
         />
       </label>
     </div>
@@ -228,8 +243,7 @@ export function FoodPicker({
     });
   }
 
-  async function submitNewFood(event: FormEvent) {
-    event.preventDefault();
+  async function addNewFood() {
     const basis = parseFoodBasis(newFood);
     if (!basis) return;
     let savedFoodId: string | undefined;
@@ -390,11 +404,12 @@ export function FoodPicker({
         </p>
       )}
 
-      <form className="food-picker-new" onSubmit={(event) => void submitNewFood(event)}>
+      <div className="food-picker-new">
         <strong>Add a new food</strong>
         <FoodBasisInputs
           fields={newFood}
           onChange={(fields) => setNewFood({ ...newFood, ...fields })}
+          onEnter={() => void addNewFood()}
         />
         <label className="food-picker-save-toggle">
           <input
@@ -404,11 +419,16 @@ export function FoodPicker({
           />
           Save for next time
         </label>
-        <button type="submit" className="button outline" disabled={!parseFoodBasis(newFood)}>
+        <button
+          type="button"
+          className="button outline"
+          disabled={!parseFoodBasis(newFood)}
+          onClick={() => void addNewFood()}
+        >
           <Plus size={15} />
           Add this food
         </button>
-      </form>
+      </div>
 
       {drafts.length > 0 && (
         <div className="food-picker-items">
@@ -434,6 +454,7 @@ export function FoodPicker({
                     <FoodBasisInputs
                       fields={edit.fields}
                       onChange={(fields) => setEditing({ key: draft.key, fields })}
+                      onEnter={() => saveEdit(draft)}
                     />
                     {!editValid && (
                       <p className="helper" role="status">
