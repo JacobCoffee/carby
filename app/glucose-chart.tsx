@@ -43,6 +43,8 @@ import {
   type ChartZoom,
 } from "@/lib/chart-window";
 import { uniqueCgm } from "@/lib/cgm-metrics";
+import { inQuietHours } from "@/lib/correction-review";
+import { nightlySchedule } from "@/lib/nightly-reminder";
 import { glucoseLevel, glucoseLevelNames } from "@/lib/glucose-metrics";
 import {
   glucoseRanges,
@@ -76,7 +78,8 @@ type Props = {
   /** Earliest instant the loaded CGM history covers. Older periods get a limitation note. */
   cgmHistoryStart?: number | null;
   cgmHistoryCapped?: boolean;
-  plan: Pick<Plan, "glucoseRanges" | "meter">;
+  /** Review times inside `correctionQuietHours` are left off; `basal` at `basalTime` draws a nightly line. */
+  plan: Pick<Plan, "glucoseRanges" | "meter" | "basal" | "basalTime" | "correctionQuietHours">;
 };
 type ChartRecord = { at: string; type: string; detail: string; source: string; timeNote?: string };
 type StatusRun = { first: CgmReading; last: CgmReading; status: "High" | "Low"; count: number };
@@ -505,7 +508,7 @@ const GlucoseChart = memo(function GlucoseChart({
   onSelectDoseFood,
   illnesses = [],
   now,
-  correctionAt = null,
+  correctionAt: nextReviewAt = null,
   correctionHours = 0,
   onSelectIllness,
   range,
@@ -539,6 +542,21 @@ const GlucoseChart = memo(function GlucoseChart({
   );
   const totalMinutes = (bounds.end - bounds.start) / 60000;
   const minuteOf = (at: string) => (Date.parse(at) - bounds.start) / 60000;
+  const quietHours = plan.correctionQuietHours;
+  // The plan gives no corrections in its quiet hours, so a review due then is not marked.
+  const correctionAt =
+    nextReviewAt && !inQuietHours(Date.parse(nextReviewAt), quietHours, timezone)
+      ? nextReviewAt
+      : null;
+  const nightlyTimes = useMemo(
+    () =>
+      nightlySchedule(
+        { basal: plan.basal, basalTime: plan.basalTime, timezone },
+        bounds.start,
+        bounds.end,
+      ),
+    [plan.basal, plan.basalTime, timezone, bounds],
+  );
   const when = (at: string) => stamp(at, timezone, multiDay);
   const clock = (minute: number) => when(new Date(bounds.start + minute * 60000).toISOString());
   const plotRef = useRef<HTMLDivElement>(null);
@@ -851,11 +869,18 @@ const GlucoseChart = memo(function GlucoseChart({
             return [];
           const at = new Date(Date.parse(entry.at) + correctionHours * 3600000).toISOString();
           const minute = minuteOf(at);
-          return minute >= start && minute <= end && !(showCorrection && at === correctionAt)
+          return minute >= start &&
+            minute <= end &&
+            !(showCorrection && at === correctionAt) &&
+            !inQuietHours(Date.parse(at), quietHours, timezone)
             ? [{ at, minute, passed: Date.parse(at) <= now }]
             : [];
         })
       : [];
+  const nightlyMarks = nightlyTimes.flatMap((at) => {
+    const minute = minuteOf(at);
+    return minute >= start && minute <= end ? [{ at, minute }] : [];
+  });
   const cursorX = cursor === null ? null : x(cursor);
   const labelCount = span === 24 && !zoom ? 5 : 4;
   const labels = Array.from(
@@ -1034,6 +1059,7 @@ const GlucoseChart = memo(function GlucoseChart({
   if (visibleRescue.length) presentLayers.add("rescue");
   if (visibleEvents.length) presentLayers.add("device");
   if (showCorrection || reviewMarks.length) presentLayers.add("review");
+  if (nightlyMarks.length) presentLayers.add("nightly");
   const pressable = (select: { label: string; run: () => void }) => ({
     role: "button",
     tabIndex: 0,
@@ -1612,6 +1638,20 @@ const GlucoseChart = memo(function GlucoseChart({
               );
             }),
           )}
+          {shows("nightly") &&
+            nightlyMarks.map((mark) => (
+              <line
+                key={mark.at}
+                data-layer="nightly"
+                x1={x(mark.minute)}
+                x2={x(mark.minute)}
+                y1={TOP}
+                y2={BOTTOM}
+                className="chart-nightly-line"
+              >
+                <title>{`Scheduled long-acting · ${eventTime(mark.at, timezone)} · from your care plan`}</title>
+              </line>
+            ))}
           {shows("review") &&
             reviewMarks.map((mark) => (
               <line

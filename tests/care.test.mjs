@@ -224,6 +224,28 @@ test("basal=0 allows no scheduled long-acting time; basal>0 requires a valid one
   assert.equal(planSchema.safeParse({ ...plan, basal: 5, basalTime: "" }).success, false);
   assert.equal(planSchema.safeParse({ ...plan, basal: 5, basalTime: "20:00" }).success, true);
 });
+test("overnight correction quiet hours are optional, need two different times, and are kept or flagged whole", () => {
+  assert.equal("correctionQuietHours" in planSchema.parse(plan), false);
+  const night = { start: "23:00", end: "06:00" };
+  assert.deepEqual(
+    planSchema.parse({ ...plan, correctionQuietHours: night }).correctionQuietHours,
+    night,
+  );
+  for (const bad of [
+    { start: "23:00", end: "23:00" },
+    { start: "11pm", end: "06:00" },
+    { start: "23:00" },
+  ]) {
+    assert.equal(planSchema.safeParse({ ...plan, correctionQuietHours: bad }).success, false);
+    const draft = planDraft({ ...plan, correctionQuietHours: bad });
+    assert.equal("correctionQuietHours" in draft.values, false);
+    assert.deepEqual(draft.invalid, ["correctionQuietHours"]);
+  }
+  assert.deepEqual(
+    planDraft({ ...plan, correctionQuietHours: night }).values.correctionQuietHours,
+    night,
+  );
+});
 test("structured food portions remain tied to the logged carbohydrate total", () => {
   const food = {
     id: crypto.randomUUID(),

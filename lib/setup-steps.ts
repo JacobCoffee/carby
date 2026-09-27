@@ -42,6 +42,7 @@ const fieldSteps: Record<PlanField, FieldStep | null> = {
   sickDayChecks: "safety",
   lowTreatment: "safety",
   overnightCheck: "safety",
+  correctionQuietHours: "safety",
   snackInsulinFromCarbs: "safety",
   rescueMedication: "safety",
   meter: "safety",
@@ -121,6 +122,7 @@ export type SummaryGroup = { step: number; title: string; rows: SummaryRow[] };
 export function planSummary(plan: Plan): SummaryGroup[] {
   const ranges = plan.glucoseRanges;
   const { correctionCallCheck, sickDayChecks, lowTreatment, overnightCheck, meter } = plan;
+  const quietHours = plan.correctionQuietHours;
   const groups: Record<FieldStep, SummaryRow[]> = {
     math: [
       { label: "Glucose target", value: `${plan.target} mg/dL` },
@@ -175,6 +177,12 @@ export function planSummary(plan: Plan): SummaryGroup[] {
         label: "Overnight check",
         value: overnightCheck
           ? `${clock(overnightCheck.time)} through ${calendarDay(overnightCheck.until)}`
+          : NOT_SET,
+      },
+      {
+        label: "Overnight correction reviews",
+        value: quietHours
+          ? `Hidden ${clock(quietHours.start)} to ${clock(quietHours.end)}`
           : NOT_SET,
       },
       {

@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { nightlyReminder } from "../lib/nightly-reminder.ts";
+import { nightlyReminder, nightlySchedule } from "../lib/nightly-reminder.ts";
 const plan = { basal: 9, timezone: "America/Chicago", basalTime: "23:00" };
 const dose = (at) => ({ id: at, kind: "insulin", insulin: "Long-acting", units: 9, at });
 const prior = dose("2026-09-25T04:00:00Z");
@@ -48,5 +48,28 @@ test("basal=0 explicitly disables the reminder rather than scheduling a fake dos
   assert.equal(
     nightlyReminder([prior], Date.parse("2026-09-26T04:00:00Z"), { ...plan, basal: 0 }),
     null,
+  );
+});
+test("the chart schedule lists each day's local dose time in the window, skipping a missing clock time", () => {
+  assert.deepEqual(
+    nightlySchedule(plan, Date.parse("2026-09-25T05:00:00Z"), Date.parse("2026-09-28T05:00:00Z")),
+    ["2026-09-26T04:00:00.000Z", "2026-09-27T04:00:00.000Z", "2026-09-28T04:00:00.000Z"],
+  );
+  // 2:30 AM does not exist on the spring-forward day.
+  assert.deepEqual(
+    nightlySchedule(
+      { ...plan, basalTime: "02:30" },
+      Date.parse("2027-03-13T06:00:00Z"),
+      Date.parse("2027-03-16T05:00:00Z"),
+    ),
+    ["2027-03-13T08:30:00.000Z", "2027-03-15T07:30:00.000Z"],
+  );
+  assert.deepEqual(
+    nightlySchedule(
+      { ...plan, basal: 0, basalTime: "" },
+      Date.parse("2026-09-25T05:00:00Z"),
+      Date.parse("2026-09-28T05:00:00Z"),
+    ),
+    [],
   );
 });

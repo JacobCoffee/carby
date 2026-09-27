@@ -1,3 +1,5 @@
+import { localInput, type CorrectionQuietHours } from "./care";
+
 export type CorrectionReview = {
   at: string;
   state: "upcoming" | "window" | "passed";
@@ -53,4 +55,21 @@ export function correctionReviewStatus(
           ? `Correction review · ${date}, ${time}`
           : "Correction review · window passed",
   };
+}
+
+/**
+ * Whether `at` falls in the plan's overnight quiet hours: from `start` up to, not including, `end`
+ * on the plan zone's wall clock, wrapping past midnight. Always false when the plan sets none.
+ */
+export function inQuietHours(
+  at: number,
+  quiet: CorrectionQuietHours | undefined,
+  timezone: string,
+): boolean {
+  if (!quiet || !Number.isFinite(at)) return false;
+  // HH:MM strings order the same as the times they name.
+  const clock = localInput(new Date(at), timezone).slice(11);
+  return quiet.start < quiet.end
+    ? clock >= quiet.start && clock < quiet.end
+    : clock >= quiet.start || clock < quiet.end;
 }

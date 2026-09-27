@@ -239,10 +239,19 @@ const calendarDateValue = z
     const parsed = new Date(`${v}T12:00:00Z`);
     return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === v;
   }, "Enter a valid date.");
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a valid time (HH:MM).");
 export const overnightCheckSchema = z.object({
-  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Enter a valid time (HH:MM)."),
+  time: clockTime,
   until: calendarDateValue,
 });
+/** Wall-clock hours, in the plan's zone, when the plan gives no correction doses. May run past midnight. */
+export const correctionQuietHoursSchema = z
+  .object({ start: clockTime, end: clockTime })
+  .refine((v) => v.start !== v.end, {
+    message: "Enter different start and end times.",
+    path: ["end"],
+  });
+export type CorrectionQuietHours = z.infer<typeof correctionQuietHoursSchema>;
 export const meterSchema = z.object({
   name: z.string().trim().max(60).optional(),
   hi: positiveInt(100, 1000),
@@ -290,6 +299,7 @@ const planFields = z.object({
   sickDayChecks: sickDayChecksSchema.optional(),
   lowTreatment: lowTreatmentSchema.optional(),
   overnightCheck: overnightCheckSchema.optional(),
+  correctionQuietHours: correctionQuietHoursSchema.optional(),
   snackInsulinFromCarbs: z.number().min(1).max(100).optional(),
   rescueMedication: z.string().trim().min(1).max(60).optional(),
   meter: meterSchema.optional(),
@@ -351,6 +361,7 @@ export function planDraft(saved: unknown): PlanDraft {
       key === "sickDayChecks" ||
       key === "lowTreatment" ||
       key === "overnightCheck" ||
+      key === "correctionQuietHours" ||
       key === "snackInsulinFromCarbs" ||
       key === "rescueMedication" ||
       key === "meter" ||
@@ -443,6 +454,7 @@ export function planDraft(saved: unknown): PlanDraft {
     ["sickDayChecks", sickDayChecksSchema],
     ["lowTreatment", lowTreatmentSchema],
     ["overnightCheck", overnightCheckSchema],
+    ["correctionQuietHours", correctionQuietHoursSchema],
     ["meter", meterSchema],
   ] as const) {
     if (source[key] === undefined) continue;
