@@ -32,7 +32,8 @@ const ROUNDS = 20;
 const TIMEOUT_MS = 15000;
 const MIN_TOKEN = 32;
 
-export type PushConfig = { url: string; token: string; person: string };
+/** `sitesToken` passes a ChatGPT Sites access gate in front of the receiver. */
+export type PushConfig = { url: string; token: string; person: string; sitesToken?: string };
 export type AcceptConfig = { token: string; person: string };
 type Env = Record<string, string | undefined>;
 
@@ -50,10 +51,20 @@ export function pushConfig(env: Env): PushConfig | null {
       parsed.hostname !== "127.0.0.1"
     )
       return null;
-    return { url: parsed.origin, token, person };
+    const sitesToken = env.CARBY_SYNC_PUSH_SITES_TOKEN?.trim();
+    return { url: parsed.origin, token, person, ...(sitesToken ? { sitesToken } : {}) };
   } catch {
     return null;
   }
+}
+
+/** Headers for a push: the sync token, and the Sites access token when one is set. */
+export function syncRequestHeaders(config: PushConfig): Record<string, string> {
+  return {
+    Authorization: `Bearer ${config.token}`,
+    "Content-Type": "application/json",
+    ...(config.sitesToken ? { "OAI-Sites-Authorization": `Bearer ${config.sitesToken}` } : {}),
+  };
 }
 
 /** Receiver settings: a long token and the person every received record belongs to. */
@@ -444,7 +455,7 @@ export function flushSync(
       try {
         const response = await send(`${config.url}/api/sync`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
+          headers: syncRequestHeaders(config),
           body: JSON.stringify({ changes }),
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });

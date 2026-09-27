@@ -94,7 +94,7 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 If you run two deployments, say one on your computer and one online, each change you log on one (the sender) can be forwarded to the other (the receiver). Entries, meals and doses, illness periods and check-ins, appointments, saved foods, the care plan and the profile are sent, including edits and deletes. CGM readings and Dexcom events are not; connect Dexcom on each deployment.
 
-- **Sender:** set `CARBY_SYNC_PUSH_URL` (the receiver's address), `CARBY_SYNC_PUSH_TOKEN` and `CARBY_SYNC_PUSH_PERSON` (the person whose changes are sent; local sign-in is `local_dev`).
+- **Sender:** set `CARBY_SYNC_PUSH_URL` (the receiver's address), `CARBY_SYNC_PUSH_TOKEN` and `CARBY_SYNC_PUSH_PERSON` (the person whose changes are sent; local sign-in is `local_dev`). If the receiver is a ChatGPT Sites deployment behind Sites access control, also set `CARBY_SYNC_PUSH_SITES_TOKEN`; it's sent as `OAI-Sites-Authorization`.
 - **Receiver:** set `CARBY_SYNC_ACCEPT_TOKEN` to the same token (`openssl rand -hex 32`) and `CARBY_SYNC_ACCEPT_PERSON` to the person there, such as `github:12345`. Received changes appear in its change history as made by Carby sync.
 
 Changes are queued with the save, so nothing is lost when the receiver is unreachable; they go on the next save or refresh, and the dashboard says when they're waiting. If a record was also changed on the receiver, the change is held back and the dashboard offers **Send mine anyway** or **Keep theirs**. Only changes made after sync is turned on are sent, so start both from the same data: download a backup from the sender and use **Replace from backup** on the receiver.

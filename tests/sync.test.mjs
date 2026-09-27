@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { acceptConfig, pushConfig, syncDecision } from "../lib/sync.ts";
+import { acceptConfig, pushConfig, syncDecision, syncRequestHeaders } from "../lib/sync.ts";
 
 const record = (revision, note = "") => JSON.stringify({ id: "r", revision, note });
 const token = "t".repeat(32);
@@ -53,4 +53,21 @@ test("sync needs every setting and a long token, and only sends over https off t
     acceptConfig({ CARBY_SYNC_ACCEPT_TOKEN: "short", CARBY_SYNC_ACCEPT_PERSON: "github:1" }),
     null,
   );
+});
+
+test("a Sites access token is sent in its own header, beside the sync token", () => {
+  const push = {
+    CARBY_SYNC_PUSH_URL: "https://carby.example",
+    CARBY_SYNC_PUSH_TOKEN: token,
+    CARBY_SYNC_PUSH_PERSON: "local_dev",
+  };
+  const plain = syncRequestHeaders(pushConfig(push));
+  assert.equal(plain.Authorization, `Bearer ${token}`);
+  assert.equal("OAI-Sites-Authorization" in plain, false);
+  const gated = syncRequestHeaders(pushConfig({ ...push, CARBY_SYNC_PUSH_SITES_TOKEN: " site " }));
+  assert.equal(gated.Authorization, `Bearer ${token}`);
+  assert.equal(gated["OAI-Sites-Authorization"], "Bearer site");
+  // Blank means no gate.
+  const blank = syncRequestHeaders(pushConfig({ ...push, CARBY_SYNC_PUSH_SITES_TOKEN: " " }));
+  assert.equal("OAI-Sites-Authorization" in blank, false);
 });
