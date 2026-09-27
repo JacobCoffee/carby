@@ -42,10 +42,10 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
         },
         {
           layer: "estimate",
-          label: "Similar days",
+          label: "Likely range",
           swatch: <i className="legend-estimate" aria-hidden="true" />,
           title:
-            "What followed a similar reading at this time on past days. Not a forecast or dosing advice.",
+            "The next 2 hours, fitted on your own CGM history. It can't see food, insulin or activity. Not dosing advice.",
         },
       ],
     },

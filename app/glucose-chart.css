@@ -365,7 +365,7 @@ button.chart-layer[aria-pressed="false"] > :first-child {
   stroke-dasharray: 3 5;
   opacity: 0.75;
 }
-/* What followed a similar reading on past days: kept faint so it never reads as data. */
+/* The likely range ahead of now: kept faint so it never reads as data. */
 .chart-estimate-band {
   fill: color-mix(in srgb, var(--chart-sensor) 16%, transparent);
 }

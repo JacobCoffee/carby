@@ -772,30 +772,30 @@ textarea {
   margin-top: 6px;
   font-size: 12px;
 }
-.similar-days-chart {
+.estimate-chart {
   display: block;
   width: 100%;
   height: auto;
   margin: 4px 0 10px;
 }
-.similar-days-chart text {
+.estimate-chart text {
   fill: var(--chart-panel-ink-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
-.similar-days-chart .similar-days-range {
+.estimate-chart .estimate-chart-range {
   fill: color-mix(in srgb, var(--chart-panel-ink) 8%, transparent);
 }
-.similar-days-chart .similar-days-band {
+.estimate-chart .estimate-chart-band {
   fill: color-mix(in srgb, var(--chart-sensor) 22%, transparent);
 }
-.similar-days-chart .similar-days-median {
+.estimate-chart .estimate-chart-median {
   fill: none;
   stroke: var(--chart-sensor);
   stroke-width: 2;
   stroke-dasharray: 5 4;
 }
-.similar-days-chart .similar-days-now {
+.estimate-chart .estimate-chart-now {
   fill: var(--chart-sensor);
 }
 .team-card {

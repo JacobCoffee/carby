@@ -143,14 +143,8 @@ import { correctionMarkerAt } from "@/lib/correction-marker";
 import { mealRatioAt } from "@/lib/report-analysis";
 import { correctionReviewStatus } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
-import {
-  SIMILAR_MIN_DAYS,
-  SIMILAR_VALUE_MGDL,
-  estimateLabel,
-  similarDays,
-  similarDaysOutside,
-} from "@/lib/similar-days";
-import { SimilarDaysChart } from "./similar-days-chart";
+import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
+import { EstimateChart } from "./estimate-chart";
 import CareHeaderReminders, { OvernightBanner } from "./care-header-reminders";
 import DexcomCredentialsForm, { type DexcomCredentials } from "./dexcom-credentials";
 import IllnessDialog from "./illness-dialog";
@@ -932,11 +926,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     for (const reading of cgm) earliest = Math.min(earliest, Date.parse(reading.at));
     return Number.isFinite(earliest) ? earliest : null;
   }, [cgm]);
-  // What followed a reading like the current one at this time on past days. Descriptive only.
-  const estimate = useMemo(
-    () => similarDays(cgm, now?.getTime() ?? NaN, plan.timezone),
-    [cgm, now, plan.timezone],
-  );
+  // The next two hours' likely range, fitted on this person's CGM history. Never dosing advice.
+  const estimate = useMemo(() => glucoseEstimate(cgm, now?.getTime() ?? NaN), [cgm, now]);
   // The care API loads CGM and Dexcom events from the last 45 days, newest first, up to 15,000 CGM rows.
   const cgmHistoryStart = historyLimited
     ? earliestLoadedCgm
@@ -1126,7 +1117,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         : `${latest.value} mg/dL`
       : null;
   const nightly = nightlyReminder(entries, now?.getTime() ?? NaN, plan);
-  const estimateOutside = similarDaysOutside(estimate, ranges.low, ranges.high);
   const nowMs = now?.getTime() ?? NaN;
   const sickStatus = Number.isFinite(nowMs)
     ? sickDayStatus({ illnesses: illnessWindows, entries, cgm, plan, now: nowMs })
@@ -2982,44 +2972,37 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               <Plus size={16} />
             </button>
             <section className="night-estimate" aria-labelledby="night-estimate-title">
-              <h3 id="night-estimate-title">After similar readings on past days</h3>
+              <h3 id="night-estimate-title">Likely range, next 2 hours</h3>
               {estimate.state === "ready" ? (
                 <>
-                  <SimilarDaysChart estimate={estimate} ranges={ranges} time={time} />
+                  <EstimateChart estimate={estimate} ranges={ranges} time={time} />
                   <dl>
-                    {[4, 12, 24].flatMap((i) => {
+                    {[2, 4, 8].flatMap((i) => {
                       const point = estimate.points[i];
                       return point
                         ? [
                             <div key={point.at}>
                               <dt>{time(point.at)}</dt>
                               <dd>
-                                <strong>{estimateLabel(point.p50)}</strong> median · most{" "}
-                                {estimateLabel(point.p10)}–{estimateLabel(point.p90)} mg/dL
+                                <strong>{estimateLabel(point.median)}</strong> median · most likely{" "}
+                                {estimateLabel(point.low)}–{estimateLabel(point.high)} mg/dL
                               </dd>
                             </div>,
                           ]
                         : [];
                     })}
                   </dl>
-                  {estimateOutside && (
-                    <p>
-                      Below {ranges.low} on {estimateOutside.below} of {estimate.matched} days ·
-                      above {ranges.high} on {estimateOutside.above}.
-                    </p>
-                  )}
                   <p className="night-estimate-note">
-                    From {estimate.matched} past days with a CGM reading within {SIMILAR_VALUE_MGDL}{" "}
-                    mg/dL of {estimate.value}
-                    {estimate.trend ? ` and ${estimate.trend}` : ""} around {time(estimate.at)}.
-                    This describes those days, not tonight, and is not dosing advice.
+                    From how your CGM readings moved after trends like this one, over about{" "}
+                    {Math.round((estimate.examples * 5) / 60)} hours of your history. It uses CGM
+                    only, so it can’t see food, insulin or activity, and it is not dosing advice.
                   </p>
                 </>
               ) : (
                 <p className="night-estimate-note">
-                  {estimate.state === "too-few"
-                    ? `Only ${estimate.matched} past ${estimate.matched === 1 ? "day" : "days"} had a reading like ${estimate.value} around ${time(estimate.at)}. At least ${SIMILAR_MIN_DAYS} are needed.`
-                    : "No current CGM reading to compare with past days."}
+                  {estimate.state === "learning"
+                    ? "The likely range shows after about a day of CGM readings."
+                    : "Needs a current CGM reading and the hour before it."}
                 </p>
               )}
             </section>
