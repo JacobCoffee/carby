@@ -544,7 +544,14 @@ const GlucoseChart = memo(function GlucoseChart({
     () => chartDaysWindow(endDay, dayCount, timezone),
     [endDay, dayCount, timezone],
   );
-  const totalMinutes = (bounds.end - bounds.start) / 60000;
+  const dayMinutes = (bounds.end - bounds.start) / 60000;
+  // Viewing today, the chart runs on past the day's end far enough to show the whole likely range.
+  const estimateEndMinute =
+    estimate?.state === "ready" && !multiDay && endDay === today
+      ? (Date.parse(estimate.points.at(-1)?.at ?? "") - bounds.start) / 60000 || 0
+      : 0;
+  const ahead = Math.max(0, Math.ceil(estimateEndMinute / 60) * 60 - dayMinutes);
+  const totalMinutes = dayMinutes + ahead;
   const minuteOf = (at: string) => (Date.parse(at) - bounds.start) / 60000;
   const quietHours = plan.correctionQuietHours;
   // The plan gives no corrections in its quiet hours, so a review due then is not marked.
@@ -635,7 +642,8 @@ const GlucoseChart = memo(function GlucoseChart({
           totalMinutes,
           Math.max(
             span * 60,
-            windowEnd ?? Math.ceil(Math.max(recent, nowMinutes, upcomingMinute) / 60) * 60,
+            windowEnd ??
+              Math.ceil(Math.max(recent, nowMinutes, upcomingMinute, estimateEndMinute) / 60) * 60,
           ),
         );
   const baseStart = span === 24 ? 0 : Math.max(0, baseEnd - span * 60),
@@ -905,9 +913,11 @@ const GlucoseChart = memo(function GlucoseChart({
         ? { right: `calc(${100 - (cursorX / W) * 100}% + 12px)` }
         : { left: `calc(${(cursorX / W) * 100}% + 12px)` };
   const labelCount = span === 24 && !zoom ? 5 : 4;
+  // The day view keeps its own clock labels; any stretch past midnight is the likely range.
+  const labelSpan = span === 24 && !zoom ? duration - ahead : duration;
   const labels = Array.from(
     { length: labelCount },
-    (_, i) => start + (duration * i) / (labelCount - 1),
+    (_, i) => start + (labelSpan * i) / (labelCount - 1),
   );
   // Long spans label whole days; a multi-day chart zoomed to a day and a half or less uses clock times.
   const dayAxis = multiDay && duration > 2160;
@@ -1463,6 +1473,17 @@ const GlucoseChart = memo(function GlucoseChart({
                   pointerEvents="none"
                 />
               ),
+          )}
+          {ahead > 0 && dayMinutes < end && (
+            <line
+              x1={x(dayMinutes)}
+              x2={x(dayMinutes)}
+              y1={TOP - 6}
+              y2={AXIS_Y}
+              stroke="var(--chart-panel-ink)"
+              opacity=".12"
+              pointerEvents="none"
+            />
           )}
           <rect
             x={LEFT}
