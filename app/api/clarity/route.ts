@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database } from "@/db/raw";
 import {
   CLARITY_REPORTS,
@@ -84,11 +85,14 @@ async function status(owner: string, row?: ClarityConnectionRow | null): Promise
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in first." }, 401);
+  const access = await accessFor(request, user, "read");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
-    return reply(await status(user.userId));
+    return reply(await status(owner));
   } catch {
     return reply({ error: "Clarity status is unavailable." }, 503);
   }
@@ -107,7 +111,16 @@ export async function POST(request: Request) {
   } catch {
     return reply({ error: "Invalid JSON request." }, 400);
   }
-  const owner = user.userId;
+  // Connecting and changing settings is for owners; syncing and archiving reports is logging.
+  const access = await accessFor(
+    request,
+    user,
+    body.action === "sync" || body.action === "report" || body.action === "backfill"
+      ? "log"
+      : "manage",
+  );
+  if (access instanceof Response) return access;
+  const owner = access.person;
   const db = database();
   try {
     if (body.action === "check" || body.action === "connect") {
@@ -206,13 +219,13 @@ export async function DELETE(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in first." }, 401);
   if (!sameOrigin(request)) return reply({ error: "Request origin rejected." }, 403);
+  const access = await accessFor(request, user, "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
     // Readings and archived reports stay; only the share code is forgotten.
-    await database()
-      .prepare("DELETE FROM clarity_connections WHERE owner = $1")
-      .bind(user.userId)
-      .run();
-    return reply(await status(user.userId, null));
+    await database().prepare("DELETE FROM clarity_connections WHERE owner = $1").bind(owner).run();
+    return reply(await status(owner, null));
   } catch {
     return reply({ error: "Could not disconnect Clarity." }, 503);
   }

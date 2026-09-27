@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database } from "@/db/raw";
 import { fromLocal, glucoseRanges, planSchema } from "@/lib/care";
 import type { ClarityDevice } from "@/lib/clarity";
@@ -25,6 +26,9 @@ function reply(data: unknown, status = 200) {
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in to access your care log." }, 401);
+  const access = await accessFor(request, user, "read");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   const params = new URL(request.url).searchParams;
   const startDay = params.get("start"),
     endDay = params.get("end");
@@ -39,7 +43,7 @@ export async function GET(request: Request) {
     const db = database();
     const saved = await db
       .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-      .bind(user.userId)
+      .bind(owner)
       .first<{ data: string }>();
     const plan = saved ? planSchema.safeParse(JSON.parse(saved.data)) : null;
     if (!plan?.success) return reply({ error: "Configure your care plan first." }, 409);
@@ -54,17 +58,17 @@ export async function GET(request: Request) {
         .prepare(
           "SELECT at, value, source FROM (SELECT at, value, source, ROW_NUMBER() OVER (PARTITION BY at ORDER BY CASE WHEN value IN ('High','Low') THEN 1 ELSE 0 END, CASE WHEN source = 'Dexcom Clarity' THEN 0 ELSE 1 END) AS chosen FROM cgm_readings WHERE owner = $1 AND at >= $2 AND at < $3) AS ranked WHERE chosen = 1 ORDER BY at",
         )
-        .bind(user.userId, from, to)
+        .bind(owner, from, to)
         .all<{ at: string; value: string; source: string }>(),
       db
         .prepare(
           "SELECT sensor_id, source, first_at, last_at FROM sensor_sessions WHERE owner = $1 ORDER BY first_at",
         )
-        .bind(user.userId)
+        .bind(owner)
         .all<{ sensor_id: string; source: string | null; first_at: string; last_at: string }>(),
       db
         .prepare("SELECT data FROM cgm_device_settings WHERE owner = $1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>(),
     ]);
     const ranges = glucoseRanges(plan.data);

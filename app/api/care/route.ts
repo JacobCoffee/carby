@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database } from "@/db/raw";
 import { illnessSchema, validateIllnessDates } from "@/lib/illness";
 import { appointmentSchema } from "@/lib/appointments";
@@ -22,6 +23,8 @@ import {
 import { clarityReadingStatements, clarityEventStatements } from "@/lib/cgm-sql";
 import type { ClarityFreshness, SensorSession } from "@/lib/cgm-summary";
 export const dynamic = "force-dynamic";
+/** Actions that change the care plan, the profile or imported device history: owners only. */
+const MANAGE_ACTIONS = new Set(["plan", "profile", "importCgm", "importDexcomEvents"]);
 function audit(
   db: ReturnType<typeof database>,
   owner: string,
@@ -55,6 +58,9 @@ function reply(data: unknown, status = 200) {
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in to access your care log." }, 401);
+  const access = await accessFor(request, user, "read");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
     const db = database();
     // The longer history is read only when Insights needs a 30-day comparison.
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
         .prepare(
           "SELECT at, value, source FROM (SELECT at, value, source, ROW_NUMBER() OVER (PARTITION BY at ORDER BY CASE WHEN value IN ('High','Low') THEN 1 ELSE 0 END, CASE WHEN source = 'Dexcom Clarity' THEN 0 ELSE 1 END) AS chosen FROM cgm_readings WHERE owner = $1 AND at >= $2) AS ranked WHERE chosen = 1 ORDER BY at DESC LIMIT 22000",
         )
-        .bind(user.userId, since)
+        .bind(owner, since)
         .all<{ at: string; value: string; source: string }>();
       return conditionalJson(request, {
         cgm: cgm.results.map((r) => ({
@@ -94,55 +100,55 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       db
         .prepare("SELECT data, updated FROM entries WHERE owner = $1 ORDER BY at DESC")
-        .bind(user.userId)
+        .bind(owner)
         .all<{ data: string; updated?: string }>(),
       db
         .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>(),
       db
         .prepare("SELECT data, created FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 20")
-        .bind(user.userId)
+        .bind(owner)
         .all<{ data: string; created: string }>(),
       db
         .prepare("SELECT data FROM saved_foods WHERE owner = $1 ORDER BY name")
-        .bind(user.userId)
+        .bind(owner)
         .all<{ data: string }>(),
       db
         .prepare(
           "SELECT at, value, source FROM (SELECT at, value, source, ROW_NUMBER() OVER (PARTITION BY at ORDER BY CASE WHEN value IN ('High','Low') THEN 1 ELSE 0 END, CASE WHEN source = 'Dexcom Clarity' THEN 0 ELSE 1 END) AS chosen FROM cgm_readings WHERE owner = $1 AND at >= $2) AS ranked WHERE chosen = 1 ORDER BY at DESC LIMIT 15000",
         )
-        .bind(user.userId, since)
+        .bind(owner, since)
         .all<{ at: string; value: string; source: string }>(),
       db
         .prepare(
           "SELECT data FROM dexcom_events WHERE owner = $1 AND at >= $2 ORDER BY at DESC LIMIT 5000",
         )
-        .bind(user.userId, since)
+        .bind(owner, since)
         .all<{ data: string }>(),
       db
         .prepare("SELECT data FROM illness_windows WHERE owner = $1 ORDER BY start_date DESC")
-        .bind(user.userId)
+        .bind(owner)
         .all<{ data: string }>(),
       db
         .prepare("SELECT data FROM profiles WHERE owner = $1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>(),
       db
         .prepare("SELECT data FROM appointments WHERE owner = $1 ORDER BY at")
-        .bind(user.userId)
+        .bind(owner)
         .all<{ data: string }>(),
       db
         .prepare(
           "SELECT sensor_id, source, first_at, last_at FROM sensor_sessions WHERE owner = $1 ORDER BY last_at DESC LIMIT 1",
         )
-        .bind(user.userId)
+        .bind(owner)
         .first<{ sensor_id: string; source: string | null; first_at: string; last_at: string }>(),
       db
         .prepare(
           "SELECT last_sync, last_error, (SELECT MAX(at) FROM cgm_readings WHERE owner = $1 AND source = 'Dexcom Clarity') AS latest_at FROM clarity_connections WHERE owner = $1",
         )
-        .bind(user.userId)
+        .bind(owner)
         .first<{ last_sync: string | null; last_error: string | null; latest_at: string | null }>(),
     ]);
     const savedPlan: unknown = plan ? JSON.parse(plan.data) : null;
@@ -202,22 +208,29 @@ export async function POST(request: Request) {
     const raw: unknown = await request.json();
     if (!raw || typeof raw !== "object") return reply({ error: "Invalid request." }, 400);
     const body = raw as Record<string, unknown>;
+    const access = await accessFor(
+      request,
+      user,
+      MANAGE_ACTIONS.has(String(body.action)) ? "manage" : "log",
+    );
+    if (access instanceof Response) return access;
+    const owner = access.person;
     const db = database();
     if (body.action === "plan") {
       const plan = planSchema.parse(body.plan);
       const prior = await db
         .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>();
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await db.batch([
         db
           .prepare("INSERT INTO plans (id, owner, data, created) VALUES ($1, $2, $3, $4)")
-          .bind(id, user.userId, JSON.stringify(plan), now),
+          .bind(id, owner, JSON.stringify(plan), now),
         audit(
           db,
-          user.userId,
+          owner,
           user.userId,
           user.displayName,
           id,
@@ -232,7 +245,7 @@ export async function POST(request: Request) {
         .prepare("SELECT owner, data, updated FROM entries WHERE id = $1")
         .bind(requested.id)
         .first<{ owner: string; data: string; updated: string }>();
-      if (existing && existing.owner !== user.userId)
+      if (existing && existing.owner !== owner)
         return reply({ error: "Entry is unavailable." }, 403);
       const previous = existing ? entrySchema.parse(JSON.parse(existing.data)) : null;
       const entry = preserveEntryContext(requested, previous);
@@ -249,7 +262,7 @@ export async function POST(request: Request) {
       const next = JSON.stringify({ ...entry, revision });
       const plan = await db
         .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>();
       const parsedPlan = plan ? planSchema.safeParse(JSON.parse(plan.data)) : null;
       if (!existing && (!parsedPlan || !parsedPlan.success))
@@ -264,7 +277,7 @@ export async function POST(request: Request) {
               next,
               new Date().toISOString(),
               entry.id,
-              user.userId,
+              owner,
               existing.data,
               existing.updated,
             )
@@ -272,7 +285,7 @@ export async function POST(request: Request) {
             .prepare(
               "INSERT INTO entries (id, owner, at, data, plan, updated) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT(id) DO NOTHING",
             )
-            .bind(entry.id, user.userId, entry.at, next, plan!.data, new Date().toISOString());
+            .bind(entry.id, owner, entry.at, next, plan!.data, new Date().toISOString());
       const results = await db.batch([
         changed,
         db
@@ -281,7 +294,7 @@ export async function POST(request: Request) {
           )
           .bind(
             crypto.randomUUID(),
-            user.userId,
+            owner,
             entry.id,
             user.userId,
             user.displayName,
@@ -290,7 +303,7 @@ export async function POST(request: Request) {
             next,
             new Date().toISOString(),
             entry.id,
-            user.userId,
+            owner,
             next,
           ),
       ]);
@@ -346,7 +359,7 @@ export async function POST(request: Request) {
               ? Promise.resolve({ data: JSON.stringify(food) })
               : db
                   .prepare("SELECT data FROM entries WHERE id = $1 AND owner = $2")
-                  .bind(id, user.userId)
+                  .bind(id, owner)
                   .first<{ data: string }>(),
           ),
         );
@@ -362,7 +375,7 @@ export async function POST(request: Request) {
       }
       const plan = await db
         .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-        .bind(user.userId)
+        .bind(owner)
         .first<{ data: string }>();
       const parsedPlan = plan ? planSchema.safeParse(JSON.parse(plan.data)) : null;
       if (!parsedPlan || !parsedPlan.success)
@@ -382,7 +395,7 @@ export async function POST(request: Request) {
           duplicates.every(
             (row, index) =>
               row &&
-              row.owner === user.userId &&
+              row.owner === owner &&
               sameEntry(proposed[index], entrySchema.parse(JSON.parse(row.data))),
           )
         )
@@ -400,14 +413,14 @@ export async function POST(request: Request) {
           .prepare(
             "INSERT INTO entries (id, owner, at, data, plan, updated) VALUES ($1, $2, $3, $4, $5, $6)",
           )
-          .bind(entry.id, user.userId, entry.at, JSON.stringify(entry), snapshot, updated),
+          .bind(entry.id, owner, entry.at, JSON.stringify(entry), snapshot, updated),
       );
       await db.batch([
         ...items,
         ...proposed.map((entry) =>
           audit(
             db,
-            user.userId,
+            owner,
             user.userId,
             user.displayName,
             entry.id,
@@ -425,8 +438,7 @@ export async function POST(request: Request) {
         .prepare("SELECT owner, data, plan, updated FROM entries WHERE id = $1")
         .bind(body.doseId)
         .first<{ owner: string; data: string; plan: string; updated: string }>();
-      if (!stored || stored.owner !== user.userId)
-        return reply({ error: "Dose is unavailable." }, 403);
+      if (!stored || stored.owner !== owner) return reply({ error: "Dose is unavailable." }, 403);
       const previous = entrySchema.parse(JSON.parse(stored.data));
       const existing = await db
         .prepare("SELECT owner, data FROM entries WHERE id = $1")
@@ -434,7 +446,7 @@ export async function POST(request: Request) {
         .first<{ owner: string; data: string }>();
       if (existing) {
         if (
-          existing.owner === user.userId &&
+          existing.owner === owner &&
           previous.calculation?.foodEntryIds.includes(food.id) &&
           sameEntry(food, entrySchema.parse(JSON.parse(existing.data)))
         )
@@ -460,13 +472,13 @@ export async function POST(request: Request) {
           .prepare(insertMealFoodSql)
           .bind(
             food.id,
-            user.userId,
+            owner,
             food.at,
             foodData,
             stored.plan,
             updated,
             previous.id,
-            user.userId,
+            owner,
             stored.data,
             stored.updated,
           ),
@@ -476,11 +488,11 @@ export async function POST(request: Request) {
             next,
             updated,
             previous.id,
-            user.userId,
+            owner,
             stored.data,
             stored.updated,
             food.id,
-            user.userId,
+            owner,
             foodData,
           ),
         ...[
@@ -493,7 +505,7 @@ export async function POST(request: Request) {
             )
             .bind(
               crypto.randomUUID(),
-              user.userId,
+              owner,
               record.id,
               user.userId,
               user.displayName,
@@ -502,7 +514,7 @@ export async function POST(request: Request) {
               record.after,
               updated,
               previous.id,
-              user.userId,
+              owner,
               next,
             ),
         ),
@@ -525,7 +537,7 @@ export async function POST(request: Request) {
         .prepare("SELECT owner, data, updated FROM illness_windows WHERE id = $1")
         .bind(requested.id)
         .first<{ owner: string; data: string; updated: string }>();
-      if (existing && existing.owner !== user.userId)
+      if (existing && existing.owner !== owner)
         return reply({ error: "Illness record is unavailable." }, 403);
       if (body.action === "deleteIllness" && !existing)
         return reply({ error: "Illness record no longer exists." }, 404);
@@ -546,16 +558,16 @@ export async function POST(request: Request) {
       const [guarded, guardArgs]: [string, unknown[]] = deleting
         ? [
             "DELETE FROM illness_windows WHERE id = $1 AND owner = $2 AND data = $3",
-            [requested.id, user.userId, existing!.data],
+            [requested.id, owner, existing!.data],
           ]
         : existing
           ? [
               "UPDATE illness_windows SET start_date = $1, data = $2, updated = $3 WHERE id = $4 AND owner = $5 AND data = $6",
-              [requested.startDate, next, updated, requested.id, user.userId, existing.data],
+              [requested.startDate, next, updated, requested.id, owner, existing.data],
             ]
           : [
               "INSERT INTO illness_windows (id, owner, start_date, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO NOTHING",
-              [requested.id, user.userId, requested.startDate, next, updated],
+              [requested.id, owner, requested.startDate, next, updated],
             ];
       // One statement: the audit row is written only when the guarded change applied. The audit
       // values are numbered after the guarded statement's own parameters.
@@ -567,7 +579,7 @@ export async function POST(request: Request) {
         .bind(
           ...guardArgs,
           crypto.randomUUID(),
-          user.userId,
+          owner,
           requested.id,
           user.userId,
           user.displayName,
@@ -589,7 +601,7 @@ export async function POST(request: Request) {
         .prepare("SELECT owner, data, updated FROM appointments WHERE id = $1")
         .bind(requested.id)
         .first<{ owner: string; data: string; updated: string }>();
-      if (existing && existing.owner !== user.userId)
+      if (existing && existing.owner !== owner)
         return reply({ error: "Appointment is unavailable." }, 403);
       if (existing && requested.revision !== JSON.parse(existing.data).revision)
         return reply(
@@ -609,12 +621,12 @@ export async function POST(request: Request) {
             .prepare(
               "UPDATE appointments SET at = $1, data = $2, updated = $3 WHERE id = $4 AND owner = $5 AND data = $6",
             )
-            .bind(appointment.at, next, updated, requested.id, user.userId, existing.data)
+            .bind(appointment.at, next, updated, requested.id, owner, existing.data)
         : db
             .prepare(
               "INSERT INTO appointments (id, owner, at, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO NOTHING",
             )
-            .bind(requested.id, user.userId, appointment.at, next, updated);
+            .bind(requested.id, owner, appointment.at, next, updated);
       const results = await db.batch([
         changed,
         db
@@ -623,7 +635,7 @@ export async function POST(request: Request) {
           )
           .bind(
             crypto.randomUUID(),
-            user.userId,
+            owner,
             requested.id,
             user.userId,
             user.displayName,
@@ -632,7 +644,7 @@ export async function POST(request: Request) {
             next,
             updated,
             requested.id,
-            user.userId,
+            owner,
             next,
           ),
       ]);
@@ -648,23 +660,12 @@ export async function POST(request: Request) {
     } else if (body.action === "deleteAppointment" && typeof body.id === "string") {
       const previous = await db
         .prepare("SELECT data FROM appointments WHERE id = $1 AND owner = $2")
-        .bind(body.id, user.userId)
+        .bind(body.id, owner)
         .first<{ data: string }>();
       if (!previous) return reply({ error: "Appointment no longer exists." }, 404);
       await db.batch([
-        db
-          .prepare("DELETE FROM appointments WHERE id = $1 AND owner = $2")
-          .bind(body.id, user.userId),
-        audit(
-          db,
-          user.userId,
-          user.userId,
-          user.displayName,
-          body.id,
-          "deleted",
-          previous.data,
-          null,
-        ),
+        db.prepare("DELETE FROM appointments WHERE id = $1 AND owner = $2").bind(body.id, owner),
+        audit(db, owner, user.userId, user.displayName, body.id, "deleted", previous.data, null),
       ]);
     } else if (body.action === "food") {
       const food = savedFoodSchema.parse(body.food);
@@ -672,12 +673,12 @@ export async function POST(request: Request) {
         .prepare(
           "INSERT INTO saved_foods (id, owner, name, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET name = excluded.name, data = excluded.data, updated = excluded.updated WHERE saved_foods.owner = excluded.owner",
         )
-        .bind(food.id, user.userId, food.name, JSON.stringify(food), new Date().toISOString())
+        .bind(food.id, owner, food.name, JSON.stringify(food), new Date().toISOString())
         .run();
     } else if (body.action === "deleteFood" && typeof body.id === "string") {
       await db
         .prepare("DELETE FROM saved_foods WHERE id = $1 AND owner = $2")
-        .bind(body.id, user.userId)
+        .bind(body.id, owner)
         .run();
     } else if (body.action === "profile") {
       const profile = profileSchema.parse(body.profile);
@@ -685,7 +686,7 @@ export async function POST(request: Request) {
         .prepare(
           "INSERT INTO profiles (id, owner, data, updated) VALUES ($1, $2, $3, $4) ON CONFLICT (owner) DO UPDATE SET id = excluded.id, data = excluded.data, updated = excluded.updated",
         )
-        .bind(profile.id, user.userId, JSON.stringify(profile), new Date().toISOString())
+        .bind(profile.id, owner, JSON.stringify(profile), new Date().toISOString())
         .run();
     } else if (body.action === "importCgm") {
       if (!Array.isArray(body.readings) || body.readings.length === 0 || body.readings.length > 250)
@@ -698,7 +699,7 @@ export async function POST(request: Request) {
           { error: "CSV readings are in the future. Check the export time zone before importing." },
           400,
         );
-      const { saves, cleanups } = await clarityReadingStatements(db, user.userId, readings);
+      const { saves, cleanups } = await clarityReadingStatements(db, owner, readings);
       const results = await db.batch([...saves, ...cleanups]);
       const changed = results
         .slice(0, saves.length)
@@ -722,7 +723,7 @@ export async function POST(request: Request) {
           { error: "CSV events are in the future. Check the export time zone before importing." },
           400,
         );
-      const results = await db.batch(await clarityEventStatements(db, user.userId, events));
+      const results = await db.batch(await clarityEventStatements(db, owner, events));
       const changed = results.reduce((sum, result) => sum + (result.meta?.changes ?? 0), 0);
       return reply({
         ok: true,
@@ -733,21 +734,12 @@ export async function POST(request: Request) {
     } else if (body.action === "delete" && typeof body.id === "string") {
       const previous = await db
         .prepare("SELECT data FROM entries WHERE id = $1 AND owner = $2")
-        .bind(body.id, user.userId)
+        .bind(body.id, owner)
         .first<{ data: string }>();
       if (!previous) return reply({ error: "Entry no longer exists." }, 404);
       await db.batch([
-        db.prepare("DELETE FROM entries WHERE id = $1 AND owner = $2").bind(body.id, user.userId),
-        audit(
-          db,
-          user.userId,
-          user.userId,
-          user.displayName,
-          body.id,
-          "deleted",
-          previous.data,
-          null,
-        ),
+        db.prepare("DELETE FROM entries WHERE id = $1 AND owner = $2").bind(body.id, owner),
+        audit(db, owner, user.userId, user.displayName, body.id, "deleted", previous.data, null),
       ]);
     } else {
       return reply({ error: "Invalid action." }, 400);

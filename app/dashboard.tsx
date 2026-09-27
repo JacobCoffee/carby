@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/person-request";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Thermometer,
@@ -12,6 +13,7 @@ import {
   Clock3,
   Command as CommandIcon,
   Droplet,
+  Eye,
   Heart,
   Loader2,
   LogOut,
@@ -76,6 +78,10 @@ import {
 } from "@/lib/theme";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
+import PersonMenu from "./person-menu";
+import { usePersonAccess } from "./person-context";
+import { can, personLabel } from "@/lib/people";
+import { personHref } from "@/lib/person-request";
 import { toast } from "sonner";
 import DoctorReport from "./doctor-report";
 import CareHandoff from "./care-handoff";
@@ -281,6 +287,9 @@ const fmt = (n: number) => Number(n.toFixed(2)).toString();
 export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const [setup, setSetup] = useState<{ incompletePlan?: PlanDraft } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const personAccess = usePersonAccess();
+  const canLog = can(personAccess.role, "log");
+  const canManage = can(personAccess.role, "manage");
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [dexcomEvents, setDexcomEvents] = useState<DexcomEvent[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]),
@@ -454,12 +463,12 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         const statusEpoch = dexcomEpoch.current;
         try {
           const [response, status] = await Promise.all([
-            fetch("/api/care", {
+            apiFetch("/api/care", {
               cache: "no-store",
               signal: controller.signal,
               headers: careEtag.current ? { "If-None-Match": careEtag.current } : {},
             }),
-            fetch("/api/dexcom", { cache: "no-store", signal: controller.signal })
+            apiFetch("/api/dexcom", { cache: "no-store", signal: controller.signal })
               .then(async (response) =>
                 response.ok ? ((await response.json()) as ShareStatus) : null,
               )
@@ -601,7 +610,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     lastAttemptRef.current = new Date().toISOString();
     try {
       if (manual) setDexcomBusy(true);
-      const response = await fetch("/api/dexcom", {
+      const response = await apiFetch("/api/dexcom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "sync", force: manual }),
@@ -660,7 +669,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     const result = await syncDexcom(true);
     if (!result) return null;
     try {
-      const response = await fetch("/api/care", { cache: "no-store" });
+      const response = await apiFetch("/api/care", { cache: "no-store" });
       if (!response.ok) throw new Error("Could not read the synced glucose log.");
       const data = (await response.json()) as { cgm: CgmReading[] };
       const share = currentShareForCorrection(
@@ -689,7 +698,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     setDexcomBusy(true);
     setDexcomMessage("");
     try {
-      const response = await fetch("/api/dexcom", {
+      const response = await apiFetch("/api/dexcom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "connect", ...credentials }),
@@ -726,7 +735,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     dexcomEpoch.current++;
     setDexcomBusy(true);
     try {
-      const response = await fetch("/api/dexcom", { method: "DELETE" });
+      const response = await apiFetch("/api/dexcom", { method: "DELETE" });
       if (!response.ok) throw new Error("Could not disconnect.");
       setDexcomConnected(false);
       setDexcomLastSync(null);
@@ -1162,12 +1171,16 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   }
   async function mutate(body: unknown, onSaved?: (data: { illness?: IllnessWindow }) => void) {
     if (writeRunning.current) return false;
+    if (!canLog) {
+      toast.error("Your access is view only.");
+      return false;
+    }
     writeRunning.current = true;
     refreshGate.current.invalidate();
     setRefreshing(false);
     setSaving(true);
     try {
-      const r = await fetch("/api/care", {
+      const r = await apiFetch("/api/care", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -1323,7 +1336,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         eventsUnchanged = 0,
         legacyDuplicatesRemoved = 0;
       for (let i = 0; i < parsed.readings.length; i += 200) {
-        const response = await fetch("/api/care", {
+        const response = await apiFetch("/api/care", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1345,7 +1358,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         legacyDuplicatesRemoved += outcome.legacyDuplicatesRemoved ?? 0;
       }
       for (let i = 0; i < parsed.events.length; i += 200) {
-        const response = await fetch("/api/care", {
+        const response = await apiFetch("/api/care", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1635,19 +1648,23 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         disabled: busy,
         onSelect: () => setImportOpen(true),
       },
-      {
-        id: "data-export",
-        label: "Download all data",
-        icon: <FileDown size={17} />,
-        keywords: ["download", "export", "backup", "csv"],
-        disabled: busy,
-        onSelect: () => {
-          const link = document.createElement("a");
-          link.href = "/api/export";
-          link.download = "";
-          link.click();
-        },
-      },
+      ...(canManage
+        ? [
+            {
+              id: "data-export",
+              label: "Download all data",
+              icon: <FileDown size={17} />,
+              keywords: ["download", "export", "backup", "csv"],
+              disabled: busy,
+              onSelect: () => {
+                const link = document.createElement("a");
+                link.href = personHref("/api/export", personAccess.person);
+                link.download = "";
+                link.click();
+              },
+            },
+          ]
+        : []),
       {
         id: "data-care-plan",
         label: "Care plan",
@@ -1697,11 +1714,16 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       onSelect: () => chooseTheme(option.value),
     }));
     return [
-      { heading: "Log", items: logGroup },
-      { heading: "Calculate", items: calculateGroup },
+      // Viewers get no ways to add records; the server refuses them anyway.
+      ...(canLog
+        ? [
+            { heading: "Log", items: logGroup },
+            { heading: "Calculate", items: calculateGroup },
+          ]
+        : []),
       { heading: "View", items: [...viewGroup, ...chartGroup] },
       { heading: "Data", items: dataGroup },
-      { heading: "Saved foods", items: savedFoodGroup },
+      ...(canLog ? [{ heading: "Saved foods", items: savedFoodGroup }] : []),
       { heading: "Account", items: accountGroup },
       { heading: "Theme", items: themeGroup },
     ];
@@ -1839,29 +1861,33 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="care-workspace-menu">
-              <DropdownMenuLabel>Log</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => openDoseFlow()}>
-                <Calculator size={17} />
-                Insulin calculator
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={loading || !!error} onSelect={() => open("exercise")}>
-                <Dumbbell size={17} />
-                Log exercise
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={plan.basal === 0} onSelect={() => setNightOpen(true)}>
-                <Moon size={17} />
-                Nightly Long-acting
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => {
-                  setView("daily");
-                  setShowFoodTools(true);
-                }}
-              >
-                <Utensils size={17} />
-                Food builder
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {canLog && (
+                <>
+                  <DropdownMenuLabel>Log</DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => openDoseFlow()}>
+                    <Calculator size={17} />
+                    Insulin calculator
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={loading || !!error} onSelect={() => open("exercise")}>
+                    <Dumbbell size={17} />
+                    Log exercise
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={plan.basal === 0} onSelect={() => setNightOpen(true)}>
+                    <Moon size={17} />
+                    Nightly Long-acting
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setView("daily");
+                      setShowFoodTools(true);
+                    }}
+                  >
+                    <Utensils size={17} />
+                    Food builder
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuLabel>Share and data</DropdownMenuLabel>
               <DropdownMenuItem disabled={loading || !!error} onSelect={() => setHandoffOpen(true)}>
                 <Users size={17} />
@@ -1872,22 +1898,26 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                 Dexcom{" "}
                 {shareDelayed ? "· data delayed" : dexcomConnected ? "· connected" : "· import"}
               </DropdownMenuItem>
-              <DropdownMenuItem asChild disabled={loading || !!error}>
-                <a href="/api/export" download>
-                  <FileDown size={17} />
-                  Download all data
-                </a>
-              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem asChild disabled={loading || !!error}>
+                  <a href={personHref("/api/export", personAccess.person)} download>
+                    <FileDown size={17} />
+                    Download all data
+                  </a>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Settings</DropdownMenuLabel>
               <DropdownMenuItem onSelect={openPlanEditor}>
                 <Settings2 size={17} />
                 Care plan
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setProfileDialogOpen(true)}>
-                <User size={17} />
-                Profile
-              </DropdownMenuItem>
+              {canManage && (
+                <DropdownMenuItem onSelect={() => setProfileDialogOpen(true)}>
+                  <User size={17} />
+                  Profile
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <SunMoon size={17} />
@@ -1908,6 +1938,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+          <PersonMenu name={profile?.name} timezone={plan.timezone} />
         </div>
         <CareHeaderReminders
           correction={correctionReview}
@@ -1946,58 +1977,60 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               />
               <h1>{greeting ?? "Your day"}</h1>
             </div>
-            <nav
-              className="quick-actions mobile-actions care-workspace-mobile-actions"
-              aria-label="Quick logging"
-            >
-              <button
-                type="button"
-                className="quick-food"
-                onClick={() => open("food")}
-                disabled={loading || !!error}
+            {canLog && (
+              <nav
+                className="quick-actions mobile-actions care-workspace-mobile-actions"
+                aria-label="Quick logging"
               >
-                <Utensils size={20} aria-hidden="true" />
-                <span>
-                  <span className="quick-verb">Log </span>food
-                </span>
-                <Plus size={16} aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => open("insulin")} disabled={loading || !!error}>
-                <Syringe size={20} aria-hidden="true" />
-                <span>
-                  <span className="quick-verb">Log </span>insulin
-                </span>
-                <Plus size={16} aria-hidden="true" />
-              </button>
-              <button type="button" onClick={() => open("glucose")} disabled={loading || !!error}>
-                <Droplet size={20} aria-hidden="true" />
-                <span>
-                  <span className="quick-verb">Log </span>glucose
-                </span>
-                <Plus size={16} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="quick-illness"
-                onClick={() => setIllnessEditor({ record: null })}
-                disabled={loading || !!error}
-              >
-                <Thermometer size={20} aria-hidden="true" />
-                <span>
-                  <span className="quick-verb">Log </span>illness
-                </span>
-                <Plus size={16} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="quick-calculator"
-                onClick={() => openDoseFlow()}
-                disabled={loading || !!error}
-              >
-                <Calculator size={20} aria-hidden="true" />
-                <span>Calculator</span>
-              </button>
-            </nav>
+                <button
+                  type="button"
+                  className="quick-food"
+                  onClick={() => open("food")}
+                  disabled={loading || !!error}
+                >
+                  <Utensils size={20} aria-hidden="true" />
+                  <span>
+                    <span className="quick-verb">Log </span>food
+                  </span>
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => open("insulin")} disabled={loading || !!error}>
+                  <Syringe size={20} aria-hidden="true" />
+                  <span>
+                    <span className="quick-verb">Log </span>insulin
+                  </span>
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+                <button type="button" onClick={() => open("glucose")} disabled={loading || !!error}>
+                  <Droplet size={20} aria-hidden="true" />
+                  <span>
+                    <span className="quick-verb">Log </span>glucose
+                  </span>
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="quick-illness"
+                  onClick={() => setIllnessEditor({ record: null })}
+                  disabled={loading || !!error}
+                >
+                  <Thermometer size={20} aria-hidden="true" />
+                  <span>
+                    <span className="quick-verb">Log </span>illness
+                  </span>
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="quick-calculator"
+                  onClick={() => openDoseFlow()}
+                  disabled={loading || !!error}
+                >
+                  <Calculator size={20} aria-hidden="true" />
+                  <span>Calculator</span>
+                </button>
+              </nav>
+            )}
             <div className="date-control">
               <button aria-label="Previous day" onClick={() => shiftDay(-1)} disabled={!day}>
                 <ChevronLeft size={18} />
@@ -2443,24 +2476,38 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               </div>
             </section>
             <aside className="side-column">
-              {" "}
-              <div className="quick-actions">
-                <button onClick={() => open("glucose")} disabled={loading || !!error}>
-                  <Droplet size={19} />
-                  Log glucose
-                  <Plus size={17} />
-                </button>
-                <button onClick={() => open("food")} disabled={loading || !!error}>
-                  <Utensils size={19} />
-                  Meal or snack
-                  <Plus size={17} />
-                </button>
-                <button onClick={() => open("insulin")} disabled={loading || !!error}>
-                  <Syringe size={19} />
-                  Log insulin
-                  <Plus size={17} />
-                </button>
-              </div>{" "}
+              {canLog ? (
+                <div className="quick-actions">
+                  <button
+                    type="button"
+                    onClick={() => open("glucose")}
+                    disabled={loading || !!error}
+                  >
+                    <Droplet size={19} />
+                    Log glucose
+                    <Plus size={17} />
+                  </button>
+                  <button type="button" onClick={() => open("food")} disabled={loading || !!error}>
+                    <Utensils size={19} />
+                    Meal or snack
+                    <Plus size={17} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => open("insulin")}
+                    disabled={loading || !!error}
+                  >
+                    <Syringe size={19} />
+                    Log insulin
+                    <Plus size={17} />
+                  </button>
+                </div>
+              ) : (
+                <p className="notice view-only-banner" role="status">
+                  <Eye size={16} aria-hidden="true" />
+                  View only. You can see {personLabel(profile?.name)}’s log but can’t add to it.
+                </p>
+              )}
               <DailyLog
                 day={day}
                 today={today}
@@ -2863,6 +2910,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               Clarity export, or connect Clarity share-code sync.
             </DialogDescription>
           </DialogHeader>
+          {!canManage && (
+            <p className="notice" role="status">
+              Only an owner can connect or disconnect Dexcom. You can still refresh readings.
+            </p>
+          )}
           <Tabs defaultValue="share">
             <TabsList>
               <TabsTrigger value="share">Live Share</TabsTrigger>
@@ -3153,6 +3205,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
             </TabsList>
             <TabsContent value="settings">
               <form onSubmit={savePlan} className="entry-form">
+                {!canManage && (
+                  <p className="notice" role="status">
+                    Only an owner can change the care plan. You can read it here.
+                  </p>
+                )}
                 <div className="two-fields">
                   <NumberField
                     label="Glucose target (mg/dL)"
@@ -3316,7 +3373,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                 </label>
                 <button
                   className="button primary full"
-                  disabled={saving || !planConfirmed || loading || !!error}
+                  disabled={!canManage || saving || !planConfirmed || loading || !!error}
                 >
                   Save care plan
                 </button>

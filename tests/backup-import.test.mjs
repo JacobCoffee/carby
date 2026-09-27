@@ -1161,7 +1161,7 @@ pgTest(
         JSON.stringify(legacy),
         "2026-09-01T00:00:00.000Z",
       );
-      const status = await (await GET()).json();
+      const status = await (await GET(new Request("https://test.example/api/import"))).json();
       assert.equal(status.empty, false);
       assert.deepEqual(status.existing, ["plans"]);
       const { response } = await upload(backup());

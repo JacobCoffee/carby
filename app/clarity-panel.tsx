@@ -1,4 +1,6 @@
 "use client";
+import { apiFetch, personHref } from "@/lib/person-request";
+import { usePersonAccess } from "./person-context";
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import {
@@ -82,7 +84,7 @@ function errorMessage(data: Record<string, unknown>, fallback: string): string {
 
 /** A failed sync or report stores its reason on the connection, so callers reload to show it. */
 async function fetchStatus(): Promise<ClarityStatus> {
-  const response = await fetch("/api/clarity", { cache: "no-store" });
+  const response = await apiFetch("/api/clarity", { cache: "no-store" });
   const data = await readJson(response);
   if (!response.ok) throw new Error(errorMessage(data, "Could not load Clarity status."));
   return data as unknown as ClarityStatus;
@@ -95,6 +97,7 @@ export default function ClarityPanel({
   timezone: string;
   onImported: () => void;
 }) {
+  const { person } = usePersonAccess();
   const [status, setStatus] = useState<ClarityStatus | null>(null);
   // Read once per mount; the expiry warning does not need to tick.
   const [mountedAt] = useState(Date.now);
@@ -184,7 +187,7 @@ export default function ClarityPanel({
     setChecking(true);
     setCheckError("");
     try {
-      const response = await fetch("/api/clarity", {
+      const response = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "check", code: normalizedCode, region }),
@@ -209,7 +212,7 @@ export default function ClarityPanel({
     setConnecting(true);
     setCheckError("");
     try {
-      const connectResponse = await fetch("/api/clarity", {
+      const connectResponse = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,7 +228,7 @@ export default function ClarityPanel({
       if (!connectResponse.ok)
         throw new Error(errorMessage(connectData, "Could not connect Clarity."));
       setStatus(connectData as unknown as ClarityStatus);
-      const syncResponse = await fetch("/api/clarity", {
+      const syncResponse = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "sync", start: addDays(today, -89), end: today }),
@@ -251,7 +254,7 @@ export default function ClarityPanel({
     setSyncing(true);
     try {
       const start = status?.syncedThrough ? addDays(status.syncedThrough, -2) : addDays(today, -13);
-      const response = await fetch("/api/clarity", {
+      const response = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "sync", start, end: today }),
@@ -272,7 +275,7 @@ export default function ClarityPanel({
   async function saveSettings() {
     setSavingSettings(true);
     try {
-      const response = await fetch("/api/clarity", {
+      const response = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,7 +299,7 @@ export default function ClarityPanel({
     if (!reportKinds.length) return;
     setReportBusy(true);
     try {
-      const response = await fetch("/api/clarity", {
+      const response = await apiFetch("/api/clarity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -321,7 +324,7 @@ export default function ClarityPanel({
   async function deleteReport(id: string) {
     setDeletingReportId(id);
     try {
-      const response = await fetch(`/api/clarity/report?id=${encodeURIComponent(id)}`, {
+      const response = await apiFetch(`/api/clarity/report?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       });
       const data = await readJson(response);
@@ -340,7 +343,7 @@ export default function ClarityPanel({
   async function disconnect() {
     setDisconnecting(true);
     try {
-      const response = await fetch("/api/clarity", { method: "DELETE" });
+      const response = await apiFetch("/api/clarity", { method: "DELETE" });
       const data = await readJson(response);
       if (!response.ok) throw new Error(errorMessage(data, "Could not disconnect."));
       setStatus(data as unknown as ClarityStatus);
@@ -653,7 +656,10 @@ export default function ClarityPanel({
                     <div className="clarity-report-actions">
                       <a
                         className="button subtle"
-                        href={`/api/clarity/report?id=${encodeURIComponent(report.id)}`}
+                        href={personHref(
+                          `/api/clarity/report?id=${encodeURIComponent(report.id)}`,
+                          person,
+                        )}
                         download
                       >
                         Download

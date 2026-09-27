@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/person-request";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CarbyWordmark } from "./carby-wordmark";
 import Link from "next/link";
@@ -39,6 +40,8 @@ import {
 } from "./plan-settings-fields";
 import OnboardingProfile from "./onboarding-profile";
 import type { Profile } from "@/lib/profile";
+import { Toaster } from "@/components/ui/sonner";
+import PersonMenu from "./person-menu";
 import "./care-workspace.css";
 
 const fieldLabels: Record<PlanField, string> = {
@@ -240,7 +243,7 @@ export default function CareSetup({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/care", {
+      const response = await apiFetch("/api/care", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "plan", plan: result.data }),
@@ -258,11 +261,13 @@ export default function CareSetup({
   }
   return (
     <div className="care-redesign care-setup">
+      <Toaster richColors />
       <header className="topbar care-workspace-topbar">
         <Link className="carby-brand" href="/" aria-label="Carby home">
           <CarbyWordmark />
         </Link>
         <span className="setup-header-label">Your daily care log</span>
+        <PersonMenu />
       </header>
       <main className="care-setup-main">
         {phase === "profile" ? (

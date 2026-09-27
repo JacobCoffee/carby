@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database, type QueryResult, type Statement } from "@/db/raw";
 import {
   BackupError,
@@ -240,11 +241,14 @@ async function fail(db: DB, session: string, owner: string) {
   return cleanup(db, owner);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in to import a backup." }, 401);
+  const access = await accessFor(request, user, "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   try {
-    const existing = await careRecordKinds(database(), user.userId);
+    const existing = await careRecordKinds(database(), owner);
     return reply({ empty: existing.length === 0, existing, limits });
   } catch {
     return reply({ error: "Import is unavailable right now. Please retry." }, 503);
@@ -658,7 +662,9 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return reply({ error: "Sign in to import a backup." }, 401);
   if (!sameOrigin(request)) return reply({ error: "Request origin rejected." }, 403);
-  const owner = user.userId;
+  const access = await accessFor(request, user, "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   let db: DB;
   try {
     db = database();

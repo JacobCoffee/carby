@@ -216,3 +216,51 @@ export const cgmDeviceSettings = pgTable("cgm_device_settings", {
   data: text("data").notNull(),
   updated: text("updated").notNull(),
 });
+
+/**
+ * A person whose diabetes Carby tracks. Every care table's `owner` is a person id. An account
+ * created before people existed owns one person whose id is the account id, so its rows are
+ * unchanged. Not part of backups: a backup holds one person's records.
+ */
+export const people = pgTable("people", {
+  id: text("id").primaryKey(),
+  createdBy: text("created_by").notNull(),
+  created: text("created").notNull(),
+});
+/** Which signed-in accounts may reach a person, and what they may do there. */
+export const personMembers = pgTable(
+  "person_members",
+  {
+    person: text("person").notNull(),
+    account: text("account").notNull(),
+    /** The account's display name when it joined, shown to the person's owners. */
+    accountName: text("account_name").notNull(),
+    /** owner | caregiver | viewer */
+    role: text("role").notNull(),
+    created: text("created").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.person, t.account] }),
+    index("idx_person_members_account").on(t.account),
+  ],
+);
+/** Single-use invite links. Only a SHA-256 of the link's token is stored. */
+export const personInvites = pgTable(
+  "person_invites",
+  {
+    id: text("id").primaryKey(),
+    person: text("person").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    role: text("role").notNull(),
+    createdBy: text("created_by").notNull(),
+    createdByName: text("created_by_name").notNull(),
+    created: text("created").notNull(),
+    expires: text("expires").notNull(),
+    acceptedBy: text("accepted_by"),
+    acceptedAt: text("accepted_at"),
+  },
+  (t) => [
+    uniqueIndex("idx_person_invites_token").on(t.tokenHash),
+    index("idx_person_invites_person").on(t.person),
+  ],
+);

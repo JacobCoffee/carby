@@ -19,10 +19,12 @@ import type { SickDayStatus } from "@/lib/sick-day";
 import { illnessLabel } from "@/lib/illness";
 import { meterStatusLabel, type Plan } from "@/lib/care";
 import { reminderAttention, remindersOpen } from "@/lib/reminder-attention";
+import { usePersonAccess } from "./person-context";
 import "./care-header-reminders.css";
 
 // Collapsing is a device UI preference, like the theme: the reminder keys acknowledged when the
-// strip was collapsed, kept in localStorage. Absent means expanded.
+// strip was collapsed, kept in localStorage per person, so one child's collapsed strip never hides
+// another's reminders. Absent means expanded.
 const COLLAPSED_KEY = "carby-reminders-collapsed";
 const collapseListeners = new Set<() => void>();
 function subscribeCollapsed(listener: () => void) {
@@ -33,17 +35,17 @@ function subscribeCollapsed(listener: () => void) {
     window.removeEventListener("storage", listener);
   };
 }
-function readCollapsed() {
+function readCollapsed(key: string) {
   try {
-    return window.localStorage.getItem(COLLAPSED_KEY);
+    return window.localStorage.getItem(key);
   } catch {
     return null;
   }
 }
-function writeCollapsed(acknowledged: string[] | null) {
+function writeCollapsed(key: string, acknowledged: string[] | null) {
   try {
-    if (acknowledged) window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify(acknowledged));
-    else window.localStorage.removeItem(COLLAPSED_KEY);
+    if (acknowledged) window.localStorage.setItem(key, JSON.stringify(acknowledged));
+    else window.localStorage.removeItem(key);
   } catch {
     // Storage unavailable (private mode): the strip simply stays expanded.
   }
@@ -197,8 +199,13 @@ export default function CareHeaderReminders({
           sickDay,
           now,
         });
+  const collapsedKey = `${COLLAPSED_KEY}:${usePersonAccess().person}`;
   const acknowledged = parseCollapsed(
-    useSyncExternalStore(subscribeCollapsed, readCollapsed, () => null),
+    useSyncExternalStore(
+      subscribeCollapsed,
+      () => readCollapsed(collapsedKey),
+      () => null,
+    ),
   );
   const open = remindersOpen(acknowledged, attention);
   return (
@@ -400,7 +407,7 @@ export default function CareHeaderReminders({
             ? "Collapse reminders. They reopen within 30 minutes of a reminder's time."
             : "Expand reminders"
         }
-        onClick={() => writeCollapsed(open ? attention : null)}
+        onClick={() => writeCollapsed(collapsedKey, open ? attention : null)}
       >
         {open ? (
           <ChevronUp size={17} aria-hidden="true" />

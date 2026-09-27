@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/person-request";
 import {
   careContactLinks,
   careContactLines,
@@ -51,7 +52,7 @@ export default function CareHandoff({
   useEffect(() => {
     if (!open) return;
     let mounted = true;
-    void fetch("/api/audit?limit=30", { cache: "no-store" })
+    void apiFetch("/api/audit?limit=30", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Change history is unavailable.");
         return response.json() as Promise<{ changes: Change[] }>;

@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/app/auth";
+import { accessFor } from "@/app/access";
 import { database } from "@/db/raw";
 import { z } from "zod";
 import { dateKey, timeZoneSchema } from "@/lib/care";
@@ -21,13 +22,17 @@ type Table = (typeof tables)[number];
 type ExportRow = { id?: string; [key: string]: unknown };
 
 /** Stream all rows belonging to the signed-in owner without a response-size cap. */
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user)
     return Response.json(
       { error: "Sign in to download your records." },
       { status: 401, headers: { "Cache-Control": "no-store" } },
     );
+  // A backup holds sealed device logins, so only owners download one.
+  const access = await accessFor(request, user, "manage");
+  if (access instanceof Response) return access;
+  const owner = access.person;
   let db: ReturnType<typeof database>;
   try {
     db = database();
@@ -70,7 +75,7 @@ export async function GET() {
             rows = (
               await db
                 .prepare("SELECT * FROM dexcom_connections WHERE owner = $1")
-                .bind(user.userId)
+                .bind(owner)
                 .all<ExportRow>()
             ).results;
             tableIndex++;
@@ -81,7 +86,7 @@ export async function GET() {
                 .prepare(
                   `SELECT * FROM "${table}" WHERE owner = $1 AND id > $2 ORDER BY id LIMIT ${page}`,
                 )
-                .bind(user.userId, lastId)
+                .bind(owner, lastId)
                 .all<ExportRow>()
             ).results;
             if (rows.length < page) {
@@ -115,7 +120,7 @@ export async function GET() {
   // The file is named for today in the care plan's zone (UTC when no usable plan is saved).
   const planRow = await db
     .prepare("SELECT data FROM plans WHERE owner = $1 ORDER BY created DESC LIMIT 1")
-    .bind(user.userId)
+    .bind(owner)
     .first<{ data: string }>();
   let saved: unknown = null;
   try {

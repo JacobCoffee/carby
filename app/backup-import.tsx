@@ -1,5 +1,7 @@
 "use client";
 
+import { apiFetch, personHref } from "@/lib/person-request";
+import { usePersonAccess } from "./person-context";
 import { useEffect, useRef, useState } from "react";
 import {
   BackupError,
@@ -69,7 +71,7 @@ async function send(body: Record<string, unknown>, signal?: AbortSignal): Promis
   for (let attempt = 0; ; attempt++) {
     let response: Response;
     try {
-      response = await fetch("/api/import", {
+      response = await apiFetch("/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -118,6 +120,7 @@ export default function BackupImport({
   onUseSettings: () => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
+  const { person } = usePersonAccess();
   const [phase, setPhase] = useState<Phase>({ name: "choose" });
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -140,7 +143,7 @@ export default function BackupImport({
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/import", { cache: "no-store" })
+    void apiFetch("/api/import", { cache: "no-store" })
       .then((response) => (response.ok ? (response.json() as Promise<Reply>) : null))
       .then((data) => {
         if (active && data) setPopulated(data.empty === false);
@@ -447,7 +450,7 @@ export default function BackupImport({
             Dexcom Share again from Care tools to receive new readings.
           </p>
           <p>
-            <a href="/api/export" download>
+            <a href={personHref("/api/export", person)} download>
               Download this account&apos;s records first
             </a>{" "}
             to keep a copy. Carby does not download it for you.

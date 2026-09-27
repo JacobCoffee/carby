@@ -57,7 +57,15 @@ typography:
     fontSize: "11px"
     fontWeight: 650
     letterSpacing: "1.35px"
+  scale:
+    caption: "12px"
+    small: "13px"
+    ui: "14px"
 rounded:
+  swatch: "2px"
+  mark: "3px"
+  mark-bar: "4px"
+  flag: "6px"
   control-inner: "7px"
   input: "8px"
   button: "9px"
@@ -192,7 +200,10 @@ Cool, clinical neutrals around a single confident blue, with a pastel event pale
 - **Display** (650, 62px, line-height 1.3, tracking -2px): the current glucose value. It shrinks to 56px at 780px and 42px on phones.
 - **Headline** (700, 30px, line-height 1.15, tracking -0.85px): page titles. The legacy `h1` is 38px.
 - **Title** (650, 20px, tracking -0.45px): section and panel headings.
-- **Body** (400, 16px, line-height 1.5): text and inputs. Inputs stay at 16px so iOS never zooms on focus. Helper and table text runs 13–14px.
+- **Body** (400, 16px, line-height 1.5): text and inputs. Inputs stay at 16px so iOS never zooms on focus.
+- **UI** (14px): button, tab and field labels.
+- **Small** (13px): helper text, table text and text buttons.
+- **Caption** (12px): chart details, period flags, chips and stacked phone tab labels.
 - **Label** (650, 11px, tracking 1.35px, upper case): overline labels on the chart panel, such as "Latest logged · Today". Chart legend group names use the same treatment at a smaller size.
 
 ### Named Rules
@@ -224,6 +235,9 @@ Hybrid, mostly flat. Resting surfaces are separated by 1px `line` borders on a `
 
 Soft, consistent rounding that grows with the element:
 
+- 2px for legend swatch bars;
+- 3–4px for chart marks and the in-range band swatch;
+- 6px for period flags on the chart;
 - 7px for segments inside a control;
 - 8px for inputs;
 - 9px for buttons;
@@ -231,7 +245,7 @@ Soft, consistent rounding that grows with the element:
 - 17px for panels;
 - 18–19px for dialogs and the hero card.
 
-Full pills (999px) are only for small status chips. Chart marks are rounded bars (3–4px) and small circles. A HIGH or LOW run is a rounded bar along the plot edge, never a fabricated point.
+Full pills (999px) are only for small status chips. Chart marks are small rounded bars and circles. A HIGH or LOW run is a rounded bar along the plot edge, never a fabricated point.
 
 ## Components
 

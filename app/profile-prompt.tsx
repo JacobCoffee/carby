@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import OnboardingProfile from "./onboarding-profile";
 import type { Profile } from "@/lib/profile";
+import { usePersonAccess } from "./person-context";
 import "./profile-prompt.css";
 
 const DISMISS_KEY = "carby-profile-card-dismissed";
@@ -32,12 +33,15 @@ export default function ProfilePrompt({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  // Per person, so dismissing the card for one child does not hide it for another.
+  const { person, role } = usePersonAccess();
+  const dismissKey = `${DISMISS_KEY}:${person}`;
   const [dismissed, setDismissed] = useState(
-    () => typeof window !== "undefined" && sessionStorage.getItem(DISMISS_KEY) === "1",
+    () => typeof window !== "undefined" && sessionStorage.getItem(dismissKey) === "1",
   );
   return (
     <>
-      {!profile && !dismissed && (
+      {!profile && !dismissed && role === "owner" && (
         <div className="profile-prompt-card" role="status">
           <p>
             <strong>Personalize Carby</strong> — add a name so the log, reports, and caregiver
@@ -53,7 +57,7 @@ export default function ProfilePrompt({
               onClick={() => {
                 setDismissed(true);
                 try {
-                  sessionStorage.setItem(DISMISS_KEY, "1");
+                  sessionStorage.setItem(dismissKey, "1");
                 } catch {
                   // Storage may be unavailable in private browsing; dismissing still works for now.
                 }
