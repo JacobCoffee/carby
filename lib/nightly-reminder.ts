@@ -63,3 +63,23 @@ export function nightlyReminder(
     return null;
   }
 }
+
+/** Every scheduled long-acting time from `from` to `to` (inclusive), in the plan's zone. */
+export function nightlySchedule(
+  plan: Pick<Plan, "basal" | "basalTime" | "timezone">,
+  from: number,
+  to: number,
+): string[] {
+  if (plan.basal === 0 || !Number.isFinite(from) || !Number.isFinite(to)) return [];
+  const times: string[] = [];
+  const last = dateKey(new Date(to), plan.timezone);
+  for (let day = dateKey(new Date(from), plan.timezone); day <= last; day = adjacentDay(day, 1)) {
+    try {
+      const at = Date.parse(fromLocal(`${day}T${plan.basalTime}`, plan.timezone));
+      if (at >= from && at <= to) times.push(new Date(at).toISOString());
+    } catch {
+      // A clock change skipped this day's scheduled time.
+    }
+  }
+  return times;
+}

@@ -16,6 +16,7 @@ export const planSettingsKeys = [
   "sickDayChecks",
   "lowTreatment",
   "overnightCheck",
+  "correctionQuietHours",
   "snackInsulinFromCarbs",
   "rescueMedication",
   "meter",
@@ -374,6 +375,44 @@ export function PlanSettingsFields({
           required
           disabled={disabled}
           invalid={flagged("overnightCheck")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Hide overnight correction reviews"
+        helper="Hours when your plan gives no correction doses, such as while asleep. Correction review times in these hours are left off the chart. Optional."
+        enabled={!!draft.correctionQuietHours}
+        onToggle={(on) =>
+          on ? set("correctionQuietHours", { start: "", end: "" }) : remove("correctionQuietHours")
+        }
+        disabled={disabled}
+      >
+        <TextField
+          label="From"
+          value={draft.correctionQuietHours?.start}
+          onChange={(value) =>
+            set("correctionQuietHours", {
+              end: draft.correctionQuietHours?.end ?? "",
+              start: value,
+            })
+          }
+          type="time"
+          required
+          disabled={disabled}
+          invalid={flagged("correctionQuietHours")}
+        />
+        <TextField
+          label="Until"
+          value={draft.correctionQuietHours?.end}
+          onChange={(value) =>
+            set("correctionQuietHours", {
+              start: draft.correctionQuietHours?.start ?? "",
+              end: value,
+            })
+          }
+          type="time"
+          required
+          disabled={disabled}
+          invalid={flagged("correctionQuietHours")}
         />
       </ToggleGroup>
       <ToggleGroup

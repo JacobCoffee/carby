@@ -291,6 +291,10 @@ button.chart-layer[aria-pressed="false"] > :first-child {
   width: 24px;
   border-top: 2px dashed var(--chart-review);
 }
+.chart-legend .legend-nightly {
+  width: 24px;
+  border-top: 2px dashed var(--chart-device);
+}
 /* The in-range band as the chart draws it. */
 .chart-legend .legend-band {
   width: 16px;
@@ -318,7 +322,8 @@ button.chart-layer[aria-pressed="false"] > :first-child {
 .glucose-chart .plot-wrap svg[data-preview="exercise"] [data-layer="exercise"],
 .glucose-chart .plot-wrap svg[data-preview="rescue"] [data-layer="rescue"],
 .glucose-chart .plot-wrap svg[data-preview="device"] [data-layer="device"],
-.glucose-chart .plot-wrap svg[data-preview="review"] [data-layer="review"] {
+.glucose-chart .plot-wrap svg[data-preview="review"] [data-layer="review"],
+.glucose-chart .plot-wrap svg[data-preview="nightly"] [data-layer="nightly"] {
   opacity: 1;
 }
 /* A moved lane icon keeps a hairline back to its true time. */
@@ -345,6 +350,12 @@ button.chart-layer[aria-pressed="false"] > :first-child {
 }
 .chart-review-line.is-passed {
   opacity: 0.3;
+}
+.chart-nightly-line {
+  stroke: var(--chart-device);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 5;
+  opacity: 0.75;
 }
 
 .chart-navigation .chart-range-days {

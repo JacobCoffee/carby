@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { correctionReviewStatus } from "../lib/correction-review.ts";
+import { correctionReviewStatus, inQuietHours } from "../lib/correction-review.ts";
 
 const timezone = "America/Chicago";
 const correctionHours = 3;
@@ -73,4 +73,26 @@ test("a missing or non-positive interval never announces a review time", () => {
   assert.equal(correctionReviewStatus("2026-09-25T15:00:00Z", now, timezone, 0), null);
   assert.equal(correctionReviewStatus("2026-09-25T15:00:00Z", now, timezone, undefined), null);
   assert.equal(correctionReviewStatus("2026-09-25T15:00:00Z", now, timezone, NaN), null);
+});
+
+test("overnight quiet hours wrap past midnight on the plan's clock, start in and end out", () => {
+  const night = { start: "23:00", end: "06:00" };
+  for (const [at, quiet] of [
+    ["2026-09-26T03:59:00Z", false], // 10:59 PM CDT
+    ["2026-09-26T04:00:00Z", true], // 11:00 PM
+    ["2026-09-26T04:28:00Z", true], // 11:28 PM
+    ["2026-09-26T07:00:00Z", true], // 2:00 AM
+    ["2026-09-26T10:59:00Z", true], // 5:59 AM
+    ["2026-09-26T11:00:00Z", false], // 6:00 AM
+    ["2026-09-26T17:00:00Z", false], // noon
+  ])
+    assert.equal(inQuietHours(Date.parse(at), night, timezone), quiet, at);
+});
+
+test("quiet hours within one day stay inside it, and none on the plan hides nothing", () => {
+  const afternoon = { start: "13:00", end: "15:00" };
+  assert.equal(inQuietHours(Date.parse("2026-09-26T18:00:00Z"), afternoon, timezone), true);
+  assert.equal(inQuietHours(Date.parse("2026-09-26T20:00:00Z"), afternoon, timezone), false);
+  assert.equal(inQuietHours(Date.parse("2026-09-26T08:00:00Z"), afternoon, timezone), false);
+  assert.equal(inQuietHours(Date.parse("2026-09-26T04:28:00Z"), undefined, timezone), false);
 });

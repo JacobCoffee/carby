@@ -13,7 +13,8 @@ export type ChartLayer =
   | "exercise"
   | "rescue"
   | "device"
-  | "review";
+  | "review"
+  | "nightly";
 
 type LayerInfo = { layer: ChartLayer; label: string; swatch: ReactNode; title?: string };
 
@@ -74,6 +75,12 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
           label: "Correction review",
           swatch: <i className="legend-correction" aria-hidden="true" />,
           title: `${reviewHours} h after a correction dose. A timing reference, not a dose recommendation.`,
+        },
+        {
+          layer: "nightly",
+          label: "Nightly dose",
+          swatch: <i className="legend-nightly" aria-hidden="true" />,
+          title: "The scheduled long-acting time from your care plan",
         },
       ],
     },
