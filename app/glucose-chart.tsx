@@ -45,7 +45,8 @@ import {
 import { uniqueCgm } from "@/lib/cgm-metrics";
 import { inQuietHours } from "@/lib/correction-review";
 import { nightlySchedule } from "@/lib/nightly-reminder";
-import { glucoseLevel, glucoseLevelNames } from "@/lib/glucose-metrics";
+import { glucoseLevel, glucoseLevelNames, type AgpValue } from "@/lib/glucose-metrics";
+import type { SimilarDays } from "@/lib/similar-days";
 import {
   glucoseRanges,
   dateKey,
@@ -80,6 +81,8 @@ type Props = {
   cgmHistoryCapped?: boolean;
   /** Review times inside `correctionQuietHours` are left off; `basal` at `basalTime` draws a nightly line. */
   plan: Pick<Plan, "glucoseRanges" | "meter" | "basal" | "basalTime" | "correctionQuietHours">;
+  /** What followed a similar reading at this time on past days; drawn ahead of now. */
+  estimate?: SimilarDays | null;
 };
 type ChartRecord = { at: string; type: string; detail: string; source: string; timeNote?: string };
 type StatusRun = { first: CgmReading; last: CgmReading; status: "High" | "Low"; count: number };
@@ -510,6 +513,7 @@ const GlucoseChart = memo(function GlucoseChart({
   now,
   correctionAt: nextReviewAt = null,
   correctionHours = 0,
+  estimate = null,
   onSelectIllness,
   range,
   onRangeChange,
@@ -881,6 +885,19 @@ const GlucoseChart = memo(function GlucoseChart({
     const minute = minuteOf(at);
     return minute >= start && minute <= end ? [{ at, minute }] : [];
   });
+  // Past days' outcomes after a reading like the current one: a band from now, never a forecast.
+  const estimateY = (value: AgpValue | null) =>
+    value === "High" ? y(400) : value === "Low" ? y(40) : y(Math.min(value ?? 0, max));
+  const estimatePoints =
+    estimate?.state === "ready"
+      ? estimate.points.flatMap((point) => {
+          const minute = minuteOf(point.at);
+          return minute >= start && minute <= end && point.p10 !== null && point.p90 !== null
+            ? [{ ...point, px: x(minute) }]
+            : [];
+        })
+      : [];
+  const estimateShown = estimate?.state === "ready" && estimatePoints.length > 1;
   const cursorX = cursor === null ? null : x(cursor);
   // The readout sits beside the cursor line on the roomier side, so the hovered point and its
   // neighbours stay visible instead of disappearing under it.
@@ -1068,6 +1085,7 @@ const GlucoseChart = memo(function GlucoseChart({
   if (visibleEvents.length) presentLayers.add("device");
   if (showCorrection || reviewMarks.length) presentLayers.add("review");
   if (nightlyMarks.length) presentLayers.add("nightly");
+  if (estimateShown) presentLayers.add("estimate");
   const pressable = (select: { label: string; run: () => void }) => ({
     role: "button",
     tabIndex: 0,
@@ -1476,6 +1494,22 @@ const GlucoseChart = memo(function GlucoseChart({
               )}
             </g>
           ))}
+          {shows("estimate") && estimate?.state === "ready" && estimateShown && (
+            <g className="chart-estimate" data-layer="estimate" pointerEvents="none">
+              <polygon
+                className="chart-estimate-band"
+                points={[
+                  ...estimatePoints.map((p) => `${p.px},${estimateY(p.p90)}`),
+                  ...estimatePoints.toReversed().map((p) => `${p.px},${estimateY(p.p10)}`),
+                ].join(" ")}
+              />
+              <polyline
+                className="chart-estimate-median"
+                points={estimatePoints.map((p) => `${p.px},${estimateY(p.p50)}`).join(" ")}
+              />
+              <title>{`What followed a similar reading around ${eventTime(estimate.at, timezone)} on ${estimate.matched} past days: middle line is the median, band is 10–90%. Describes past days only; not a forecast or dosing advice.`}</title>
+            </g>
+          )}
           <SensorLayer
             points={visiblePoints}
             runs={shows("status") ? statusRuns : []}

@@ -737,6 +737,67 @@ textarea {
   line-height: 1.65;
   margin-top: 13px;
 }
+.night-estimate {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--chart-panel-ink) 16%, transparent);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.night-estimate h3 {
+  font-size: 14px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.night-estimate dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.night-estimate dl > div {
+  display: contents;
+}
+.night-estimate dt {
+  color: var(--chart-panel-ink-muted);
+}
+.night-estimate dd {
+  margin: 0;
+}
+.night-estimate p {
+  color: var(--chart-panel-ink-muted);
+}
+.night-estimate .night-estimate-note {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.similar-days-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 4px 0 10px;
+}
+.similar-days-chart text {
+  fill: var(--chart-panel-ink-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.similar-days-chart .similar-days-range {
+  fill: color-mix(in srgb, var(--chart-panel-ink) 8%, transparent);
+}
+.similar-days-chart .similar-days-band {
+  fill: color-mix(in srgb, var(--chart-sensor) 22%, transparent);
+}
+.similar-days-chart .similar-days-median {
+  fill: none;
+  stroke: var(--chart-sensor);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+.similar-days-chart .similar-days-now {
+  fill: var(--chart-sensor);
+}
 .team-card {
   display: flex;
   gap: 12px;

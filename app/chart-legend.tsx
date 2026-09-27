@@ -14,7 +14,8 @@ export type ChartLayer =
   | "rescue"
   | "device"
   | "review"
-  | "nightly";
+  | "nightly"
+  | "estimate";
 
 type LayerInfo = { layer: ChartLayer; label: string; swatch: ReactNode; title?: string };
 
@@ -38,6 +39,13 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
           label: [status.high && "HIGH >400", status.low && "LOW <40"].filter(Boolean).join(" · "),
           swatch: <i className={status.high ? "legend-high" : "legend-low"} aria-hidden="true" />,
           title: "Past the sensor's limit: the exact value is unknown",
+        },
+        {
+          layer: "estimate",
+          label: "Similar days",
+          swatch: <i className="legend-estimate" aria-hidden="true" />,
+          title:
+            "What followed a similar reading at this time on past days. Not a forecast or dosing advice.",
         },
       ],
     },

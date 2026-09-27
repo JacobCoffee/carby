@@ -238,8 +238,8 @@ export type AgpSlot = {
 };
 export const AGP_SLOT_MINUTES = 15;
 
-/** Nearest-rank percentile over sort keys where Low sorts first and High last. */
-function percentile(sorted: number[], p: number): AgpValue | null {
+/** Nearest-rank percentile over sort keys where Low (-Infinity) sorts first and High (Infinity) last. */
+export function percentile(sorted: number[], p: number): AgpValue | null {
   if (!sorted.length) return null;
   const key =
     sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))];

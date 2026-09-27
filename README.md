@@ -88,6 +88,8 @@ Set `DEXCOM_SECRET_KEY` once with `openssl rand -hex 32` and never change it. It
 
 Clarity uses an unofficial interface and may break if Dexcom changes it.
 
+**Similar days:** with CGM data, the chart and the Evening routine dialog show what followed a similar reading (within 30 mg/dL, same trend) around the same time on past days: the median and the 10–90% range for the next 6 hours. It needs at least 5 matching days, describes past days only, and is not a forecast or dosing advice.
+
 ## Backups
 
 **Care tools > Download all data** saves a backup of the person you're viewing (owners only). On another install, choose **Import a backup** during setup.
