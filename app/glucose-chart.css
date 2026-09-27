@@ -295,12 +295,14 @@ button.chart-layer[aria-pressed="false"] > :first-child {
   width: 24px;
   border-top: 2px dashed var(--chart-device);
 }
-.chart-legend .legend-estimate {
-  width: 16px;
-  height: 10px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--chart-sensor) 22%, transparent);
-  border-top: 2px dashed var(--chart-sensor);
+/* A small fan with its dashed middle line, drawn as the chart draws the likely range. */
+.chart-legend svg.legend-estimate {
+  width: 24px;
+  height: 14px;
+  flex: none;
+}
+.chart-legend .legend-estimate .chart-estimate-median {
+  stroke-dasharray: 3 3;
 }
 /* The in-range band as the chart draws it. */
 .chart-legend .legend-band {

@@ -43,7 +43,12 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
         {
           layer: "estimate",
           label: "Likely range",
-          swatch: <i className="legend-estimate" aria-hidden="true" />,
+          swatch: (
+            <svg className="legend-estimate" viewBox="0 0 24 14" aria-hidden="true">
+              <polygon className="chart-estimate-band" points="1,7 23,1 23,13" />
+              <line className="chart-estimate-median" x1="1" y1="7" x2="23" y2="7" />
+            </svg>
+          ),
           title:
             "The next 2 hours, fitted on your own CGM history. It can't see food, insulin or activity. Not dosing advice.",
         },
