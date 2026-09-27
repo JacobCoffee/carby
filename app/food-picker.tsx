@@ -24,6 +24,7 @@ import { apiFetch } from "@/lib/person-request";
 import {
   amountEaten,
   amountInServingUnits,
+  isGrams,
   parseFoodBasis,
   volumeMl,
   type FoodBasisFields,
@@ -78,6 +79,8 @@ type Draft = {
   portion: string;
   measureIn: "servings" | "amount";
   amountUnit: string;
+  /** What one serving weighs in grams, when the food's unit is a measure like a cup. */
+  grams?: number;
   savedFoodId?: string;
 };
 
@@ -88,6 +91,7 @@ function draftPortion(draft: Draft): Portioned {
     unit: draft.unit,
     amountUnit: draft.measureIn === "servings" ? draft.unit : draft.amountUnit,
     byServing: draft.measureIn === "servings",
+    servingGrams: draft.grams,
   };
 }
 
@@ -123,11 +127,18 @@ function itemToDraft(item: FoodItem, key: string): Draft {
   };
 }
 
+/** Units a portion of this food can be typed in: its own, volumes it converts to, and grams
+ * when the serving's weight is known. */
+function amountUnitsFor(draft: Pick<Draft, "unit" | "grams">): string[] {
+  const units = [draft.unit];
+  if (volumeMl[draft.unit] && draft.unit !== "ml")
+    units.push(...Object.keys(volumeMl).filter((unit) => unit !== draft.unit));
+  if (draft.grams && !isGrams(draft.unit)) units.push("g");
+  return units;
+}
+
 function PortionField({ draft, onChange }: { draft: Draft; onChange: (next: Draft) => void }) {
-  const amountUnitOptions =
-    volumeMl[draft.unit] && draft.unit !== "ml"
-      ? Object.keys(volumeMl).filter((unit) => unit !== draft.unit)
-      : [];
+  const [ownUnit, ...amountUnitOptions] = amountUnitsFor(draft);
   return (
     <div className="food-picker-portion">
       <label>
@@ -153,7 +164,7 @@ function PortionField({ draft, onChange }: { draft: Draft; onChange: (next: Draf
         }}
       >
         <option value="servings">Servings</option>
-        <option value={draft.unit}>{draft.unit || "units"}</option>
+        <option value={ownUnit}>{ownUnit || "units"}</option>
         {amountUnitOptions.map((unit) => (
           <option key={unit} value={unit}>
             {unit}
@@ -229,6 +240,22 @@ function FoodBasisInputs({
           onKeyDown={onKeyDown}
         />
       </label>
+      {fields.unit.trim() && !isGrams(fields.unit) && (
+        <label className="field">
+          <span>Serving weight (g)</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0.01}
+            max={1000}
+            step="any"
+            value={fields.grams ?? ""}
+            onChange={(event) => onChange({ ...fields, grams: event.target.value })}
+            placeholder="Optional"
+            onKeyDown={onKeyDown}
+          />
+        </label>
+      )}
     </div>
   );
 }
@@ -254,13 +281,8 @@ export function FoodPicker({
     items.map((item, i) => itemToDraft(item, `initial-${i}`)),
   );
   const [query, setQuery] = useState("");
-  const [newFood, setNewFood] = useState({
-    name: "",
-    carbs: "",
-    servingSize: "1",
-    unit: "",
-    save: true,
-  });
+  const blankFood = { name: "", carbs: "", servingSize: "1", unit: "", grams: "", save: true };
+  const [newFood, setNewFood] = useState(blankFood);
   const [busyFoodId, setBusyFoodId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ key: string; fields: FoodBasisFields } | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
@@ -292,6 +314,7 @@ export function FoodPicker({
       servingSize: food.serving,
       carbsPerServing: food.carbs,
       amountUnit: food.unit,
+      grams: food.grams,
       savedFoodId: food.id,
     });
   }
@@ -319,6 +342,7 @@ export function FoodPicker({
         carbs: basis.carbs,
         serving: basis.servingSize,
         unit: basis.unit,
+        ...(basis.grams ? { grams: basis.grams } : {}),
       });
       if (saved) savedFoodId = id;
     }
@@ -328,9 +352,10 @@ export function FoodPicker({
       servingSize: basis.servingSize,
       carbsPerServing: basis.carbs,
       amountUnit: basis.unit,
+      grams: basis.grams,
       savedFoodId,
     });
-    setNewFood({ name: "", carbs: "", servingSize: "1", unit: "", save: true });
+    setNewFood(blankFood);
     setFilledFrom(null);
   }
 
@@ -365,6 +390,7 @@ export function FoodPicker({
       carbs: serving ? String(serving.carbs) : "",
       servingSize: serving ? String(serving.servingSize) : "1",
       unit: serving?.unit ?? "",
+      grams: serving?.grams ? String(serving.grams) : "",
     });
     setFilledFrom({
       note: `Filled in from ${foodSourceLabels[match.source]}. Check each value against the package label before adding.`,
@@ -390,7 +416,13 @@ export function FoodPicker({
     setNewFood({
       ...newFood,
       carbs: String(carbs),
-      ...(serving ? { servingSize: String(serving.servingSize), unit: serving.unit } : {}),
+      ...(serving
+        ? {
+            servingSize: String(serving.servingSize),
+            unit: serving.unit,
+            grams: serving.grams ? String(serving.grams) : "",
+          }
+        : {}),
     });
     setFilledFrom({
       note: !serving
@@ -411,6 +443,7 @@ export function FoodPicker({
         carbs: String(draft.carbsPerServing),
         servingSize: String(draft.servingSize),
         unit: draft.unit,
+        grams: draft.grams ? String(draft.grams) : "",
       },
     });
   }
@@ -428,7 +461,12 @@ export function FoodPicker({
               unit: basis.unit,
               servingSize: basis.servingSize,
               carbsPerServing: basis.carbs,
-              amountUnit: d.amountUnit === d.unit ? basis.unit : d.amountUnit,
+              grams: basis.grams,
+              // A unit the edited food can't be measured in any more falls back to its own.
+              amountUnit:
+                d.amountUnit !== d.unit && amountUnitsFor(basis).includes(d.amountUnit)
+                  ? d.amountUnit
+                  : basis.unit,
             }
           : d,
       ),
@@ -445,6 +483,7 @@ export function FoodPicker({
       carbs: draft.carbsPerServing,
       serving: draft.servingSize,
       unit: draft.unit,
+      ...(draft.grams ? { grams: draft.grams } : {}),
     });
     if (saved) commit(drafts.map((d) => (d.key === draft.key ? { ...d, savedFoodId: id } : d)));
     setBusyFoodId(null);
@@ -497,6 +536,7 @@ export function FoodPicker({
                   {food.name}{" "}
                   <small>
                     {food.carbs} g / {food.serving} {food.unit}
+                    {food.grams ? ` (${fmt(food.grams)} g)` : ""}
                   </small>
                 </button>
                 <button
@@ -744,6 +784,7 @@ export function FoodPicker({
                   <small>
                     {Number.isFinite(carbs) ? fmt(carbs) : "—"} g carbs ·{" "}
                     {fmt(draft.carbsPerServing)} g per {fmt(draft.servingSize)} {draft.unit}
+                    {draft.grams ? ` (${fmt(draft.grams)} g)` : ""}
                   </small>
                   <div className="food-picker-item-actions">
                     {!edit && (

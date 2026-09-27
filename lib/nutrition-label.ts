@@ -170,6 +170,7 @@ export function readNutritionLabel(lines: OcrLine[]): LabelReading {
           servingSize: household.size,
           unit: household.unit,
           carbs: grams,
+          ...(m?.unit === "g" ? { grams: m.value } : {}),
         });
       if (m)
         servings.push({

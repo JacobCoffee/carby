@@ -729,6 +729,8 @@ export const savedFoodSchema = z.object({
   carbs: z.number().min(0).max(1000),
   serving: z.number().positive().max(1000),
   unit: z.string().trim().min(1).max(40),
+  /** What one serving weighs in grams, when the serving is a measure like a cup ("1 cup (37 g)"). */
+  grams: z.number().positive().max(1000).optional(),
   lowTreatment: z.boolean().optional(),
 });
 export type SavedFood = z.infer<typeof savedFoodSchema>;

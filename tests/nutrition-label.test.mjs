@@ -28,7 +28,7 @@ test("a clear US panel gives carbs per household serving and per gram weight", (
     grams: 37,
   });
   assert.deepEqual(reading.servings, [
-    { label: "2/3 cup (55g)", servingSize: 0.667, unit: "cup", carbs: 37 },
+    { label: "2/3 cup (55g)", servingSize: 0.667, unit: "cup", carbs: 37, grams: 55 },
     { label: "55 g", servingSize: 55, unit: "g", carbs: 37 },
   ]);
 });
@@ -82,6 +82,7 @@ test("a serving size printed below its heading is still read", () => {
     servingSize: 2,
     unit: "cookies",
     carbs: 21,
+    grams: 30,
   });
 });
 

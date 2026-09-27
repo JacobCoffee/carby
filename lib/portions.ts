@@ -47,17 +47,25 @@ export type Portioned = {
   amountUnit?: string;
   /** True when `servings` counts whole/fractional servings rather than a raw amount. */
   byServing?: boolean;
+  /** What one serving weighs in grams, so an amount typed in grams works for a food labeled per cup. */
+  servingGrams?: number;
 };
+
+export const isGrams = (unit: string) => unit.trim().toLowerCase() === "g";
 
 /**
  * Converts a portion into an amount expressed in the food's labeled serving unit.
  * Handles a differing amount unit via volume conversion (e.g. typing cups for a
- * food labeled in mL); an unconvertible unit pair is returned unconverted.
+ * food labeled in mL), or via the serving's weight for grams; an unconvertible unit
+ * pair is returned unconverted.
  */
 export function amountInServingUnits(food: Portioned): number {
   if (food.byServing) return parsePortion(food.servings) * Number(food.servingSize);
   const amount = parsePortion(food.servings);
-  const from = volumeMl[food.amountUnit ?? food.unit];
+  const amountUnit = food.amountUnit ?? food.unit;
+  if (isGrams(amountUnit) && !isGrams(food.unit) && food.servingGrams)
+    return (amount / food.servingGrams) * Number(food.servingSize);
+  const from = volumeMl[amountUnit];
   const to = volumeMl[food.unit];
   return from && to ? (amount * from) / to : amount;
 }
@@ -71,27 +79,49 @@ export function amountEaten(food: Portioned): number {
 }
 
 /** A food's label as typed into a form: what one serving is and how many carbs it holds. */
-export type FoodBasisFields = { name: string; carbs: string; servingSize: string; unit: string };
-export type FoodBasis = { name: string; carbs: number; servingSize: number; unit: string };
+export type FoodBasisFields = {
+  name: string;
+  carbs: string;
+  servingSize: string;
+  unit: string;
+  /** What one serving weighs in grams; optional, and ignored for a serving already in grams. */
+  grams?: string;
+};
+export type FoodBasis = {
+  name: string;
+  carbs: number;
+  servingSize: number;
+  unit: string;
+  grams?: number;
+};
 
 const foodBasisSchema = savedFoodSchema.pick({
   name: true,
   carbs: true,
   serving: true,
   unit: true,
+  grams: true,
 });
 
-/** Reads typed label fields with the saved-food limits. Null when any field is blank or out
- * of range, so a food never gets a made-up carb count or serving. */
+/** Reads typed label fields with the saved-food limits. Null when any field is out of range or
+ * a required one is blank, so a food never gets a made-up carb count or serving. */
 export function parseFoodBasis(fields: FoodBasisFields): FoodBasis | null {
   const number = (value: string) => (value.trim() === "" ? NaN : Number(value));
+  const grams = fields.grams?.trim() && !isGrams(fields.unit) ? number(fields.grams) : undefined;
   const parsed = foodBasisSchema.safeParse({
     name: fields.name,
     carbs: number(fields.carbs),
     serving: number(fields.servingSize),
     unit: fields.unit,
+    grams,
   });
   if (!parsed.success) return null;
   const { name, carbs, serving, unit } = parsed.data;
-  return { name, carbs, servingSize: serving, unit };
+  return {
+    name,
+    carbs,
+    servingSize: serving,
+    unit,
+    ...(parsed.data.grams ? { grams: parsed.data.grams } : {}),
+  };
 }

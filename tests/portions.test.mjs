@@ -75,6 +75,29 @@ test("amountEaten keeps a typed amount in the unit it was typed in", () => {
   );
 });
 
+test("grams work for a food labeled per cup once the serving's weight is known", () => {
+  // Magic Spoon: 15 g carbs per 1 cup, which weighs 37 g.
+  const cup = { servingSize: "1", unit: "cup", amountUnit: "g", byServing: false };
+  assert.equal(amountInServingUnits({ ...cup, servings: "37", servingGrams: 37 }), 1);
+  assert.equal(amountInServingUnits({ ...cup, servings: "18.5", servingGrams: 37 }), 0.5);
+  // Without the weight, grams can't be turned into cups.
+  assert.equal(amountInServingUnits({ ...cup, servings: "37" }), 37);
+  // Servings still count servings.
+  assert.equal(
+    amountInServingUnits({ ...cup, servings: "2/3", servingGrams: 37, byServing: true }),
+    2 / 3,
+  );
+});
+
+test("parseFoodBasis keeps an optional serving weight only for a serving not already in grams", () => {
+  const cereal = { name: "Cereal", carbs: "15", servingSize: "1", unit: "cup" };
+  assert.equal(parseFoodBasis({ ...cereal, grams: "37" }).grams, 37);
+  assert.equal("grams" in parseFoodBasis({ ...cereal, grams: " " }), false);
+  assert.equal("grams" in parseFoodBasis({ ...cereal, unit: "g", grams: "37" }), false);
+  for (const bad of ["0", "-1", "1001", "abc"])
+    assert.equal(parseFoodBasis({ ...cereal, grams: bad }), null, bad);
+});
+
 test("parseFoodBasis reads a food label and never turns a blank into a number", () => {
   assert.deepEqual(
     parseFoodBasis({ name: " Cinnamon bread ", carbs: "21", servingSize: "1", unit: " slice " }),
