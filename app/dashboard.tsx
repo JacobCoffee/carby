@@ -2921,7 +2921,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       )}
       <Dialog open={nightOpen} onOpenChange={setNightOpen}>
         <DialogContent className="care-dialog night-dialog">
-          {" "}
           <section className="night-card night-dialog-card">
             <div className="night-title">
               <Moon size={20} />
@@ -2959,6 +2958,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               )}
             </div>
             <button
+              type="button"
               className="button full"
               disabled={loading || !!error}
               onClick={() => open("insulin", undefined, { insulin: "Long-acting" })}
