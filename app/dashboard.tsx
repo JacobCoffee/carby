@@ -143,6 +143,8 @@ import { correctionMarkerAt } from "@/lib/correction-marker";
 import { mealRatioAt } from "@/lib/report-analysis";
 import { correctionReviewStatus } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
+import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
+import { EstimateChart } from "./estimate-chart";
 import CareHeaderReminders, { OvernightBanner } from "./care-header-reminders";
 import DexcomCredentialsForm, { type DexcomCredentials } from "./dexcom-credentials";
 import IllnessDialog from "./illness-dialog";
@@ -924,6 +926,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     for (const reading of cgm) earliest = Math.min(earliest, Date.parse(reading.at));
     return Number.isFinite(earliest) ? earliest : null;
   }, [cgm]);
+  // The next two hours' likely range, fitted on this person's CGM history. Never dosing advice.
+  const estimate = useMemo(() => glucoseEstimate(cgm, now?.getTime() ?? NaN), [cgm, now]);
   // The care API loads CGM and Dexcom events from the last 45 days, newest first, up to 15,000 CGM rows.
   const cgmHistoryStart = historyLimited
     ? earliestLoadedCgm
@@ -2289,6 +2293,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                   now={now?.getTime() ?? NaN}
                   correctionAt={chartCorrectionAt}
                   correctionHours={plan.correctionHours}
+                  estimate={estimate}
                   onSelectIllness={(illness) => setIllnessEditor({ record: illness })}
                   key={day}
                   onSelectDoseFood={(dose) => openDoseFood(dose)}
@@ -2966,6 +2971,41 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               Record actual dose
               <Plus size={16} />
             </button>
+            <section className="night-estimate" aria-labelledby="night-estimate-title">
+              <h3 id="night-estimate-title">Likely range, next 2 hours</h3>
+              {estimate.state === "ready" ? (
+                <>
+                  <EstimateChart estimate={estimate} ranges={ranges} time={time} />
+                  <dl>
+                    {[2, 4, 8].flatMap((i) => {
+                      const point = estimate.points[i];
+                      return point
+                        ? [
+                            <div key={point.at}>
+                              <dt>{time(point.at)}</dt>
+                              <dd>
+                                <strong>{estimateLabel(point.median)}</strong> median · most likely{" "}
+                                {estimateLabel(point.low)}–{estimateLabel(point.high)} mg/dL
+                              </dd>
+                            </div>,
+                          ]
+                        : [];
+                    })}
+                  </dl>
+                  <p className="night-estimate-note">
+                    From how your CGM readings moved after trends like this one, over about{" "}
+                    {Math.round((estimate.examples * 5) / 60)} hours of your history. It uses CGM
+                    only, so it can’t see food, insulin or activity, and it is not dosing advice.
+                  </p>
+                </>
+              ) : (
+                <p className="night-estimate-note">
+                  {estimate.state === "learning"
+                    ? "The likely range shows after about a day of CGM readings."
+                    : "Needs a current CGM reading and the hour before it."}
+                </p>
+              )}
+            </section>
             <p>
               The header reminder uses this schedule and actual Long-acting logs nearest to it,
               including after midnight. Check the actual times before giving insulin. A missing log

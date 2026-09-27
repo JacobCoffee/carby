@@ -88,6 +88,8 @@ Set `DEXCOM_SECRET_KEY` once with `openssl rand -hex 32` and never change it. It
 
 Clarity uses an unofficial interface and may break if Dexcom changes it.
 
+**Likely range:** with about a day of CGM data, the chart and the Evening routine dialog show a likely range for the next 2 hours. It starts at the current reading and comes from a damped trend fitted on the person's own CGM history: how much of the last hour's rise or fall carried on, and how far those fits missed. It uses CGM readings only, so it can't see food, insulin or activity, and it is not dosing advice. Tested on earlier days, it wasn't reliable further ahead than 2 hours, so it stops there.
+
 ## Backups
 
 **Care tools > Download all data** saves a backup of the person you're viewing (owners only). On another install, choose **Import a backup** during setup.

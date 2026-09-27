@@ -14,7 +14,8 @@ export type ChartLayer =
   | "rescue"
   | "device"
   | "review"
-  | "nightly";
+  | "nightly"
+  | "estimate";
 
 type LayerInfo = { layer: ChartLayer; label: string; swatch: ReactNode; title?: string };
 
@@ -38,6 +39,13 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
           label: [status.high && "HIGH >400", status.low && "LOW <40"].filter(Boolean).join(" · "),
           swatch: <i className={status.high ? "legend-high" : "legend-low"} aria-hidden="true" />,
           title: "Past the sensor's limit: the exact value is unknown",
+        },
+        {
+          layer: "estimate",
+          label: "Likely range",
+          swatch: <i className="legend-estimate" aria-hidden="true" />,
+          title:
+            "The next 2 hours, fitted on your own CGM history. It can't see food, insulin or activity. Not dosing advice.",
         },
       ],
     },
