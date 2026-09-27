@@ -1,0 +1,279 @@
+/* The floating Log button and the sheet it opens. The sheet grows out of the button: it scales
+ * up from its corner while it sharpens from a blur, then the choices settle in one after another. */
+.log-fab {
+  position: fixed;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 0 24px 0 19px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.1px;
+  box-shadow:
+    0 10px 24px rgb(var(--shadow-rgb) / 14.1%),
+    0 4px 12px color-mix(in srgb, var(--accent-solid) 30%, transparent);
+  transition:
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    scale 0.12s ease-out,
+    background-color 0.15s ease-out,
+    box-shadow 0.2s ease-out;
+}
+.log-fab svg {
+  transition: rotate 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.log-fab:hover:not(:disabled),
+.log-fab[data-open] {
+  translate: 0 -2px;
+  background: var(--accent-deep);
+  box-shadow:
+    0 14px 30px rgb(var(--shadow-rgb) / 18%),
+    0 6px 16px color-mix(in srgb, var(--accent-solid) 38%, transparent);
+}
+/* The plus turns into a close mark while the sheet is open. */
+.log-fab[data-open] svg {
+  rotate: 45deg;
+}
+.log-fab:active:not(:disabled) {
+  scale: 0.97;
+}
+.log-fab:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.log-fab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (min-width: 681px) {
+  /* Room under the last panel so the button never sits on it at the end of the page. */
+  .care-redesign.care-page-tabs main {
+    padding-bottom: 104px;
+  }
+}
+@media (max-width: 680px) {
+  .log-fab {
+    display: none;
+  }
+}
+@media print {
+  .log-fab {
+    display: none;
+  }
+}
+
+.log-sheet {
+  width: min(340px, calc(100vw - 32px));
+  padding: 8px;
+  border-radius: 17px;
+  box-shadow: 0 10px 24px rgb(var(--shadow-rgb) / 14.1%);
+}
+.log-sheet[data-state="open"] {
+  animation: log-sheet-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.log-sheet[data-state="closed"] {
+  animation: log-sheet-out 0.14s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+@keyframes log-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    filter: blur(6px);
+  }
+}
+@keyframes log-sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    filter: blur(3px);
+  }
+}
+.log-sheet[data-state="open"] .log-sheet-item {
+  animation: log-sheet-item-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 18ms + 40ms);
+}
+@keyframes log-sheet-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.log-sheet-who {
+  padding: 4px 6px 8px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.log-sheet-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.log-sheet-list {
+  display: grid;
+  gap: 2px;
+}
+.log-sheet [data-slot="dropdown-menu-separator"] {
+  margin: 6px 4px;
+}
+.log-sheet .log-sheet-item {
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease-out;
+}
+.log-sheet .log-sheet-item svg {
+  width: 18px;
+  height: 18px;
+}
+.log-sheet-text {
+  display: flex;
+  min-width: 0;
+}
+.log-sheet-text strong {
+  font-weight: 650;
+}
+
+/* The four everyday records, each in its own event colour. */
+.log-sheet .log-sheet-tile {
+  --tile-bg: var(--surface-sunken);
+  --tile-border: var(--line);
+  --tile-ink: var(--accent-solid);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 92px;
+  padding: 12px;
+  border: 1px solid var(--tile-border);
+  border-radius: 12px;
+  background: var(--tile-bg);
+  color: var(--ink);
+}
+.log-sheet .log-sheet-tile.tone-food {
+  --tile-bg: var(--event-food-bg);
+  --tile-border: var(--event-food-border);
+  --tile-ink: var(--event-food-ink);
+}
+.log-sheet .log-sheet-tile.tone-insulin {
+  --tile-bg: var(--event-insulin-bg);
+  --tile-border: var(--event-insulin-border);
+  --tile-ink: var(--event-insulin-ink);
+}
+.log-sheet .log-sheet-tile.tone-glucose {
+  --tile-bg: var(--event-glucose-bg);
+  --tile-border: color-mix(in srgb, var(--event-glucose-ink) 30%, var(--event-glucose-bg));
+  --tile-ink: var(--event-glucose-ink);
+}
+.log-sheet .log-sheet-tile.tone-illness {
+  --tile-bg: var(--event-illness-bg);
+  --tile-border: var(--event-illness-border);
+  --tile-ink: var(--event-illness-ink);
+}
+.log-sheet .log-sheet-tile .log-sheet-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tile-ink) 14%, transparent);
+}
+.log-sheet .log-sheet-tile svg {
+  color: var(--tile-ink);
+}
+.log-sheet .log-sheet-tile .log-sheet-text {
+  flex-direction: column;
+  gap: 2px;
+}
+.log-sheet .log-sheet-tile strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+.log-sheet .log-sheet-tile small {
+  color: var(--tile-ink);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.log-sheet .log-sheet-tile[data-highlighted],
+.log-sheet .log-sheet-tile:focus {
+  translate: 0 -1px;
+  border-color: var(--tile-ink);
+  background: var(--tile-bg);
+  color: var(--ink);
+  box-shadow: 0 4px 10px rgb(var(--shadow-rgb) / 10%);
+}
+
+/* The rest, as a quiet list. */
+.log-sheet .log-sheet-row {
+  gap: 11px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 14px;
+  color: var(--ink);
+}
+.log-sheet .log-sheet-row svg {
+  color: var(--ink-muted);
+}
+.log-sheet .log-sheet-row .log-sheet-text {
+  flex: 1;
+}
+.log-sheet .log-sheet-row strong {
+  font-weight: 600;
+}
+/* Shortcut hints: quiet keycaps at the row's end, and in each tile's corner. */
+.log-sheet .log-sheet-keys [data-slot="kbd"] {
+  min-width: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.log-sheet .log-sheet-row .log-sheet-keys {
+  margin-left: auto;
+}
+.log-sheet .log-sheet-tile .log-sheet-keys {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+.log-sheet .log-sheet-tile .log-sheet-keys [data-slot="kbd"] {
+  background: color-mix(in srgb, var(--tile-ink) 14%, transparent);
+  color: var(--tile-ink);
+  border-color: color-mix(in srgb, var(--tile-ink) 28%, transparent);
+}
+.log-sheet .log-sheet-row[data-highlighted],
+.log-sheet .log-sheet-row:focus {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+.log-sheet .log-sheet-row[data-highlighted] svg {
+  color: var(--accent-solid);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-fab,
+  .log-fab svg,
+  .log-sheet .log-sheet-item {
+    transition: none;
+  }
+  .log-sheet[data-state="open"],
+  .log-sheet[data-state="open"] .log-sheet-item {
+    animation: log-sheet-fade 0.12s ease-out both;
+    animation-delay: 0s;
+  }
+  .log-sheet[data-state="closed"] {
+    animation: none;
+  }
+}
+@keyframes log-sheet-fade {
+  from {
+    opacity: 0;
+  }
+}

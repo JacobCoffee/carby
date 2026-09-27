@@ -45,6 +45,8 @@ New accounts start empty. The setup screen asks you to enter your care plan or i
 
 Edit these later in **Care tools > Care plan**.
 
+On a wider screen, add records from the **Log** button in the bottom-right corner; on a phone, use the bar along the bottom. With a keyboard, press `?` to see every shortcut: `L` then `G` logs glucose, `G` then `I` opens Insights, and `⌘K` searches every command.
+
 ## Several people and shared care
 
 One account can keep logs for several people, such as two children, and several accounts can share one person's log. Use the name menu at the right of the header to switch people or **Add a person**. Each person has their own care plan, time zone, saved foods, Dexcom connection and backups.

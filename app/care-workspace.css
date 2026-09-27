@@ -61,16 +61,31 @@
     min-width: max-content;
   }
 }
+/* Icon-only; the menu it opens carries the "Care tools" name as its title. */
 .care-redesign .topbar.care-workspace-topbar .care-workspace-more {
+  position: relative;
   display: inline-flex !important;
+  justify-content: center;
+  width: 44px;
   min-height: 44px;
   height: 44px;
-  font-size: 14px;
   border: 1px solid var(--line);
   border-radius: 11px;
-  gap: 8px;
-  padding: 0 13px;
+  padding: 0;
   background: var(--surface);
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out;
+}
+.care-redesign .topbar.care-workspace-topbar .care-workspace-more[data-open] {
+  background: var(--surface-sunken);
+  border-color: var(--line-strong);
+}
+.care-redesign .care-workspace-more .care-workspace-menu-attention {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  box-shadow: 0 0 0 2px var(--surface);
 }
 .care-redesign .care-workspace-emergency-link {
   font-size: 14px;
@@ -162,15 +177,6 @@
 }
 .care-redesign .care-workspace-mobile-actions .quick-food svg {
   color: var(--on-accent-solid);
-}
-.care-redesign .care-workspace-mobile-actions .quick-calculator {
-  background: var(--accent-wash);
-  border-color: var(--line);
-  justify-content: center;
-}
-.care-redesign .care-workspace-mobile-actions .quick-calculator svg {
-  margin: 0;
-  color: var(--accent-deep);
 }
 .care-redesign .workspace[data-layout="overview"] {
   display: grid;
@@ -955,10 +961,6 @@
     justify-content: flex-end;
     gap: 8px;
   }
-  .care-redesign .topbar.care-workspace-topbar .care-workspace-more {
-    font-size: 13px;
-    padding: 0 10px;
-  }
   .care-redesign .care-workspace-emergency-link {
     font-size: 13px;
     padding: 0 10px;
@@ -1042,9 +1044,6 @@
     margin: 0;
     width: 20px;
     height: 20px;
-  }
-  .care-redesign .care-workspace-mobile-actions .quick-calculator {
-    display: none;
   }
   .care-redesign .workspace[data-layout="overview"] > .main-column {
     gap: 15px;
@@ -1205,10 +1204,6 @@
   .care-redesign .topbar.care-workspace-topbar {
     padding-inline: 10px;
     gap: 8px;
-  }
-  .care-redesign .care-workspace-more {
-    gap: 4px !important;
-    padding-inline: 8px !important;
   }
   .care-redesign .care-workspace-emergency-link {
     gap: 4px;
@@ -1875,85 +1870,91 @@
 .care-redesign .daily-alerts > * {
   margin: 0;
 }
-/* Quick logging lives in the daily heading: its own row under the greeting and date on
- * mid-size screens, inline between them on wide ones, and the fixed bottom bar on phones. */
-.care-redesign .page-heading.care-workspace-heading {
-  flex-wrap: wrap;
-}
-.care-redesign .care-workspace-mobile-actions {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-}
-.care-redesign .care-workspace-heading .care-workspace-mobile-actions {
-  order: 3;
-  flex-basis: 100%;
-}
-.care-redesign .care-workspace-mobile-actions button {
-  min-height: 48px;
-  padding: 10px 12px;
-  font-size: 14px;
-}
-@media (min-width: 1360px) {
-  .care-redesign .page-heading.care-workspace-heading {
-    flex-wrap: nowrap;
-  }
-  /* The greeting keeps one line; the quick actions give up space first. */
-  .care-redesign .care-workspace-heading > div:first-child {
-    flex: none;
-  }
-  .care-redesign .care-workspace-heading h1 {
-    white-space: nowrap;
-  }
-  .care-redesign .care-workspace-heading .care-workspace-mobile-actions {
-    order: 0;
-    display: flex;
-    flex: 0 1 auto;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-  }
-  .care-redesign .care-workspace-heading .care-workspace-mobile-actions button {
-    min-height: 44px;
-    padding: 0 16px;
-    gap: 8px;
-  }
-  /* The trailing plus repeats the verb; the calculator's only icon is kept. */
-  .care-redesign .care-workspace-mobile-actions button > svg:last-child:not(:first-child) {
+/* Quick logging is the fixed bottom bar on phones; wider screens log from the floating Log button. */
+@media (min-width: 681px) {
+  .care-redesign .care-workspace-mobile-actions {
     display: none;
   }
-  /* "Log" stays in the accessible name; the row reads as Food, Insulin, Glucose… */
-  .care-redesign .care-workspace-mobile-actions .quick-verb {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-  .care-redesign .care-workspace-mobile-actions button > span {
-    text-transform: capitalize;
-  }
 }
-.care-header-sync {
-  display: flex;
+/* Live status and refresh in one control: the dot says how fresh the data is, a click refreshes. */
+.care-redesign .care-header-status {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.care-header-sync > span {
-  font-size: 11px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
   color: var(--ink-muted);
-  white-space: nowrap;
-}
-.care-redesign .care-header-refresh {
-  height: 40px;
-  min-height: 40px;
-  padding: 0 9px;
-  gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
   font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    color 0.15s ease-out;
+}
+.care-redesign .care-header-status:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.care-redesign .care-header-status:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.care-redesign .care-header-status:disabled {
+  cursor: default;
+}
+.care-redesign .care-header-status svg {
+  color: var(--ink-faint);
+  transition: color 0.15s ease-out;
+}
+.care-redesign .care-header-status:hover:not(:disabled) svg {
+  color: var(--accent-solid);
+}
+.care-header-status-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+.care-header-status[data-state="live"] .care-header-status-dot {
+  background: var(--success-strong);
+}
+.care-header-status[data-state="delayed"] .care-header-status-dot {
+  background: var(--event-dose-marker);
+}
+.care-header-status[data-state="delayed"] .care-header-status-text {
+  color: var(--warning-ink);
+}
+/* A slow ring breathes out of the dot while data is live. */
+.care-header-status[data-state="live"] .care-header-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--success-strong);
+  animation: care-status-breathe 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+@keyframes care-status-breathe {
+  0% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-header-status-dot::after {
+    display: none;
+  }
 }
 .illness-form {
   display: flex;
@@ -2187,11 +2188,8 @@
 .illness-log-row small {
   font-size: 12px;
 }
-@media (max-width: 1100px) {
-  .care-header-sync > span {
-    display: none;
-  }
-  .care-header-refresh > span {
+@media (max-width: 900px) {
+  .care-header-status-text {
     display: none;
   }
 }
@@ -2216,10 +2214,11 @@
     min-height: 56px;
     font-size: 11px;
   }
-  .care-redesign .care-header-refresh {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
+  .care-redesign .care-header-status {
+    height: 40px;
+    padding: 0 10px;
+    gap: 7px;
+    border-color: var(--line);
   }
 }
 @media (min-width: 681px) {

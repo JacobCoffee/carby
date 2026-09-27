@@ -213,7 +213,7 @@ Cool, clinical neutrals around a single confident blue, with a pastel event pale
 ## Layout
 
 - **Page:** a centred column with a 1480px maximum width, 24px side padding and 28px top padding. The topbar is a single row that wraps: the brand, the workspace tabs, then tools pushed to the right. Tabs never shrink below their labels; the tools wrap to a new line instead.
-- **Today view:** a main column (the reading card with its chart, then the daily log) beside a side column of reminders and quick actions. They stack below 999px.
+- **Today view:** a main column (the reading card with its chart, then the daily log) beside a side column of reminders. They stack below 999px. Logging lives in the floating Log button (bottom right) on wider screens and in the fixed quick bar on phones.
 - **Breakpoints:** 999px (columns stack), 780px (chart tooltip becomes static, controls enlarge), 680px (phone header), 480px (tab icons stack above labels).
 - **Spacing rhythm:** 8px minimum between any two controls, 12px between rows, about 17px under section headings, 23px panel padding.
 
@@ -281,6 +281,9 @@ Full pills (999px) are only for small status chips. Chart marks are small rounde
 ### Navigation
 
 - **Workspace tabs:** 44px tall, 14px/650 labels with an icon. The active tab gets the Blue Wash fill and hover gets `surface-sunken`. On phones the tabs share the row equally, and below 480px each stacks its icon above a 12px label.
+- **Header tools:** a live-status control (a dot for freshness plus the last update time; clicking it refreshes), Search, Low help, an icon-only Care tools menu and the person menu. Header menus open when a mouse rests on the trigger and close shortly after it leaves; touch and keyboard keep tap and Enter.
+- **Log button:** a floating `accent-solid` button in the bottom-right corner, above the page and hidden on phones and in print. It opens a sheet that grows out of it: four tiles in their event colours (Food, Insulin, Glucose, Illness), then a quiet list of the other records and tools, each with its shortcut keycaps. This is the screen's one authored motion moment.
+- **Keyboard shortcuts:** Linear-style single keys and two-key sequences (`L` then `G` logs glucose, `G` then `I` opens Insights), defined once in `lib/shortcuts.ts` and run through the command palette's own items. `?` or `⌘/` lists them; the palette and Log sheet show the same keycaps. A quiet round `?` button in the bottom-left corner, lined up with the Log button, opens the same list and slides out a "Keyboard shortcuts" label on hover or focus. It is hidden on phones, touch-only screens and in print.
 
 ### Glucose Chart (signature component)
 

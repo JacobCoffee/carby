@@ -122,6 +122,91 @@
   }
 }
 
+/* A quiet "?" in the bottom-left corner that points keyboard users at the shortcut sheet. It
+ * lines up with the Log button's centre and stays out of the way on touch screens and phones. */
+.shortcuts-fab {
+  position: fixed;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: calc(32px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 6px 16px rgb(var(--shadow-rgb) / 10%);
+  transition:
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    box-shadow 0.2s ease-out;
+}
+.shortcuts-fab:hover,
+.shortcuts-fab:focus-visible {
+  translate: 0 -2px;
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  box-shadow: 0 10px 22px rgb(var(--shadow-rgb) / 14%);
+}
+.shortcuts-fab:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.shortcuts-fab-label {
+  position: absolute;
+  left: calc(100% + 10px);
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgb(var(--shadow-rgb) / 10%);
+  opacity: 0;
+  translate: -6px 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease-out,
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.shortcuts-fab:hover .shortcuts-fab-label,
+.shortcuts-fab:focus-visible .shortcuts-fab-label {
+  opacity: 1;
+  translate: 0 0;
+}
+@media (max-width: 680px), (hover: none) {
+  .shortcuts-fab {
+    display: none;
+  }
+}
+@media print {
+  .shortcuts-fab {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shortcuts-fab,
+  .shortcuts-fab-label {
+    transition: opacity 0.15s ease-out;
+    translate: none;
+  }
+  .shortcuts-fab:hover,
+  .shortcuts-fab:focus-visible,
+  .shortcuts-fab:hover .shortcuts-fab-label,
+  .shortcuts-fab:focus-visible .shortcuts-fab-label {
+    translate: none;
+  }
+}
+
 /* Header trigger button */
 .care-command-trigger {
   height: 44px;

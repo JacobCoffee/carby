@@ -3057,6 +3057,51 @@ main {
   border-radius: 50%;
   background: var(--event-dose-marker);
 }
+/* Tailwind's `border` on the menu primitives would otherwise draw in full ink. */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"] {
+  border-color: var(--line);
+}
+/* Header menus open on hover, so they arrive quickly: a short drop out of a blur, with the
+ * menu's title sliding in from the trigger's side. */
+.header-menu[data-state="open"] {
+  animation: header-menu-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes header-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+    filter: blur(4px);
+  }
+}
+.header-menu .header-menu-title {
+  padding: 6px 10px 8px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+}
+.header-menu[data-state="open"] .header-menu-title {
+  animation: header-menu-title-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both;
+}
+@keyframes header-menu-title-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+    filter: blur(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-menu[data-state="open"],
+  .header-menu[data-state="open"] .header-menu-title {
+    animation: header-menu-fade 0.12s ease-out both;
+  }
+}
+@keyframes header-menu-fade {
+  from {
+    opacity: 0;
+  }
+}
 .care-workspace-share-delayed {
   color: var(--warning-ink) !important;
   border-color: var(--event-food-border) !important;

@@ -79,6 +79,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import PersonMenu from "./person-menu";
+import LogMenu, { type LogAction } from "./log-menu";
 import { useHoverMenu } from "./hover-menu";
 import ShortcutsDialog from "./shortcuts-dialog";
 import { createShortcutMatcher } from "@/lib/shortcuts";
@@ -1791,6 +1792,36 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         })
       : "No scheduled dose";
   const paletteGroups = commandGroups();
+  const liveStatus = !online
+    ? "Offline"
+    : refreshError
+      ? "Update delayed"
+      : refreshing
+        ? "Updating…"
+        : lastChecked
+          ? `Live · ${time(lastChecked.toISOString())}`
+          : "Connecting…";
+  function logAction(action: LogAction) {
+    switch (action) {
+      case "food":
+      case "insulin":
+      case "glucose":
+      case "exercise":
+      case "rescue":
+        return open(action);
+      case "illness":
+        return setIllnessEditor({ record: null });
+      case "low":
+        return setLowTreatmentOpen(true);
+      case "nightly":
+        return setNightOpen(true);
+      case "calculator":
+        return openDoseFlow();
+      case "food-builder":
+        setView("daily");
+        return setShowFoodTools(true);
+    }
+  }
   return (
     <Tabs
       value={view}
@@ -1837,30 +1868,27 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           </TabsTrigger>
         </TabsList>
         <div className="workspace-header-tools">
-          <div className="care-header-sync">
-            <span role="status" title={refreshError || undefined}>
-              {!online
-                ? "Offline"
-                : refreshError
-                  ? "Update delayed"
-                  : refreshing
-                    ? "Updating…"
-                    : lastChecked
-                      ? `Live · ${time(lastChecked.toISOString())}`
-                      : "Connecting…"}
+          <button
+            type="button"
+            className="care-header-status"
+            data-state={
+              !online ? "offline" : refreshError ? "delayed" : lastChecked ? "live" : "connecting"
+            }
+            title={refreshError || "Refresh care log and Dexcom"}
+            aria-label={`Refresh data. ${liveStatus}`}
+            onClick={() => void refreshAll()}
+            disabled={manualRefreshing || saving || !online}
+          >
+            <span className="care-header-status-dot" aria-hidden="true" />
+            <span role="status" className="care-header-status-text">
+              {liveStatus}
             </span>
-            <button
-              type="button"
-              className="button subtle care-header-refresh"
-              title={refreshError || "Refresh care log and Dexcom"}
-              aria-label="Refresh data"
-              onClick={() => void refreshAll()}
-              disabled={manualRefreshing || saving || !online}
-            >
-              <RefreshCw size={17} className={manualRefreshing ? "spin" : undefined} />
-              <span>Refresh</span>
-            </button>
-          </div>
+            <RefreshCw
+              size={15}
+              aria-hidden="true"
+              className={manualRefreshing ? "spin" : undefined}
+            />
+          </button>
           <button
             className="button subtle care-command-trigger"
             type="button"
@@ -1890,20 +1918,22 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                 className="button subtle care-workspace-more"
                 type="button"
                 disabled={loading || !!error}
-                aria-label="Open care tools"
+                aria-label={shareDelayed ? "Care tools · Dexcom data delayed" : "Care tools"}
+                data-open={careMenu.open || undefined}
                 {...careMenu.trigger}
               >
-                <Menu size={18} />
-                Care tools
+                <Menu size={18} aria-hidden="true" />
                 {shareDelayed && (
-                  <span
-                    className="care-workspace-menu-attention"
-                    aria-label="Dexcom data delayed"
-                  />
+                  <span className="care-workspace-menu-attention" aria-hidden="true" />
                 )}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="care-workspace-menu" {...careMenu.content}>
+            <DropdownMenuContent
+              align="end"
+              className="care-workspace-menu header-menu"
+              {...careMenu.content}
+            >
+              <DropdownMenuLabel className="header-menu-title">Care tools</DropdownMenuLabel>
               {canLog && (
                 <>
                   <DropdownMenuLabel>Log</DropdownMenuLabel>
@@ -2062,15 +2092,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                     <span className="quick-verb">Log </span>illness
                   </span>
                   <Plus size={16} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="quick-calculator"
-                  onClick={() => openDoseFlow()}
-                  disabled={loading || !!error}
-                >
-                  <Calculator size={20} aria-hidden="true" />
-                  <span>Calculator</span>
                 </button>
               </nav>
             )}
@@ -2664,6 +2685,26 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           </span>
         </footer>
       </main>
+      {canLog && (
+        <LogMenu
+          name={profile?.name}
+          disabled={loading || !!error}
+          nightlyDisabled={plan.basal === 0}
+          onSelect={logAction}
+        />
+      )}
+      <button
+        type="button"
+        className="shortcuts-fab"
+        aria-label="Keyboard shortcuts"
+        aria-keyshortcuts="?"
+        onClick={() => setShortcutsOpen(true)}
+      >
+        <span aria-hidden="true">?</span>
+        <span className="shortcuts-fab-label" aria-hidden="true">
+          Keyboard shortcuts
+        </span>
+      </button>
       <Dialog open={emergencyOpen} onOpenChange={setEmergencyOpen}>
         <DialogContent className="care-dialog care-workspace-emergency-dialog">
           <DialogHeader>
