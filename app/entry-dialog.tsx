@@ -670,7 +670,7 @@ export default function EntryDialog({
               placeholder="Food, symptoms, or care-team instructions"
             />
           </label>
-          <button className="button primary full" disabled={saving}>
+          <button type="submit" className="button primary full" disabled={saving}>
             {saving ? <Loader2 className="spin" size={16} /> : <Check size={17} />}Save{" "}
             {editing ? "changes" : "entry"}
           </button>

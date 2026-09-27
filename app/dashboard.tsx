@@ -141,6 +141,7 @@ import { isRecentReading } from "@/lib/reading-freshness";
 import { currentShareForCorrection } from "@/lib/correction-reading";
 import { correctionMarkerAt } from "@/lib/correction-marker";
 import { mealRatioAt } from "@/lib/report-analysis";
+import { foodDosePrompt, type FoodDosePrompt } from "@/lib/food-dose-prompt";
 import { correctionReviewStatus, readingAboveRange } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
@@ -364,6 +365,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     [entryPrefill, setEntryPrefill] = useState<EntryPrefill | null>(null);
   const [cgmInterval, setCgmInterval] = useState<15 | 30 | 60>(30);
   const [selectedFoodIds, setSelectedFoodIds] = useState<string[]>([]);
+  // A new food entry at or over the plan's snack cutoff offers the calculator, prefilled.
+  const [foodDose, setFoodDose] = useState<FoodDosePrompt | null>(null);
   const [doseFlow, setDoseFlow] = useState<{
     mode: "Carbs" | "Correction" | "Carbs + correction";
     meal: MealRatio | null;
@@ -476,7 +479,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     planOpen ||
     showFoodTools ||
     pendingCsv ||
-    lowTreatmentOpen
+    lowTreatmentOpen ||
+    foodDose
   );
   useEffect(() => {
     formsOpenRef.current = formsOpen;
@@ -3299,7 +3303,13 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         doseGlucoseText={doseGlucoseText}
         doseGlucoseAge={doseGlucoseAge}
         saving={saving}
-        onSave={saveEntry}
+        onSave={async (entry, foodDoseSource) => {
+          const isNew = !editing;
+          const ok = await saveEntry(entry, foodDoseSource);
+          if (ok && isNew && !foodDoseSource)
+            setFoodDose(foodDosePrompt({ entry, plan, now: Date.now(), aboveRange }));
+          return ok;
+        }}
         onDelete={deleteEntry}
         onClose={() => setModal(null)}
         onSaveFood={saveFoodFavorite}
@@ -3308,6 +3318,49 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         onOpenDoseFood={openDoseFood}
         onCalculateAndLog={openDoseFlow}
       />
+      <Dialog open={!!foodDose} onOpenChange={(v) => !v && setFoodDose(null)}>
+        <DialogContent className="care-dialog food-dose-dialog">
+          {foodDose && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{fmt(foodDose.carbs)} g reaches your snack insulin cutoff</DialogTitle>
+                <DialogDescription>
+                  Your care plan gives no insulin for snacks under {fmt(foodDose.cutoff)} g.
+                  {foodDose.mode === "Carbs + correction" && latest
+                    ? ` The current reading, ${latest.status === "High" ? "HIGH" : `${latest.value} mg/dL`}, is above your range.`
+                    : ""}{" "}
+                  Check your care plan before giving insulin.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="food-dose-actions">
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={() => {
+                    setFoodDose(null);
+                    openDoseFlow(
+                      foodDose.mode,
+                      foodDose.ratioMeal ?? mealRatioAt(new Date(foodDose.at), plan.timezone),
+                      {
+                        carbs: fmt(foodDose.carbs),
+                        linkedFoodIds: [foodDose.entryId],
+                      },
+                    );
+                  }}
+                >
+                  <Calculator size={16} aria-hidden="true" />
+                  {foodDose.mode === "Carbs + correction"
+                    ? "Open calculator: carbs + correction"
+                    : "Open calculator: carbs"}
+                </button>
+                <button type="button" className="button outline" onClick={() => setFoodDose(null)}>
+                  Not now
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={planOpen}
         onOpenChange={(v) => {
