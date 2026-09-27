@@ -1,6 +1,6 @@
 "use client";
 import { apiFetch } from "@/lib/person-request";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Thermometer,
   Activity,
@@ -79,6 +79,9 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import PersonMenu from "./person-menu";
+import { useHoverMenu } from "./hover-menu";
+import ShortcutsDialog from "./shortcuts-dialog";
+import { createShortcutMatcher } from "@/lib/shortcuts";
 import { usePersonAccess } from "./person-context";
 import { can, personLabel } from "@/lib/people";
 import { personHref } from "@/lib/person-request";
@@ -383,6 +386,9 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const instructions = plan.emergencyInstructions ?? {};
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [shortcutKeys] = useState(() => createShortcutMatcher());
+  const careMenu = useHoverMenu();
   const [themePref, setThemePrefState] = useState<ThemePreference>("system");
   useEffect(() => {
     setThemePrefState(getStoredThemePreference());
@@ -392,29 +398,57 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     setThemePreference(pref);
     setThemePrefState(pref);
   }
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const meta = event.metaKey || event.ctrlKey;
-      if (meta && (event.key === "k" || event.key === "K")) {
-        event.preventDefault();
-        setCommandOpen((v) => !v);
-        return;
-      }
-      if (event.key !== "/" || commandOpen) return;
-      const target = event.target as HTMLElement | null;
-      const inTextField =
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT");
-      if (inTextField) return;
+  // ⌘K and / open the palette, ? and ⌘/ the shortcut sheet; bare keys run Linear-style shortcuts
+  // (C, or L then G) through the palette's own items, so disabled and view-only rules still hold.
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const meta = event.metaKey || event.ctrlKey;
+    if (meta && (event.key === "k" || event.key === "K")) {
       event.preventDefault();
-      setCommandOpen(true);
+      setCommandOpen((v) => !v);
+      return;
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [commandOpen]);
+    if (meta && event.key === "/") {
+      event.preventDefault();
+      setShortcutsOpen((v) => !v);
+      return;
+    }
+    if (meta || event.altKey || event.repeat || event.isComposing || event.key.length !== 1) return;
+    const target = event.target as HTMLElement | null;
+    const inTextField =
+      target instanceof HTMLElement &&
+      (target.isContentEditable ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT");
+    // Only the bare page takes shortcuts: never a field, a dialog, a menu or the palette.
+    if (
+      inTextField ||
+      document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')
+    ) {
+      shortcutKeys.reset();
+      return;
+    }
+    if (event.key === "/" || event.key === "?") {
+      event.preventDefault();
+      shortcutKeys.reset();
+      if (event.key === "/") setCommandOpen(true);
+      else setShortcutsOpen(true);
+      return;
+    }
+    const result = shortcutKeys.press(event.key, event.timeStamp);
+    if (!result) return;
+    event.preventDefault();
+    if (result === "pending") return;
+    const item = commandGroups()
+      .flatMap((group) => group.items)
+      .find((candidate) => candidate.id === result.id);
+    if (item && !item.disabled) item.onSelect();
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => onKeyDown(event);
+    document.addEventListener("keydown", listener);
+    return () => document.removeEventListener("keydown", listener);
+  }, []);
   const [desktopLog, setDesktopLog] = useState(false);
   useEffect(() => {
     const query = window.matchMedia("(min-width: 1000px)");
@@ -1434,7 +1468,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Log glucose",
         icon: <Droplet size={17} />,
         keywords: ["glucose", "bg", "blood sugar", "finger-stick", "reading"],
-        shortcut: "G",
         disabled: busy,
         onSelect: () => open("glucose"),
       },
@@ -1443,7 +1476,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Log food",
         icon: <Utensils size={17} />,
         keywords: ["food", "carbs", "meal", "eat"],
-        shortcut: "F",
         disabled: busy,
         onSelect: () => open("food"),
       },
@@ -1452,7 +1484,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Log insulin",
         icon: <Syringe size={17} />,
         keywords: ["insulin", "dose", "bolus", "shot", "injection"],
-        shortcut: "I",
         disabled: busy,
         onSelect: () => open("insulin"),
       },
@@ -1502,7 +1533,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Insulin calculator",
         icon: <Calculator size={17} />,
         keywords: ["calculator", "dose", "bolus", "carbs"],
-        shortcut: "C",
         onSelect: () => openDoseFlow(),
       },
       {
@@ -1568,6 +1598,13 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         keywords: ["report", "doctor", "clinician", "pdf"],
         disabled: busy,
         onSelect: () => setView("reports"),
+      },
+      {
+        id: "view-low-help",
+        label: "Low glucose and emergency steps",
+        icon: <Heart size={17} />,
+        keywords: ["low", "hypo", "emergency", "help", "glucagon", "severe"],
+        onSelect: () => setEmergencyOpen(true),
       },
       {
         id: "view-handoff",
@@ -1636,7 +1673,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Refresh data",
         icon: <RefreshCw size={17} />,
         keywords: ["refresh", "sync", "update", "reload"],
-        shortcut: "R",
         disabled: manualRefreshing || saving || !online,
         onSelect: () => void refreshAll(),
       },
@@ -1754,6 +1790,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           minute: "2-digit",
         })
       : "No scheduled dose";
+  const paletteGroups = commandGroups();
   return (
     <Tabs
       value={view}
@@ -1762,7 +1799,12 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       data-view={view}
     >
       <Toaster richColors />
-      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} groups={commandGroups()} />
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} groups={paletteGroups} />
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        available={new Set(paletteGroups.flatMap((group) => group.items.map((item) => item.id)))}
+      />
       {overnightBanner && (
         <OvernightBanner
           check={overnightBanner}
@@ -1842,13 +1884,14 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
             <Heart size={17} />
             <span>Low help</span>
           </button>
-          <DropdownMenu>
+          <DropdownMenu {...careMenu.root}>
             <DropdownMenuTrigger asChild>
               <button
                 className="button subtle care-workspace-more"
                 type="button"
                 disabled={loading || !!error}
                 aria-label="Open care tools"
+                {...careMenu.trigger}
               >
                 <Menu size={18} />
                 Care tools
@@ -1860,7 +1903,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                 )}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="care-workspace-menu">
+            <DropdownMenuContent align="end" className="care-workspace-menu" {...careMenu.content}>
               {canLog && (
                 <>
                   <DropdownMenuLabel>Log</DropdownMenuLabel>
@@ -1923,7 +1966,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                   <SunMoon size={17} />
                   Theme
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
+                <DropdownMenuSubContent {...careMenu.sub}>
                   <DropdownMenuRadioGroup
                     value={themePref}
                     onValueChange={(value) => chooseTheme(value as ThemePreference)}

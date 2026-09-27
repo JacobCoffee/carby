@@ -45,9 +45,81 @@
 }
 .care-command-palette [data-slot="command-shortcut"] {
   color: var(--care-muted, var(--ink-muted));
+  letter-spacing: 0;
+}
+.care-command-palette [data-slot="command-item"][data-selected="true"] [data-slot="kbd"] {
+  background: color-mix(in srgb, var(--accent-wash-ink) 14%, transparent);
+  color: var(--accent-wash-ink);
 }
 .care-command-palette [data-slot="command-separator"] {
   background: var(--care-line, var(--line));
+}
+
+/* Keycaps, and the sheet that lists every shortcut. */
+.shortcut-keys [data-slot="kbd"] {
+  min-width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.shortcut-keys-then {
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+.shortcuts-dialog {
+  max-width: min(720px, calc(100vw - 32px)) !important;
+}
+.shortcuts-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 32px;
+  margin-top: 8px;
+}
+.shortcuts-group h3 {
+  margin: 0 0 6px;
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.shortcuts-group dl {
+  margin: 0;
+}
+.shortcuts-group dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--line);
+}
+.shortcuts-group dl > div:last-child {
+  border-bottom: 0;
+}
+.shortcuts-group dt {
+  color: var(--ink);
+  font-size: 14px;
+}
+.shortcuts-group dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  flex: none;
+}
+.shortcuts-alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 680px) {
+  .shortcuts-groups {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Header trigger button */

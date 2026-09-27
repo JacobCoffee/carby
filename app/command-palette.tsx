@@ -10,6 +10,8 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
+import { shortcutKeys } from "@/lib/shortcuts";
+import ShortcutKeys from "./shortcut-keys";
 import "./command-palette.css";
 
 export type CommandPaletteItem = {
@@ -17,11 +19,9 @@ export type CommandPaletteItem = {
   label: string;
   icon?: ReactNode;
   keywords?: string[];
-  shortcut?: string;
   disabled?: boolean;
   onSelect: () => void;
 };
-
 export type CommandPaletteGroup = {
   heading: string;
   items: CommandPaletteItem[];
@@ -75,22 +75,29 @@ export default function CommandPalette({
         {visibleGroups.map((group, i) => (
           <Fragment key={group.heading}>
             <CommandGroup heading={group.heading}>
-              {group.items.map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={item.label}
-                  disabled={item.disabled}
-                  keywords={item.keywords}
-                  onSelect={() => {
-                    item.onSelect();
-                    onOpenChange(false);
-                  }}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                  {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
-                </CommandItem>
-              ))}
+              {group.items.map((item) => {
+                const keys = shortcutKeys(item.id);
+                return (
+                  <CommandItem
+                    key={item.id}
+                    value={item.label}
+                    disabled={item.disabled}
+                    keywords={item.keywords}
+                    onSelect={() => {
+                      item.onSelect();
+                      onOpenChange(false);
+                    }}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    {keys && (
+                      <CommandShortcut>
+                        <ShortcutKeys keys={keys} />
+                      </CommandShortcut>
+                    )}
+                  </CommandItem>
+                );
+              })}
             </CommandGroup>
             {i < visibleGroups.length - 1 && <CommandSeparator />}
           </Fragment>

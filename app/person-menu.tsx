@@ -24,6 +24,7 @@ import {
 import { personLabel, personRoleLabels } from "@/lib/people";
 import { apiFetch } from "@/lib/person-request";
 import { usePersonAccess } from "./person-context";
+import { useHoverMenu } from "./hover-menu";
 import SharingDialog from "./sharing-dialog";
 import "./person-menu.css";
 
@@ -50,6 +51,7 @@ export default function PersonMenu({ name, timezone }: { name?: string; timezone
   const [sharingOpen, setSharingOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const current = access.people.find((p) => p.id === access.person);
+  const hover = useHoverMenu();
   const label = personLabel(name ?? current?.name);
   const run = (body: unknown) => {
     setBusy(true);
@@ -60,13 +62,14 @@ export default function PersonMenu({ name, timezone }: { name?: string; timezone
   };
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu {...hover.root}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
             className="button subtle person-menu-trigger"
             disabled={busy}
             aria-label={`Showing ${label}’s log. Switch person or share.`}
+            {...hover.trigger}
           >
             <span className="person-menu-avatar" aria-hidden="true">
               {label.slice(0, 1).toUpperCase()}
@@ -75,7 +78,7 @@ export default function PersonMenu({ name, timezone }: { name?: string; timezone
             <ChevronsUpDown size={15} aria-hidden="true" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="person-menu">
+        <DropdownMenuContent align="end" className="person-menu header-menu" {...hover.content}>
           <DropdownMenuLabel>Whose log</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             value={access.person}
