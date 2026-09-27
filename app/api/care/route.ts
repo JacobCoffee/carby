@@ -22,9 +22,24 @@ import {
 } from "@/lib/meal-log";
 import { clarityReadingStatements, clarityEventStatements } from "@/lib/cgm-sql";
 import type { ClarityFreshness, SensorSession } from "@/lib/cgm-summary";
+import {
+  flushSync,
+  pushConfig,
+  queueSyncStatements,
+  resolveHeld,
+  syncStatus,
+  type SyncRef,
+} from "@/lib/sync";
 export const dynamic = "force-dynamic";
 /** Actions that change the care plan, the profile or imported device history: owners only. */
-const MANAGE_ACTIONS = new Set(["plan", "profile", "importCgm", "importDexcomEvents"]);
+const MANAGE_ACTIONS = new Set([
+  "plan",
+  "profile",
+  "importCgm",
+  "importDexcomEvents",
+  "syncResend",
+  "syncDiscard",
+]);
 function audit(
   db: ReturnType<typeof database>,
   owner: string,
@@ -151,6 +166,11 @@ export async function GET(request: Request) {
         .bind(owner)
         .first<{ last_sync: string | null; last_error: string | null; latest_at: string | null }>(),
     ]);
+    const push = pushConfig(process.env);
+    const sync = await syncStatus(db, push, owner);
+    // Anything still waiting, say after the other Carby was unreachable, goes on each refresh.
+    if (sync?.pending)
+      void flushSync(db, push, owner).catch((e: unknown) => console.warn("sync send failed", e));
     const savedPlan: unknown = plan ? JSON.parse(plan.data) : null;
     const parsedPlan = plan ? planSchema.safeParse(savedPlan) : null;
     return conditionalJson(request, {
@@ -169,6 +189,7 @@ export async function GET(request: Request) {
       ...(parsedPlan && !parsedPlan.success ? { planDraft: planDraft(savedPlan) } : {}),
       history: history.results.map((r) => ({ plan: JSON.parse(r.data), at: r.created })),
       historyLimited: cgm.results.length === 15000,
+      sync,
       savedFoods: foods.results.map((r) => JSON.parse(r.data)),
       dexcomEvents: events.results.map((r) => JSON.parse(r.data)),
       cgm: cgm.results.map((r) => ({
@@ -216,6 +237,11 @@ export async function POST(request: Request) {
     if (access instanceof Response) return access;
     const owner = access.person;
     const db = database();
+    // With one-way sync on, each change queues its records for sending in the same batch.
+    const push = pushConfig(process.env);
+    const queue = (...refs: SyncRef[]) => queueSyncStatements(db, push, owner, refs);
+    const send = () =>
+      void flushSync(db, push, owner).catch((e: unknown) => console.warn("sync send failed", e));
     if (body.action === "plan") {
       const plan = planSchema.parse(body.plan);
       const prior = await db
@@ -225,6 +251,7 @@ export async function POST(request: Request) {
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await db.batch([
+        ...queue({ table: "plans", id }),
         db
           .prepare("INSERT INTO plans (id, owner, data, created) VALUES ($1, $2, $3, $4)")
           .bind(id, owner, JSON.stringify(plan), now),
@@ -286,7 +313,9 @@ export async function POST(request: Request) {
               "INSERT INTO entries (id, owner, at, data, plan, updated) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT(id) DO NOTHING",
             )
             .bind(entry.id, owner, entry.at, next, plan!.data, new Date().toISOString());
+      const queued = queue({ table: "entries", id: entry.id });
       const results = await db.batch([
+        ...queued,
         changed,
         db
           .prepare(
@@ -307,7 +336,7 @@ export async function POST(request: Request) {
             next,
           ),
       ]);
-      if (!results[0].meta.changes)
+      if (!results[queued.length].meta.changes)
         return reply(
           {
             error:
@@ -416,6 +445,7 @@ export async function POST(request: Request) {
           .bind(entry.id, owner, entry.at, JSON.stringify(entry), snapshot, updated),
       );
       await db.batch([
+        ...queue(...proposed.map((entry) => ({ table: "entries" as const, id: entry.id }))),
         ...items,
         ...proposed.map((entry) =>
           audit(
@@ -467,7 +497,12 @@ export async function POST(request: Request) {
       const next = JSON.stringify({ ...linked, revision: crypto.randomUUID() }),
         foodData = JSON.stringify(food),
         updated = new Date().toISOString();
+      const queued = queue(
+        { table: "entries", id: food.id },
+        { table: "entries", id: previous.id },
+      );
       const results = await db.batch([
+        ...queued,
         db
           .prepare(insertMealFoodSql)
           .bind(
@@ -519,7 +554,7 @@ export async function POST(request: Request) {
             ),
         ),
       ]);
-      if (!results[0].meta.changes || !results[1].meta.changes)
+      if (!results[queued.length].meta.changes || !results[queued.length + 1].meta.changes)
         return reply(
           { error: "This dose changed while saving. Reopen it before adding food." },
           409,
@@ -572,28 +607,33 @@ export async function POST(request: Request) {
       // One statement: the audit row is written only when the guarded change applied. The audit
       // values are numbered after the guarded statement's own parameters.
       const auditValues = Array.from({ length: 9 }, (_, i) => `$${guardArgs.length + i + 1}`);
-      const result = await db
-        .prepare(
-          `WITH changed AS (${guarded} RETURNING id) INSERT INTO care_audit (id, owner, entry_id, actor_id, actor_name, action, "before", "after", at) SELECT ${auditValues.join(", ")} WHERE EXISTS (SELECT 1 FROM changed)`,
-        )
-        .bind(
-          ...guardArgs,
-          crypto.randomUUID(),
-          owner,
-          requested.id,
-          user.userId,
-          user.displayName,
-          deleting ? "deleted" : existing ? "updated" : "created",
-          existing?.data ?? null,
-          deleting ? null : next,
-          updated,
-        )
-        .run();
+      const [result] = (
+        await db.batch([
+          ...queue({ table: "illness_windows", id: requested.id }),
+          db
+            .prepare(
+              `WITH changed AS (${guarded} RETURNING id) INSERT INTO care_audit (id, owner, entry_id, actor_id, actor_name, action, "before", "after", at) SELECT ${auditValues.join(", ")} WHERE EXISTS (SELECT 1 FROM changed)`,
+            )
+            .bind(
+              ...guardArgs,
+              crypto.randomUUID(),
+              owner,
+              requested.id,
+              user.userId,
+              user.displayName,
+              deleting ? "deleted" : existing ? "updated" : "created",
+              existing?.data ?? null,
+              deleting ? null : next,
+              updated,
+            ),
+        ])
+      ).slice(-1);
       if (!result.meta.changes)
         return reply(
           { error: "This illness record changed while saving. Reopen the latest range." },
           409,
         );
+      send();
       return reply({ ok: true, illness: deleting ? null : illness });
     } else if (body.action === "saveAppointment") {
       const requested = appointmentSchema.parse(body.appointment);
@@ -627,7 +667,9 @@ export async function POST(request: Request) {
               "INSERT INTO appointments (id, owner, at, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO NOTHING",
             )
             .bind(requested.id, owner, appointment.at, next, updated);
+      const queued = queue({ table: "appointments", id: requested.id });
       const results = await db.batch([
+        ...queued,
         changed,
         db
           .prepare(
@@ -648,7 +690,7 @@ export async function POST(request: Request) {
             next,
           ),
       ]);
-      if (!results[0].meta.changes)
+      if (!results[queued.length].meta.changes)
         return reply(
           {
             error:
@@ -656,6 +698,7 @@ export async function POST(request: Request) {
           },
           409,
         );
+      send();
       return reply({ ok: true, appointment });
     } else if (body.action === "deleteAppointment" && typeof body.id === "string") {
       const previous = await db
@@ -664,30 +707,35 @@ export async function POST(request: Request) {
         .first<{ data: string }>();
       if (!previous) return reply({ error: "Appointment no longer exists." }, 404);
       await db.batch([
+        ...queue({ table: "appointments", id: body.id }),
         db.prepare("DELETE FROM appointments WHERE id = $1 AND owner = $2").bind(body.id, owner),
         audit(db, owner, user.userId, user.displayName, body.id, "deleted", previous.data, null),
       ]);
     } else if (body.action === "food") {
       const food = savedFoodSchema.parse(body.food);
-      await db
-        .prepare(
-          "INSERT INTO saved_foods (id, owner, name, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET name = excluded.name, data = excluded.data, updated = excluded.updated WHERE saved_foods.owner = excluded.owner",
-        )
-        .bind(food.id, owner, food.name, JSON.stringify(food), new Date().toISOString())
-        .run();
+      await db.batch([
+        ...queue({ table: "saved_foods", id: food.id }),
+        db
+          .prepare(
+            "INSERT INTO saved_foods (id, owner, name, data, updated) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET name = excluded.name, data = excluded.data, updated = excluded.updated WHERE saved_foods.owner = excluded.owner",
+          )
+          .bind(food.id, owner, food.name, JSON.stringify(food), new Date().toISOString()),
+      ]);
     } else if (body.action === "deleteFood" && typeof body.id === "string") {
-      await db
-        .prepare("DELETE FROM saved_foods WHERE id = $1 AND owner = $2")
-        .bind(body.id, owner)
-        .run();
+      await db.batch([
+        ...queue({ table: "saved_foods", id: body.id }),
+        db.prepare("DELETE FROM saved_foods WHERE id = $1 AND owner = $2").bind(body.id, owner),
+      ]);
     } else if (body.action === "profile") {
       const profile = profileSchema.parse(body.profile);
-      await db
-        .prepare(
-          "INSERT INTO profiles (id, owner, data, updated) VALUES ($1, $2, $3, $4) ON CONFLICT (owner) DO UPDATE SET id = excluded.id, data = excluded.data, updated = excluded.updated",
-        )
-        .bind(profile.id, owner, JSON.stringify(profile), new Date().toISOString())
-        .run();
+      await db.batch([
+        ...queue({ table: "profiles", id: profile.id }),
+        db
+          .prepare(
+            "INSERT INTO profiles (id, owner, data, updated) VALUES ($1, $2, $3, $4) ON CONFLICT (owner) DO UPDATE SET id = excluded.id, data = excluded.data, updated = excluded.updated",
+          )
+          .bind(profile.id, owner, JSON.stringify(profile), new Date().toISOString()),
+      ]);
     } else if (body.action === "importCgm") {
       if (!Array.isArray(body.readings) || body.readings.length === 0 || body.readings.length > 250)
         return reply({ error: "Import 1–250 readings per batch." }, 400);
@@ -738,12 +786,16 @@ export async function POST(request: Request) {
         .first<{ data: string }>();
       if (!previous) return reply({ error: "Entry no longer exists." }, 404);
       await db.batch([
+        ...queue({ table: "entries", id: body.id }),
         db.prepare("DELETE FROM entries WHERE id = $1 AND owner = $2").bind(body.id, owner),
         audit(db, owner, user.userId, user.displayName, body.id, "deleted", previous.data, null),
       ]);
+    } else if (body.action === "syncResend" || body.action === "syncDiscard") {
+      await resolveHeld(db, owner, body.action === "syncResend" ? "send" : "discard");
     } else {
       return reply({ error: "Invalid action." }, 400);
     }
+    send();
     return reply({ ok: true });
   } catch (e) {
     if (e instanceof Error && e.name === "ZodError")

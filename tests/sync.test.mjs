@@ -1,0 +1,56 @@
+import { test } from "bun:test";
+import assert from "node:assert/strict";
+import { acceptConfig, pushConfig, syncDecision } from "../lib/sync.ts";
+
+const record = (revision, note = "") => JSON.stringify({ id: "r", revision, note });
+const token = "t".repeat(32);
+
+test("a tracked record applies only while the receiver still holds what the sender last had", () => {
+  // Never seen here, or the same copy again: nothing to protect.
+  assert.equal(syncDecision("entries", null, null, record("r1")), "apply");
+  assert.equal(syncDecision("entries", record("r1"), "r0", record("r1")), "same");
+  assert.equal(syncDecision("entries", null, "r1", null), "same");
+  // An edit or delete of the copy the receiver got last time.
+  assert.equal(syncDecision("entries", record("r1"), "r1", record("r2")), "apply");
+  assert.equal(syncDecision("illness_windows", record("r1"), "r1", null), "apply");
+  // The receiver edited it since (a revision the sender never had): held back.
+  assert.equal(syncDecision("entries", record("p1"), "r1", record("r2")), "conflict");
+  assert.equal(syncDecision("appointments", record("p1"), "r1", null), "conflict");
+  assert.equal(syncDecision("entries", record("p1"), null, record("r2")), "conflict");
+});
+
+test("records without revisions are last write wins", () => {
+  assert.equal(
+    syncDecision("saved_foods", record(undefined, "a"), null, record(undefined, "b")),
+    "apply",
+  );
+  assert.equal(
+    syncDecision("profiles", record(undefined, "a"), null, record(undefined, "b")),
+    "apply",
+  );
+});
+
+test("sync needs every setting and a long token, and only sends over https off this machine", () => {
+  const push = {
+    CARBY_SYNC_PUSH_URL: "https://carby.example/app",
+    CARBY_SYNC_PUSH_TOKEN: token,
+    CARBY_SYNC_PUSH_PERSON: "local_dev",
+  };
+  assert.deepEqual(pushConfig(push), { url: "https://carby.example", token, person: "local_dev" });
+  assert.equal(pushConfig({ ...push, CARBY_SYNC_PUSH_TOKEN: "short" }), null);
+  assert.equal(pushConfig({ ...push, CARBY_SYNC_PUSH_PERSON: " " }), null);
+  assert.equal(pushConfig({ ...push, CARBY_SYNC_PUSH_URL: "http://carby.example" }), null);
+  assert.equal(
+    pushConfig({ ...push, CARBY_SYNC_PUSH_URL: "http://localhost:8787" })?.url,
+    "http://localhost:8787",
+  );
+  assert.equal(pushConfig({}), null);
+  assert.deepEqual(
+    acceptConfig({ CARBY_SYNC_ACCEPT_TOKEN: token, CARBY_SYNC_ACCEPT_PERSON: "github:1" }),
+    { token, person: "github:1" },
+  );
+  assert.equal(
+    acceptConfig({ CARBY_SYNC_ACCEPT_TOKEN: "short", CARBY_SYNC_ACCEPT_PERSON: "github:1" }),
+    null,
+  );
+});

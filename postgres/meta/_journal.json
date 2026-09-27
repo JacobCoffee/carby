@@ -43,6 +43,13 @@
       "when": 1790464706943,
       "tag": "0005_people",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790528487437,
+      "tag": "0006_sync_outbox",
+      "breakpoints": true
     }
   ]
 }

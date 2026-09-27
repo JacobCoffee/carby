@@ -264,3 +264,24 @@ export const personInvites = pgTable(
     index("idx_person_invites_person").on(t.person),
   ],
 );
+/**
+ * Records changed here that still have to reach another Carby deployment (one-way sync, only
+ * when CARBY_SYNC_PUSH_* is set). One row per record; `previous` is the record's revision
+ * before the first unsent change, so the receiver can tell whether it was edited there.
+ */
+export const syncOutbox = pgTable(
+  "sync_outbox",
+  {
+    owner: text("owner").notNull(),
+    tbl: text("tbl").notNull(),
+    recordId: text("record_id").notNull(),
+    previous: text("previous"),
+    /** On a conflict, the receiver's revision; "Send mine anyway" sends against it. */
+    theirs: text("theirs"),
+    queued: text("queued").notNull(),
+    /** pending | conflict | rejected */
+    state: text("state").notNull(),
+    error: text("error"),
+  },
+  (t) => [primaryKey({ columns: [t.owner, t.tbl, t.recordId] })],
+);
