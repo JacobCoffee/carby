@@ -1,6 +1,16 @@
 "use client";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
-import { Loader2, Pencil, Plus, ScanBarcode, Search, Star, Trash2, X } from "lucide-react";
+import {
+  Loader2,
+  Pencil,
+  Plus,
+  ScanBarcode,
+  ScanText,
+  Search,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 import type { FoodItem, SavedFood } from "@/lib/care";
 import {
   FOOD_QUERY_MIN,
@@ -9,7 +19,6 @@ import {
   type FoodLookupResult,
   type FoodMatch,
   type FoodServing,
-  type FoodSource,
 } from "@/lib/food-lookup";
 import { apiFetch } from "@/lib/person-request";
 import {
@@ -19,6 +28,7 @@ import {
   type FoodBasisFields,
 } from "@/lib/portions";
 import BarcodeScanner from "./barcode-scanner";
+import LabelReader, { type LabelFill } from "./label-reader";
 import "./food-picker.css";
 
 const fmt = (n: number) => Number(n.toFixed(2)).toString();
@@ -252,8 +262,11 @@ export function FoodPicker({
   const [editing, setEditing] = useState<{ key: string; fields: FoodBasisFields } | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
   const [lookup, setLookup] = useState<Lookup>({ status: "idle" });
-  const [filledFrom, setFilledFrom] = useState<FoodSource | null>(null);
+  /** Says where the new-food fields were filled from, until the food is added. */
+  const [filledFrom, setFilledFrom] = useState<{ note: string; uncertain: boolean } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
   const lookupId = useRef(0);
   const formId = useId();
 
@@ -350,7 +363,10 @@ export function FoodPicker({
       servingSize: serving ? String(serving.servingSize) : "1",
       unit: serving?.unit ?? "",
     });
-    setFilledFrom(match.source);
+    setFilledFrom({
+      note: `Filled in from ${foodSourceLabels[match.source]}. Check each value against the package label before adding.`,
+      uncertain: false,
+    });
     lookupId.current++;
     setLookup({ status: "idle" });
   }
@@ -359,6 +375,29 @@ export function FoodPicker({
     setScanning(false);
     setLookupQuery(gtin);
     void lookUp(gtin);
+  }
+
+  function closePhoto() {
+    if (photo) URL.revokeObjectURL(photo.url);
+    setPhoto(null);
+  }
+
+  /** The name stays as typed: a label photo gives the numbers, not what the food is called. */
+  function fillFromLabel({ carbs, serving, uncertain }: LabelFill) {
+    setNewFood({
+      ...newFood,
+      carbs: String(carbs),
+      ...(serving ? { servingSize: String(serving.servingSize), unit: serving.unit } : {}),
+    });
+    setFilledFrom({
+      note: !serving
+        ? "Carbs filled in from the label photo. Enter the serving size they are for, and check both against the label before adding."
+        : uncertain
+          ? "Filled in from the label photo, but some values were hard to read. Check each value against the label before adding."
+          : "Filled in from the label photo. Check each value against the label before adding.",
+      uncertain,
+    });
+    closePhoto();
   }
 
   function startEdit(draft: Draft) {
@@ -538,6 +577,29 @@ export function FoodPicker({
               <ScanBarcode size={15} aria-hidden="true" />
               Scan barcode
             </button>
+            <button
+              type="button"
+              className="button outline"
+              onClick={() => photoInput.current?.click()}
+            >
+              <ScanText size={15} aria-hidden="true" />
+              Photo of label
+            </button>
+            <input
+              ref={photoInput}
+              type="file"
+              accept="image/*"
+              hidden
+              aria-label="Photo of a nutrition label"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared so choosing the same photo again still reads it.
+                event.target.value = "";
+                if (!file) return;
+                if (photo) URL.revokeObjectURL(photo.url);
+                setPhoto({ file, url: URL.createObjectURL(file) });
+              }}
+            />
           </div>
         </div>
         {lookup.status === "error" && (
@@ -582,9 +644,11 @@ export function FoodPicker({
           </div>
         )}
         {filledFrom && (
-          <p className="helper food-picker-source" role="status">
-            Filled in from {foodSourceLabels[filledFrom]}. Check each value against the package
-            label before adding.
+          <p
+            className={`helper food-picker-source${filledFrom.uncertain ? " is-uncertain" : ""}`}
+            role="status"
+          >
+            {filledFrom.note}
           </p>
         )}
         <FoodBasisInputs
@@ -593,6 +657,12 @@ export function FoodPicker({
           onEnter={() => void addNewFood()}
         />
         <BarcodeScanner open={scanning} onOpenChange={setScanning} onDetected={scanned} />
+        <LabelReader
+          photo={photo}
+          onClose={closePhoto}
+          onUse={fillFromLabel}
+          onRetake={() => photoInput.current?.click()}
+        />
         <label className="food-picker-save-toggle">
           <input
             type="checkbox"

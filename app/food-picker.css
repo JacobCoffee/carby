@@ -129,6 +129,113 @@
   gap: 6px;
   margin: 0;
 }
+.food-picker-source.is-uncertain,
+.label-reader-warning {
+  border: 1px solid var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-ink);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.label-reader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+.label-reader-photo {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--canvas);
+}
+.label-reader-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.label-reader-result .helper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.label-reader-values {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+.label-reader-values > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.label-reader-values > div.is-uncertain {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+.label-reader-values dt {
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.label-reader-values dd {
+  margin: 2px 0 0;
+  font-weight: 650;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+}
+.label-reader-values dd small {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+.label-reader-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+.label-reader-warning svg {
+  flex: none;
+  margin-top: 2px;
+}
+.label-reader-text summary {
+  font-size: 13px;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.label-reader-text pre {
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.label-reader-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.care-dialog.label-reader-dialog {
+  max-width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+@media (max-width: 780px) {
+  .label-reader {
+    grid-template-columns: 1fr;
+  }
+  .label-reader-photo {
+    max-height: 260px;
+  }
+}
 .food-picker-new-fields {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr 1fr;
