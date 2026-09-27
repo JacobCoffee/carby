@@ -303,6 +303,9 @@ const planFields = z.object({
   snackInsulinFromCarbs: z.number().min(1).max(100).optional(),
   /** Show the long-acting reminder only this many hours either side of its scheduled time. */
   longActingReminderHours: z.number().min(0.5).max(12).optional(),
+  /** Insights asks what's going on when the last week's average glucose moved this many percent
+   * from the four weeks before. */
+  usualChangePercent: z.number().int().min(5).max(100).optional(),
   rescueMedication: z.string().trim().min(1).max(60).optional(),
   meter: meterSchema.optional(),
   otherContacts: otherContactsSchema.optional(),
@@ -366,6 +369,7 @@ export function planDraft(saved: unknown): PlanDraft {
       key === "correctionQuietHours" ||
       key === "snackInsulinFromCarbs" ||
       key === "longActingReminderHours" ||
+      key === "usualChangePercent" ||
       key === "rescueMedication" ||
       key === "meter" ||
       key === "otherContacts" ||
@@ -468,6 +472,7 @@ export function planDraft(saved: unknown): PlanDraft {
   for (const key of [
     "snackInsulinFromCarbs",
     "longActingReminderHours",
+    "usualChangePercent",
     "rescueMedication",
     "temperatureUnit",
   ] as const) {

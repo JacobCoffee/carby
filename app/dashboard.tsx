@@ -2655,6 +2655,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
             illnesses={illnessWindows}
             patientName={profile?.name}
             plan={plan}
+            onLogIllness={canLog ? () => setIllnessEditor({ record: null }) : undefined}
           />
         </TabsContent>
         <TabsContent

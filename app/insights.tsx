@@ -10,6 +10,7 @@ import { computeInsights, type InsightsSummary } from "@/lib/insights";
 import { illnessOverlap, illnessLabel, isSick, type IllnessWindow } from "@/lib/illness";
 import { buildPatternFlags, patternFlagLabel, type PatternFlag } from "@/lib/patterns";
 import CgmOverview from "./cgm-overview";
+import ComparedWithUsual from "./compared-with-usual";
 
 type Period = 7 | 14 | 30;
 type Props = {
@@ -19,7 +20,9 @@ type Props = {
   timezone: string;
   patientName?: string;
   illnesses?: IllnessWindow[];
-  plan: Pick<Plan, "glucoseRanges" | "lowThreshold" | "patternRule">;
+  plan: Pick<Plan, "glucoseRanges" | "lowThreshold" | "patternRule" | "usualChangePercent">;
+  /** Opens a new illness period; absent when this account can't log. */
+  onLogIllness?: () => void;
 };
 
 const dayFormatter = new Intl.DateTimeFormat("en-US", {
@@ -282,7 +285,16 @@ function FoodRankings({ insights }: { insights: InsightsSummary }) {
   );
 }
 
-function Insights({ active, entries, cgm, timezone, patientName, illnesses = [], plan }: Props) {
+function Insights({
+  active,
+  entries,
+  cgm,
+  timezone,
+  patientName,
+  illnesses = [],
+  plan,
+  onLogIllness,
+}: Props) {
   const [days, setDays] = useState<Period>(14);
   const [clock, setClock] = useState(() => Date.now());
   const [history, setHistory] = useState<{ cgm: CgmReading[]; limited: boolean } | null>(null);
@@ -471,6 +483,17 @@ function Insights({ active, entries, cgm, timezone, patientName, illnesses = [],
               ))}
             </p>
           )}
+          <ComparedWithUsual
+            entries={entries}
+            cgm={cgm}
+            timezone={timezone}
+            now={clock}
+            changePercent={plan.usualChangePercent}
+            sickNow={illnesses.some(
+              (illness) => isSick(illness) && illnessOverlap(illness, clock, clock + 1, clock),
+            )}
+            onLogIllness={onLogIllness}
+          />
           {patterns && (
             <section
               className="insights-panel insights-patterns"

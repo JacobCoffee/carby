@@ -20,6 +20,7 @@ export const planSettingsKeys = [
   "correctionQuietHours",
   "snackInsulinFromCarbs",
   "longActingReminderHours",
+  "usualChangePercent",
   "rescueMedication",
   "meter",
 ] as const;
@@ -460,6 +461,25 @@ export function PlanSettingsFields({
           required
           disabled={disabled}
           invalid={flagged("longActingReminderHours")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Point out a change from usual"
+        helper="Insights asks what’s going on when the last week’s average glucose is at least this much higher or lower than the four weeks before. A prompt to look, not advice. Optional."
+        enabled={draft.usualChangePercent !== undefined}
+        onToggle={(on) => (on ? set("usualChangePercent", NaN) : remove("usualChangePercent"))}
+        disabled={disabled}
+      >
+        <NumberField
+          label="Percent"
+          value={draft.usualChangePercent}
+          onChange={(value) => set("usualChangePercent", value)}
+          min={5}
+          max={100}
+          step={1}
+          required
+          disabled={disabled}
+          invalid={flagged("usualChangePercent")}
         />
       </ToggleGroup>
       <ToggleGroup
