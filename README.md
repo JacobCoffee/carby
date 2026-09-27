@@ -92,12 +92,13 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 ## Food lookup
 
-In **Add a new food**, type a food name or barcode and choose **Look up**, or choose **Scan barcode** to use the camera. Picking a result fills in the name, carbs, serving size and unit, and nothing is added until you check the values against the package and choose **Add this food**.
+In **Add a new food**, type a food name or barcode and choose **Look up**, choose **Scan barcode** to use the camera, or choose **Photo of label** to read a Nutrition Facts panel. Picking a result fills in the carbs, serving size and unit (and the name, for lookups), and nothing is added until you check the values against the package and choose **Add this food**.
 
 - Barcodes are looked up in [Open Food Facts](https://world.openfoodfacts.org) first, then in [USDA FoodData Central](https://fdc.nal.usda.gov) if Open Food Facts doesn't know the product or lists no carbs. Name searches ask both; FoodData Central also covers plain foods such as fruit and rice.
 - FoodData Central needs `USDA_API_KEY` ([free key](https://fdc.nal.usda.gov/api-key-signup)). Without it, only Open Food Facts is used.
 - Only the barcode or the search words leave Carby. Values come from each database as published and can be wrong, so check them against the label.
 - Scanning uses the browser's barcode reader where it has one, and otherwise a decoder Carby serves itself. The camera needs HTTPS (or localhost).
+- **Photo of label** reads the photo on the device; it is never uploaded. It finds the serving size and total carbohydrate on US panels, and carbohydrate per 100 g or ml on panels laid out that way. The photo is shown beside what was read, and anything hard to read is highlighted: a blurry line, a "g" read as "9", or carbs heavier than the serving. "Less than 1 g" is left for you to enter. The first read downloads about 7 MB, which Carby serves itself.
 
 ## Sync with another Carby (optional)
 

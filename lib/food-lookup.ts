@@ -99,10 +99,15 @@ function metricUnit(value: unknown): "g" | "ml" | null {
   return null;
 }
 
-/** Keeps only servings a saved food can hold, without changing any value the source gave. */
-function servingsOf(candidates: FoodServing[]): FoodServing[] {
+/** Keeps only servings a saved food can hold, rounded for the form without changing their meaning. */
+export function servingsOf(candidates: FoodServing[]): FoodServing[] {
   return candidates
-    .map((s) => ({ ...s, carbs: tenth(s.carbs), servingSize: tenth(s.servingSize) }))
+    .map((s) => ({
+      ...s,
+      carbs: tenth(s.carbs),
+      // Kept to three places: "2/3 cup" rounded to 0.7 would be 5% off.
+      servingSize: Math.round(s.servingSize * 1000) / 1000,
+    }))
     .filter((s) => servingSchema.safeParse(s).success);
 }
 
