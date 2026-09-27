@@ -248,6 +248,32 @@ async function getJson(deps: LookupDeps, url: string, headers: Record<string, st
 const offGet = (deps: LookupDeps, url: string) =>
   getJson(deps, url, { "User-Agent": deps.userAgent, Accept: "application/json" });
 
+async function offProduct(deps: LookupDeps, code: string): Promise<FoodMatch | null> {
+  const json = await offGet(
+    deps,
+    `https://world.openfoodfacts.org/api/v2/product/${code}?fields=${OFF_FIELDS}`,
+  );
+  const found = json as { status?: unknown; product?: unknown } | null;
+  return found?.status === 1
+    ? parseOpenFoodFactsProduct({ code, ...(found.product as object) })
+    : null;
+}
+
+/**
+ * The search index keeps only per-100 g values. The product record has the label's serving, so a
+ * hit with nothing else is filled from it; if that fails, the per-100 g row still stands.
+ */
+async function withLabelServing(deps: LookupDeps, hit: FoodMatch): Promise<FoodMatch> {
+  if (!/^\d{1,14}$/.test(hit.id) || hit.servings.some((s) => s.label !== `100 ${s.unit}`))
+    return hit;
+  try {
+    const product = await offProduct(deps, hit.id);
+    return product?.servings.length ? product : hit;
+  } catch {
+    return hit;
+  }
+}
+
 function usdaSearch(deps: LookupDeps, query: string, dataType: string) {
   const params = new URLSearchParams({ query, dataType, pageSize: String(SEARCH_RESULTS) });
   return getJson(deps, `https://api.nal.usda.gov/fdc/v1/foods/search?${params}`, {
@@ -269,13 +295,7 @@ export async function lookupBarcode(gtin: string, deps: LookupDeps): Promise<Foo
   const unavailable: FoodSource[] = [];
   let off: FoodMatch | null = null;
   try {
-    const json = await offGet(
-      deps,
-      `https://world.openfoodfacts.org/api/v2/product/${gtin}?fields=${OFF_FIELDS}`,
-    );
-    const found = json as { status?: unknown; product?: unknown } | null;
-    if (found?.status === 1)
-      off = parseOpenFoodFactsProduct({ code: gtin, ...(found.product as object) });
+    off = await offProduct(deps, gtin);
   } catch {
     unavailable.push("off");
   }
@@ -335,9 +355,12 @@ export async function searchFoods(query: string, deps: LookupDeps): Promise<Food
   };
   if (off.status === "rejected") unavailable.push("off");
   if (usda.status === "rejected") unavailable.push("usda");
+  const offHits = usable(
+    off.status === "fulfilled" ? hits(off.value).map(parseOpenFoodFactsProduct) : [],
+  );
   return {
     matches: [
-      ...usable(off.status === "fulfilled" ? hits(off.value).map(parseOpenFoodFactsProduct) : []),
+      ...usable(await Promise.all(offHits.map((hit) => withLabelServing(deps, hit)))),
       ...usable(usda.status === "fulfilled" ? usdaFoods(usda.value).map(parseUsdaFood) : []),
     ],
     unavailable,
