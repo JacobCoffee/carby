@@ -1,6 +1,7 @@
 "use client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { planFieldSchemas, type Plan } from "@/lib/care";
+import { lastOvernightCheck } from "@/lib/overnight-check";
 
 /**
  * Every clinic-packet plan setting this component edits. `lowThreshold`, `ketoneCheckAbove` and
@@ -18,6 +19,7 @@ export const planSettingsKeys = [
   "overnightCheck",
   "correctionQuietHours",
   "snackInsulinFromCarbs",
+  "longActingReminderHours",
   "rescueMedication",
   "meter",
 ] as const;
@@ -156,6 +158,8 @@ export function PlanSettingsFields({
   disabled?: boolean;
 }) {
   const flagged = (key: PlanSettingsKey) => invalid.includes(key);
+  const lastCheck = draft.overnightCheck && lastOvernightCheck(draft.overnightCheck);
+  const lastCheckHelper = lastCheck ? `Last check: ${lastCheck}` : undefined;
   function set<K extends PlanSettingsKey>(key: K, value: PlanSettingsDraft[K]) {
     onChange({ ...draft, [key]: value }, key);
   }
@@ -367,6 +371,7 @@ export function PlanSettingsFields({
         />
         <TextField
           label="Last night it applies"
+          helper={lastCheckHelper}
           value={draft.overnightCheck?.until}
           onChange={(value) =>
             set("overnightCheck", { time: draft.overnightCheck?.time ?? "", until: value })
@@ -434,6 +439,27 @@ export function PlanSettingsFields({
           required
           disabled={disabled}
           invalid={flagged("snackInsulinFromCarbs")}
+        />
+      </ToggleGroup>
+      <ToggleGroup
+        legend="Long-acting reminder window"
+        helper="Show the long-acting reminder only this close to its scheduled time, before and after. Off shows it from 2 hours before until the next evening. Optional."
+        enabled={draft.longActingReminderHours !== undefined}
+        onToggle={(on) =>
+          on ? set("longActingReminderHours", NaN) : remove("longActingReminderHours")
+        }
+        disabled={disabled}
+      >
+        <NumberField
+          label="Hours"
+          value={draft.longActingReminderHours}
+          onChange={(value) => set("longActingReminderHours", value)}
+          min={0.5}
+          max={12}
+          step="any"
+          required
+          disabled={disabled}
+          invalid={flagged("longActingReminderHours")}
         />
       </ToggleGroup>
       <ToggleGroup

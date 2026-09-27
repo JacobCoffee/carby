@@ -9,6 +9,16 @@ export type CorrectionReview = {
 
 export const CORRECTION_REVIEW_WINDOW_MINUTES = 30;
 
+/** A reading a correction review is about: HIGH, or above both the plan's high limit and target. */
+export function readingAboveRange(
+  value: number | null,
+  status: string | null,
+  target: number,
+  high: number,
+) {
+  return status === "High" || (value !== null && value > Math.max(high, target));
+}
+
 /** Describe the configured review interval without implying a dose is due. */
 export function correctionReviewStatus(
   lastCorrectionAt: string | null | undefined,

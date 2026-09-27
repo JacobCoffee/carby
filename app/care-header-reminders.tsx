@@ -155,6 +155,7 @@ export default function CareHeaderReminders({
   onLowRecheck,
   onSickDay,
 }: {
+  /** Shown only when given: the dashboard passes it while the current reading is above range. */
   correction: CorrectionReview | null;
   nightly: NightlyReminder | null;
   overnight: OvernightCheck | null;
@@ -208,62 +209,61 @@ export default function CareHeaderReminders({
     ),
   );
   const open = remindersOpen(acknowledged, attention);
+  if (
+    pending ||
+    unavailable ||
+    !(correction || nightly?.visible || overnight || lowRecheck || sickDay)
+  )
+    return null;
   return (
     <div
       className={`care-header-reminders${open ? "" : " is-collapsed"}`}
       role="group"
       aria-label="Current care reminders"
     >
-      <button
-        type="button"
-        className={`care-header-reminder correction-reminder${escalated ? " is-escalated" : ""}`}
-        disabled={pending || unavailable}
-        onClick={onCorrection}
-        title={correction?.notice}
-      >
-        {escalated ? (
-          <span className="care-reminder-alert-icon" aria-hidden="true">
-            <AlertTriangle size={21} />
-          </span>
-        ) : (
-          <Clock3 size={21} aria-hidden="true" />
-        )}
-        <span className="care-reminder-copy">
-          <span className="care-reminder-label">
-            {correction?.state === "upcoming" ? "Next correction review" : "Correction review"}
-          </span>
-          <strong>
-            {unavailable
-              ? "Log unavailable"
-              : pending
-                ? "Loading timing…"
-                : !correction
-                  ? "No correction logged"
-                  : escalated
-                    ? correction.state === "window"
-                      ? `Still ${stillHigh} at review time`
-                      : `Still ${stillHigh} after review time`
-                    : correction.state === "upcoming"
-                      ? `${time(correction.at)} · ${until(correction.at)}`
-                      : correction.state === "window"
-                        ? "Review window"
-                        : "Review window passed"}
-          </strong>
-          <span className="care-reminder-detail">
-            {escalated
-              ? `Review time ${time(correction!.at)}. Recheck glucose and ketones, then follow your care plan · timing only`
-              : correction
-                ? correction.state === "upcoming"
+      {!pending && !unavailable && correction && (
+        <button
+          type="button"
+          className={`care-header-reminder correction-reminder${escalated ? " is-escalated" : ""}`}
+          onClick={onCorrection}
+          title={correction.notice}
+        >
+          {escalated ? (
+            <span className="care-reminder-alert-icon" aria-hidden="true">
+              <AlertTriangle size={21} />
+            </span>
+          ) : (
+            <Clock3 size={21} aria-hidden="true" />
+          )}
+          <span className="care-reminder-copy">
+            <span className="care-reminder-label">
+              {correction.state === "upcoming" ? "Next correction review" : "Correction review"}
+            </span>
+            <strong>
+              {escalated
+                ? correction.state === "window"
+                  ? `Still ${stillHigh} at review time`
+                  : `Still ${stillHigh} after review time`
+                : correction.state === "upcoming"
+                  ? `${time(correction.at)} · ${until(correction.at)}`
+                  : correction.state === "window"
+                    ? "Review window"
+                    : "Review window passed"}
+            </strong>
+            <span className="care-reminder-detail">
+              {escalated
+                ? `Review time ${time(correction.at)}. Recheck glucose and ketones, then follow your care plan · timing only`
+                : correction.state === "upcoming"
                   ? `${date(correction.at)} · ${plan.correctionHours} hours after last correction`
                   : correction.state === "window"
                     ? `${date(correction.at)}, ${time(correction.at)} · ±${CORRECTION_REVIEW_WINDOW_MINUTES} min · timing only`
-                    : `${date(correction.at)}, ${time(correction.at)} · window ended`
-                : "Based on the last logged correction"}
-            {stale ? " · Last loaded log" : ""}
+                    : `${date(correction.at)}, ${time(correction.at)} · window ended`}
+              {stale ? " · Last loaded log" : ""}
+            </span>
           </span>
-        </span>
-        <ArrowUpRight className="care-reminder-arrow" size={16} aria-hidden="true" />
-      </button>
+          <ArrowUpRight className="care-reminder-arrow" size={16} aria-hidden="true" />
+        </button>
+      )}
       {!pending && !unavailable && nightly?.visible && (
         <button
           type="button"

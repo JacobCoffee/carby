@@ -71,6 +71,7 @@ const fieldLabels: Record<PlanField, string> = {
   overnightCheck: "overnight check schedule",
   correctionQuietHours: "overnight correction review hours",
   snackInsulinFromCarbs: "snack insulin cutoff",
+  longActingReminderHours: "long-acting reminder window",
   rescueMedication: "rescue medication",
   meter: "glucose meter",
   otherContacts: "other care contacts",
@@ -155,6 +156,7 @@ export default function CareSetup({
     overnightCheck: saved.overnightCheck,
     correctionQuietHours: saved.correctionQuietHours,
     snackInsulinFromCarbs: saved.snackInsulinFromCarbs,
+    longActingReminderHours: saved.longActingReminderHours,
     rescueMedication: saved.rescueMedication,
     meter: saved.meter,
   });

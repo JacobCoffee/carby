@@ -301,6 +301,8 @@ const planFields = z.object({
   overnightCheck: overnightCheckSchema.optional(),
   correctionQuietHours: correctionQuietHoursSchema.optional(),
   snackInsulinFromCarbs: z.number().min(1).max(100).optional(),
+  /** Show the long-acting reminder only this many hours either side of its scheduled time. */
+  longActingReminderHours: z.number().min(0.5).max(12).optional(),
   rescueMedication: z.string().trim().min(1).max(60).optional(),
   meter: meterSchema.optional(),
   otherContacts: otherContactsSchema.optional(),
@@ -363,6 +365,7 @@ export function planDraft(saved: unknown): PlanDraft {
       key === "overnightCheck" ||
       key === "correctionQuietHours" ||
       key === "snackInsulinFromCarbs" ||
+      key === "longActingReminderHours" ||
       key === "rescueMedication" ||
       key === "meter" ||
       key === "otherContacts" ||
@@ -462,7 +465,12 @@ export function planDraft(saved: unknown): PlanDraft {
     if (result.success) Object.assign(draft.values, { [key]: result.data });
     else draft.invalid.push(key);
   }
-  for (const key of ["snackInsulinFromCarbs", "rescueMedication", "temperatureUnit"] as const) {
+  for (const key of [
+    "snackInsulinFromCarbs",
+    "longActingReminderHours",
+    "rescueMedication",
+    "temperatureUnit",
+  ] as const) {
     if (source[key] === undefined) continue;
     const result = planFields.shape[key].safeParse(source[key]);
     if (result.success) Object.assign(draft.values, { [key]: result.data });

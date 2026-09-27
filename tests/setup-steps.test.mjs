@@ -78,6 +78,6 @@ test("the review restates only what was entered", () => {
   }).flatMap((group) => group.rows);
   const find = (label) => scheduled.find((row) => row.label === label)?.value;
   assert.equal(find("Long-acting insulin"), "12 units at 9:30 PM");
-  assert.equal(find("Overnight check"), "2:00 AM through Oct 4, 2026");
+  assert.equal(find("Overnight check"), "2:00 AM nightly, last check Mon, Oct 5 at 2:00 AM");
   assert.equal(find("Care team phone"), "555 0100");
 });

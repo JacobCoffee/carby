@@ -1,6 +1,10 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { overnightBannerShown, overnightCheck } from "../lib/overnight-check.ts";
+import {
+  lastOvernightCheck,
+  overnightBannerShown,
+  overnightCheck,
+} from "../lib/overnight-check.ts";
 
 const plan = { overnightCheck: { time: "02:00", until: "2027-01-16" }, timezone: "UTC" };
 const check = (at, entries = [], schedule = plan) =>
@@ -68,4 +72,17 @@ test("the banner shows once a finger-stick would count, until logged or the wind
   assert.equal(banner("2027-01-14T03:30:00Z"), false);
   assert.equal(banner("2027-01-14T01:30:00Z", [finger("2027-01-14T01:15:00Z")]), false);
   assert.equal(overnightBannerShown(null, Date.parse("2027-01-14T02:00:00Z")), false);
+});
+
+test("the last check names the morning a before-noon check falls on", () => {
+  assert.equal(
+    lastOvernightCheck({ time: "02:00", until: "2026-09-27" }),
+    "Mon, Sep 28 at 2:00 AM",
+  );
+  assert.equal(
+    lastOvernightCheck({ time: "23:30", until: "2026-09-27" }),
+    "Sun, Sep 27 at 11:30 PM",
+  );
+  assert.equal(lastOvernightCheck({ time: "", until: "2026-09-27" }), null);
+  assert.equal(lastOvernightCheck({ time: "02:00", until: "" }), null);
 });

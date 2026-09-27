@@ -1,4 +1,4 @@
-import type { CorrectionReview } from "./correction-review";
+import { readingAboveRange, type CorrectionReview } from "./correction-review";
 /** Timing reference only; never infer a dose from an in-range, low, stale or
  * historical reading. `high` is the care plan's high-glucose limit (glucoseRanges(plan).high). */
 export function correctionMarkerAt(
@@ -12,7 +12,7 @@ export function correctionMarkerAt(
   return current &&
     review &&
     review.state !== "passed" &&
-    (status === "High" || (value !== null && value > Math.max(high, target)))
+    readingAboveRange(value, status, target, high)
     ? review.at
     : null;
 }

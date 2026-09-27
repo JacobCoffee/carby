@@ -141,7 +141,7 @@ import { isRecentReading } from "@/lib/reading-freshness";
 import { currentShareForCorrection } from "@/lib/correction-reading";
 import { correctionMarkerAt } from "@/lib/correction-marker";
 import { mealRatioAt } from "@/lib/report-analysis";
-import { correctionReviewStatus } from "@/lib/correction-review";
+import { correctionReviewStatus, readingAboveRange } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
 import { EstimateChart } from "./estimate-chart";
@@ -1104,14 +1104,14 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     plan.target,
     ranges.high,
   );
-  // Same above-range rule as the chart marker; escalates the header once the review time arrives.
+  // Same above-range rule as the chart marker. The header shows the review only while it holds,
+  // and escalates once the review time arrives.
+  const aboveRange =
+    !!readingCurrent &&
+    !!latest &&
+    readingAboveRange(latest.value, latest.status, plan.target, ranges.high);
   const reviewStillHigh =
-    readingCurrent &&
-    latest &&
-    correctionReview &&
-    correctionReview.state !== "upcoming" &&
-    (latest.status === "High" ||
-      (latest.value !== null && latest.value > Math.max(ranges.high, plan.target)))
+    aboveRange && latest && correctionReview && correctionReview.state !== "upcoming"
       ? latest.status === "High"
         ? "HIGH"
         : `${latest.value} mg/dL`
@@ -2018,7 +2018,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           <PersonMenu name={profile?.name} timezone={plan.timezone} />
         </div>
         <CareHeaderReminders
-          correction={correctionReview}
+          correction={aboveRange ? correctionReview : null}
           nightly={nightly}
           now={now?.getTime() ?? NaN}
           plan={plan}

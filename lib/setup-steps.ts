@@ -10,6 +10,7 @@ import {
   type Plan,
   type PlanField,
 } from "./care";
+import { lastOvernightCheck } from "./overnight-check";
 
 /** The care plan setup steps, in order. Optional steps can be left blank. */
 export const setupSteps = [
@@ -44,6 +45,7 @@ const fieldSteps: Record<PlanField, FieldStep | null> = {
   overnightCheck: "safety",
   correctionQuietHours: "safety",
   snackInsulinFromCarbs: "safety",
+  longActingReminderHours: "safety",
   rescueMedication: "safety",
   meter: "safety",
   basal: "schedule",
@@ -102,13 +104,6 @@ const clock = (time: string) =>
   new Date(`1970-01-01T${time}:00Z`).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "UTC",
-  });
-const calendarDay = (date: string) =>
-  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
     timeZone: "UTC",
   });
 
@@ -176,7 +171,7 @@ export function planSummary(plan: Plan): SummaryGroup[] {
       {
         label: "Overnight check",
         value: overnightCheck
-          ? `${clock(overnightCheck.time)} through ${calendarDay(overnightCheck.until)}`
+          ? `${clock(overnightCheck.time)} nightly, last check ${lastOvernightCheck(overnightCheck)}`
           : NOT_SET,
       },
       {
@@ -191,6 +186,13 @@ export function planSummary(plan: Plan): SummaryGroup[] {
           plan.snackInsulinFromCarbs === undefined
             ? NOT_SET
             : `Under ${plan.snackInsulinFromCarbs} g of carbohydrate`,
+      },
+      {
+        label: "Long-acting reminder",
+        value:
+          plan.longActingReminderHours === undefined
+            ? NOT_SET
+            : `Within ${plan.longActingReminderHours} hours of the scheduled time`,
       },
       { label: "Rescue medication", value: plan.rescueMedication ?? NOT_SET },
       {

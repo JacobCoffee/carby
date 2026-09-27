@@ -69,6 +69,20 @@ export function overnightCheck(o: {
 }
 
 /**
+ * When the last scheduled check falls, as wall-clock text such as "Mon, Sep 28 at 2:00 AM".
+ * `until` names a night, so a check before noon falls on the next morning's date.
+ */
+export function lastOvernightCheck(check: { time: string; until: string }) {
+  if (!/^\d{2}:\d{2}$/.test(check.time) || !/^\d{4}-\d{2}-\d{2}$/.test(check.until)) return null;
+  const day = check.time < "12:00" ? adjacentDay(check.until, 1) : check.until;
+  const at = new Date(`${day}T${check.time}:00Z`);
+  if (Number.isNaN(at.getTime())) return null;
+  const format = (options: Intl.DateTimeFormatOptions) =>
+    at.toLocaleString("en-US", { ...options, timeZone: "UTC" });
+  return `${format({ weekday: "short", month: "short", day: "numeric" })} at ${format({ hour: "numeric", minute: "2-digit" })}`;
+}
+
+/**
  * Promote the reminder to a full-width banner from the moment a finger-stick would count as the
  * check (the window before it) until it is logged or the window closes.
  */

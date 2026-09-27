@@ -220,6 +220,7 @@ const historicalPlanSchema = z
     overnightCheck: overnightCheckSchema.optional(),
     correctionQuietHours: correctionQuietHoursSchema.optional(),
     snackInsulinFromCarbs: z.number().finite().optional(),
+    longActingReminderHours: z.number().finite().optional(),
     rescueMedication: z.string().max(60).optional(),
     meter: meterSchema.optional(),
     otherContacts: otherContactsSchema.optional(),

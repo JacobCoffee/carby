@@ -21,7 +21,7 @@ function adjacentDay(day: string, offset: number) {
 export function nightlyReminder(
   entries: Entry[],
   now: number,
-  plan: Pick<Plan, "basal" | "basalTime" | "timezone">,
+  plan: Pick<Plan, "basal" | "basalTime" | "timezone" | "longActingReminderHours">,
 ): NightlyReminder | null {
   if (!Number.isFinite(now) || plan.basal === 0) return null;
   try {
@@ -53,10 +53,14 @@ export function nightlyReminder(
         : now >= scheduled
           ? "due"
           : "upcoming";
+    // With a reminder window set, the chip shows only that close to the scheduled time.
+    const inWindow =
+      plan.longActingReminderHours === undefined ||
+      Math.abs(now - scheduled) <= plan.longActingReminderHours * hour;
     return {
       at: new Date(scheduled).toISOString(),
       state,
-      visible: offset >= 0 || !logged.length,
+      visible: (offset >= 0 || !logged.length) && inWindow,
       logged,
     };
   } catch {

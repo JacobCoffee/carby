@@ -73,3 +73,14 @@ test("the chart schedule lists each day's local dose time in the window, skippin
     [],
   );
 });
+test("a reminder window hides the chip until close to the scheduled time, and after", () => {
+  const windowed = { ...plan, longActingReminderHours: 1 };
+  // 11 PM Chicago is 04:00Z. Without a window the missed dose shows into the next morning.
+  assert.equal(state("2026-09-26T14:00:00Z", [prior], plan).visible, true);
+  assert.equal(state("2026-09-26T14:00:00Z", [prior], windowed).visible, false);
+  assert.equal(state("2026-09-26T02:59:59Z", [prior], windowed).visible, false);
+  assert.equal(state("2026-09-26T03:00:00Z", [prior], windowed).visible, true);
+  assert.equal(state("2026-09-26T05:00:00Z", [prior], windowed).state, "unlogged");
+  assert.equal(state("2026-09-26T05:00:00Z", [prior], windowed).visible, true);
+  assert.equal(state("2026-09-26T05:00:01Z", [prior], windowed).visible, false);
+});
