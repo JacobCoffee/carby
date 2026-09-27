@@ -2883,11 +2883,9 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           unit={plan.temperatureUnit}
           saving={saving}
           onClose={() => setIllnessEditor(null)}
-          onCheckIn={(checkIn) => {
-            const record = illnessEditor.record;
-            if (!record) return;
+          onCheckIn={(illnessId, checkIn) => {
             setIllnessEditor(null);
-            setCheckInEditor({ illnessId: record.id, checkIn });
+            setCheckInEditor({ illnessId, checkIn });
           }}
           onSave={(illness, ended) =>
             saveIllness(

@@ -52,8 +52,8 @@ export default function IllnessDialog({
   timezone: string;
   day: string;
   unit: TemperatureUnit | undefined;
-  /** Close this dialog and open the check-in editor (null = new check-in) for `initial`. */
-  onCheckIn: (checkIn: IllnessCheckIn | null) => void;
+  /** Close this dialog and open the check-in editor (null = new check-in) for a saved period. */
+  onCheckIn: (illnessId: string, checkIn: IllnessCheckIn | null) => void;
   saving: boolean;
   onClose: () => void;
   /** `ended` is true when the period was closed with "All better". */
@@ -99,16 +99,17 @@ export default function IllnessDialog({
       checkIns: initial?.checkIns,
     });
   }
-  async function save(period: IllnessWindow | null, ended = false) {
+  /** Saves the period, then closes, or hands over to `next` (such as the check-in editor). */
+  async function save(period: IllnessWindow | null, ended = false, next = onClose) {
     if (!period) return;
     try {
       validateIllnessDates(period, Date.now());
-      if (await onSave(period, ended)) onClose();
+      if (await onSave(period, ended)) next();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Check the dates.");
     }
   }
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent, next?: () => void) {
     event.preventDefault();
     setError("");
     const parsed = formPeriod();
@@ -116,8 +117,10 @@ export default function IllnessDialog({
       setError(parsed.error.issues[0]?.message ?? "Check the dates.");
       return;
     }
-    await save(parsed.data);
+    await save(parsed.data, false, next);
   }
+  // A check-in belongs to a saved period, so a new or changed one is saved first.
+  const saveFirst = !initial || dirty;
   async function endNow() {
     setError("");
     const parsed = formPeriod();
@@ -166,33 +169,6 @@ export default function IllnessDialog({
                 All better
               </button>
             </div>
-          )}
-          {initial && isSickKind && periodKind(initial) === "illness" && (
-            <section className="illness-check-ins" aria-label="Check-ins">
-              <div>
-                <h3>Check-ins</h3>
-                <button
-                  type="button"
-                  className="button outline"
-                  disabled={saving || dirty}
-                  onClick={() => onCheckIn(null)}
-                >
-                  <ClipboardPlus size={17} aria-hidden="true" />
-                  Log a check-in
-                </button>
-              </div>
-              {dirty && <p>Save your period changes first.</p>}
-              {initial.checkIns?.length ? (
-                <CheckInList
-                  checkIns={initial.checkIns}
-                  timezone={timezone}
-                  unit={unit}
-                  onEdit={dirty ? undefined : (checkIn) => onCheckIn(checkIn)}
-                />
-              ) : (
-                <p>Temperature, symptoms, vomiting, fluids and eating, each at a time.</p>
-              )}
-            </section>
           )}
           <label className="field">
             <span>Type</span>
@@ -290,6 +266,37 @@ export default function IllnessDialog({
             />
           </label>
           <p className="helper">Calendar days in {zone}. You can end or adjust this range later.</p>
+          {isSickKind && (!initial || periodKind(initial) === "illness") && (
+            <section className="illness-check-ins" aria-label="Check-ins">
+              <div>
+                <h3>Check-ins</h3>
+                <button
+                  type="button"
+                  className="button outline"
+                  disabled={saving}
+                  onClick={(event) =>
+                    saveFirst ? void submit(event, () => onCheckIn(id, null)) : onCheckIn(id, null)
+                  }
+                >
+                  <ClipboardPlus size={17} aria-hidden="true" />
+                  {saveFirst ? "Save and log a check-in" : "Log a check-in"}
+                </button>
+              </div>
+              {initial?.checkIns?.length ? (
+                <CheckInList
+                  checkIns={initial.checkIns}
+                  timezone={timezone}
+                  unit={unit}
+                  onEdit={dirty ? undefined : (checkIn) => onCheckIn(id, checkIn)}
+                />
+              ) : (
+                <p>
+                  {initial ? "No check-ins yet for this illness." : "None yet."} Log temperature,
+                  symptoms, vomiting, fluids and eating as they happen.
+                </p>
+              )}
+            </section>
+          )}
           {error && (
             <p className="notice danger" role="alert">
               {error}
