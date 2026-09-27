@@ -170,10 +170,11 @@ export default function CareSetup({
         ? "The saved time zone could not be used. Enter your time zone."
         : "Your saved plan does not include a time zone. Enter your time zone."
       : "Detected from your browser.";
+  // The form mounts only after the profile phase, so fill the zone once it exists.
   useEffect(() => {
-    if (freshSetup && timezoneInput.current)
+    if (freshSetup && phase === "main" && timezoneInput.current && !timezoneInput.current.value)
       timezoneInput.current.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  }, [freshSetup]);
+  }, [freshSetup, phase]);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
@@ -267,7 +268,7 @@ export default function CareSetup({
           <CarbyWordmark />
         </Link>
         <span className="setup-header-label">Your daily care log</span>
-        <PersonMenu />
+        <PersonMenu name={personalizedName || undefined} />
       </header>
       <main className="care-setup-main">
         {phase === "profile" ? (
@@ -286,7 +287,7 @@ export default function CareSetup({
           <>
             <section className="care-setup-intro">
               <h1>
-                {personalizedName ? `Let's set up ${personalizedName}'s care plan` : "Set up Carby"}
+                {personalizedName ? `Let’s set up ${personalizedName}’s care plan` : "Set up Carby"}
               </h1>
               <p>
                 Use Carby to log glucose readings, food, and insulin. Enter the settings from your
