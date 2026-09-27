@@ -37,6 +37,7 @@
   top: 0;
   z-index: 0;
   padding-bottom: calc(var(--bar-pad-y) + var(--sheet-radius));
+  border-bottom: 0;
 }
 .care-sheet {
   position: relative;
@@ -45,6 +46,52 @@
   border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
   background: var(--canvas);
   box-shadow: 0 -10px 24px -14px rgb(var(--shadow-rgb) / 24%);
+}
+/* A copy of the sheet's rounded edge inside the bar's bottom padding. The sheet covers it until
+ * the bar folds; then it is the edge the page scrolls under. */
+.care-redesign .topbar.care-workspace-topbar:has(+ .care-sheet)::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--sheet-radius);
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  background: var(--canvas);
+  box-shadow: 0 -10px 24px -14px rgb(var(--shadow-rgb) / 24%);
+}
+/* Folded: only the top padding and the edge show. Hover, focus, an open header menu or a tap
+ * (data-open, for touch) brings the whole bar down over the page. */
+.care-redesign .topbar.care-workspace-topbar[data-collapsed] {
+  z-index: 2;
+  transform: translateY(calc(-100% + var(--bar-pad-y) + var(--sheet-radius)));
+}
+.care-redesign .topbar.care-workspace-topbar[data-collapsed][data-animate] {
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.care-redesign
+  .topbar.care-workspace-topbar[data-collapsed]:is(
+    :hover,
+    :focus-within,
+    [data-open],
+    :has([aria-expanded="true"])
+  ) {
+  transform: none;
+}
+/* While folded, the bar's controls sit just above the screen edge; a tap on the strip must reach
+ * the bar itself (which opens it), never a tab whose bottom edge touches the top pixel. */
+.care-redesign
+  .topbar.care-workspace-topbar[data-collapsed]:not(
+    :hover,
+    :focus-within,
+    [data-open],
+    :has([aria-expanded="true"])
+  )
+  > * {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .care-redesign .topbar.care-workspace-topbar[data-collapsed][data-animate] {
+    transition: none;
+  }
 }
 @media print {
   .care-sheet {
