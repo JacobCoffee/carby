@@ -1914,6 +1914,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           </DropdownMenu>
           <PersonMenu name={profile?.name} timezone={plan.timezone} />
         </div>
+      </header>
+      <div className="care-sheet">
         <CareHeaderReminders
           correction={aboveRange ? correctionReview : null}
           nightly={nightly}
@@ -1932,674 +1934,699 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           onLowRecheck={() => open("glucose")}
           onSickDay={() => setSickDayOpen(true)}
         />
-      </header>
-      <main>
-        <ProfilePrompt
-          profile={profile}
-          timezone={plan.timezone}
-          onSaved={setProfile}
-          open={profileDialogOpen}
-          onOpenChange={setProfileDialogOpen}
-        />
-        <TabsContent value="daily" forceMount hidden={view !== "daily"} className="care-page-panel">
-          <div className="page-heading care-workspace-heading">
-            <div>
-              <NextAppointmentChip
-                appointments={appointments}
-                timezone={plan.timezone}
-                now={nowMs}
-              />
-              <h1>{greeting ?? "Your day"}</h1>
-            </div>
-            {canLog && (
-              <nav
-                className="quick-actions mobile-actions care-workspace-mobile-actions"
-                aria-label="Quick logging"
-              >
-                <button
-                  type="button"
-                  className="quick-food"
-                  onClick={() => open("food")}
-                  disabled={loading || !!error}
-                >
-                  <Utensils size={20} aria-hidden="true" />
-                  <span>
-                    <span className="quick-verb">Log </span>food
-                  </span>
-                  <Plus size={16} aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => open("insulin")} disabled={loading || !!error}>
-                  <Syringe size={20} aria-hidden="true" />
-                  <span>
-                    <span className="quick-verb">Log </span>insulin
-                  </span>
-                  <Plus size={16} aria-hidden="true" />
-                </button>
-                <button type="button" onClick={() => open("glucose")} disabled={loading || !!error}>
-                  <Droplet size={20} aria-hidden="true" />
-                  <span>
-                    <span className="quick-verb">Log </span>glucose
-                  </span>
-                  <Plus size={16} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="quick-illness"
-                  onClick={() => setIllnessEditor({ record: null })}
-                  disabled={loading || !!error}
-                >
-                  <Thermometer size={20} aria-hidden="true" />
-                  <span>
-                    <span className="quick-verb">Log </span>illness
-                  </span>
-                  <Plus size={16} aria-hidden="true" />
-                </button>
-              </nav>
-            )}
-            <div className="date-control">
-              <button aria-label="Previous day" onClick={() => shiftDay(-1)} disabled={!day}>
-                <ChevronLeft size={18} />
-              </button>
-              <input
-                aria-label="Selected day"
-                type="date"
-                value={day}
-                onChange={(e) => {
-                  if (e.target.value) selectDay(e.target.value);
-                }}
-              />
-              <button aria-label="Next day" onClick={() => shiftDay(1)} disabled={!day}>
-                <ChevronRight size={18} />
-              </button>
-              {day !== today && (
-                <button className="today-button" onClick={() => selectDay(today)}>
-                  Today
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="daily-alerts">
-            {error && (
-              <div className="error-banner" role="alert">
-                {error}{" "}
-                <button
-                  onClick={() => {
-                    void load(true);
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-            {shareDelayed && (
-              <div className="notice timing-warning share-status-banner" role="status">
-                <strong>Dexcom data delayed.</strong> Last reading:{" "}
-                {dexcomLatestShareAt
-                  ? `${date(dexcomLatestShareAt)} at ${time(dexcomLatestShareAt)}`
-                  : "none received"}
-                . Last attempt:{" "}
-                {dexcomLastAttempt
-                  ? `${date(dexcomLastAttempt)} at ${time(dexcomLastAttempt)}`
-                  : "not yet"}
-                . {dexcomFailure && <span>{dexcomFailure} </span>}Use the G7 app or primary device
-                for current treatment decisions.{" "}
-                <button type="button" className="button subtle" onClick={() => setImportOpen(true)}>
-                  Sync details
-                </button>
-              </div>
-            )}
-            {syncState && (
-              <SyncNotice
-                status={syncState}
-                busy={saving}
-                canManage={canManage}
-                onResolve={(action) =>
-                  void mutate({ action }).then((ok) => {
-                    if (ok) void load(true);
-                  })
-                }
-              />
-            )}
-            {historyLimited && (
-              <p className="notice" role="status">
-                Loaded CGM history reached its limit. Earlier days may be incomplete; check coverage
-                before comparing periods.
-              </p>
-            )}
-
-            {day && day !== today && (
-              <div className="history-context" role="status">
-                <Clock3 size={17} />
-                <span>
-                  Reviewing {date(fromLocal(day + "T12:00", plan.timezone))}. This is a historical
-                  view.
-                </span>
-                <button type="button" onClick={() => selectDay(today)}>
-                  Back to today
-                </button>
-              </div>
-            )}
-            <CallNotices triggers={triggers} plan={plan} />
-          </div>
-
-          <div className="workspace" data-layout="overview">
-            <section className="main-column">
-              <div className="reading-card">
-                <div className="reading-top">
-                  <div>
-                    <span className="overline">
-                      <Activity size={16} /> LATEST LOGGED ·{" "}
-                      {day === today ? "TODAY" : "SELECTED DAY"}
-                    </span>
-                    <div className="reading-value">
-                      {loading ? (
-                        <Loader2 className="spin" />
-                      ) : latest?.status ? (
-                        latestIsCgm ? (
-                          latest.status.toUpperCase()
-                        ) : (
-                          meterStatusLabel(latest.status)
-                        )
-                      ) : (
-                        (latest?.value ?? "—")
-                      )}
-                      {latest?.value != null && <span>mg/dL</span>}
-                    </div>
-                    <p>
-                      {latest
-                        ? `${latest.source} · ${date(latest.at)}, ${time(latest.at)}`
-                        : "No reading recorded for this day."}
-                    </p>
-                    {readingAgeLabel && (
-                      <span
-                        className={`care-workspace-reading-age${readingCurrent ? "" : " is-delayed"}`}
-                      >
-                        {readingAgeLabel}
-                        {!readingCurrent ? " · check a current reading" : ""}
-                      </span>
-                    )}
-                    {dexcomConnected && day === today && shareDelayed && (
-                      <button
-                        type="button"
-                        className="care-workspace-reading-sync"
-                        disabled={dexcomBusy}
-                        onClick={() => {
-                          setImportOpen(true);
-                          void syncDexcom(true);
-                        }}
-                      >
-                        {dexcomBusy ? (
-                          <Loader2 size={15} className="spin" />
-                        ) : (
-                          <RefreshCw size={15} />
-                        )}
-                        Sync Dexcom
-                      </button>
-                    )}
-                  </div>
-                  <div className="reading-top-alert">
-                    {ketoneWarning && (
-                      <div className="reading-notice warning" role="alert">
-                        <strong>Check ketones</strong>
-                        <span>
-                          {latest!.status === "High"
-                            ? latestIsCgm
-                              ? "CGM reports HIGH."
-                              : "Meter reads HI."
-                            : `Glucose above ${plan.ketoneCheckAbove} mg/dL.`}{" "}
-                          Follow your sick-day plan and contact your care team for guidance.
-                        </span>
-                      </div>
-                    )}
-                    {!ketoneWarning && (
-                      <span className="reading-pill">
-                        {!latest
-                          ? "No reading yet"
-                          : day !== today
-                            ? "Past day · for review"
-                            : latestIsCgm && latestCgm?.source === "Dexcom Clarity"
-                              ? "Clarity data · check primary device"
-                              : !readingCurrent
-                                ? lowReading
-                                  ? "Earlier low · recheck glucose now"
-                                  : "Stored reading · check current glucose"
-                                : levelLabel}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {readingCurrent && lowReading && (
-                  <div className="care-workspace-low" role="alert">
-                    <strong>Low glucose · follow your care plan</strong>
-                    <p>
-                      Check your primary device and follow your clinician’s low-glucose
-                      instructions. Do not give insulin to treat a low.
-                    </p>
-                    <p>
-                      If unconscious, having a seizure, or unable to swallow safely, call your local
-                      emergency number immediately. Use prescribed rescue medicine according to its
-                      instructions.
-                    </p>
-                    <div className="care-workspace-low-actions">
-                      <button type="button" onClick={() => setEmergencyOpen(true)}>
-                        {instructions.lowGlucose || instructions.severeLow
-                          ? "Open your low-glucose instructions"
-                          : "See emergency guidance"}
-                      </button>
-                      <button type="button" onClick={() => setLowTreatmentOpen(true)}>
-                        Log treatment
-                      </button>
-                      <button type="button" onClick={() => open("glucose")}>
-                        Log recheck
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <GlucoseChart
-                  plan={plan}
-                  illnesses={illnessWindows}
-                  now={now?.getTime() ?? NaN}
-                  correctionAt={chartCorrectionAt}
-                  correctionHours={plan.correctionHours}
-                  estimate={estimate}
-                  onSelectIllness={(illness) => setIllnessEditor({ record: illness })}
-                  key={day}
-                  onSelectDoseFood={(dose) => openDoseFood(dose)}
-                  onSelectEntry={(entry) => open(entry.kind, entry)}
-                  entries={entries}
-                  cgm={cgm}
-                  dexcomEvents={dexcomEvents}
+        <main>
+          <ProfilePrompt
+            profile={profile}
+            timezone={plan.timezone}
+            onSaved={setProfile}
+            open={profileDialogOpen}
+            onOpenChange={setProfileDialogOpen}
+          />
+          <TabsContent
+            value="daily"
+            forceMount
+            hidden={view !== "daily"}
+            className="care-page-panel"
+          >
+            <div className="page-heading care-workspace-heading">
+              <div>
+                <NextAppointmentChip
+                  appointments={appointments}
                   timezone={plan.timezone}
-                  day={day}
-                  today={today}
-                  range={chartRange}
-                  onRangeChange={setChartRange}
-                  cgmHistoryStart={cgmHistoryStart}
-                  cgmHistoryCapped={historyLimited}
+                  now={nowMs}
                 />
-                <div className="data-quality">
-                  {chartMultiDay && day && (
-                    <span>
-                      <strong>{date(fromLocal(day + "T12:00", plan.timezone))} only:</strong>{" "}
-                      coverage, totals and the daily log
-                    </span>
-                  )}
-                  <span>
-                    Observed CGM coverage: <strong>{dailyCgmSummary.coveragePercent}%</strong>
-                  </span>
-                  <span>
-                    {latestCgm && day === today && now
-                      ? `Latest imported point: ${timeAgo(latestCgm.at, now.getTime())}`
-                      : `${dailyCgmSummary.uniqueReadings} unique CGM points`}
-                  </span>
-                  {day === today && runningSensor && (
-                    <span title={`Sensor ending ${runningSensor.sensorId.slice(-4)}`}>
-                      {runningSensor.inUse ? (
-                        <>
-                          Sensor day <strong>{runningSensor.day}</strong> · started{" "}
-                          {date(runningSensor.firstAt)}
-                        </>
-                      ) : (
-                        `Last sensor: ${date(runningSensor.firstAt)} – ${date(runningSensor.lastAt)}`
-                      )}
-                    </span>
-                  )}
-                  {day === today && now && claritySync && (
-                    <span
-                      className={
-                        clarityBehind(claritySync, now.getTime()) ? "is-delayed" : undefined
-                      }
-                      title={claritySync.lastError ?? undefined}
-                    >
-                      {claritySync.lastError
-                        ? "Clarity sync failed"
-                        : claritySync.lastSync
-                          ? `Clarity synced ${timeAgo(claritySync.lastSync, now.getTime())}`
-                          : "Clarity not synced yet"}
-                      {claritySync.latestAt &&
-                        ` · data through ${date(claritySync.latestAt)}, ${time(claritySync.latestAt)}`}
-                    </span>
-                  )}
-                  {dailyCgmSummary.longestGapMinutes > 30 && (
-                    <span>Longest gap: {dailyCgmSummary.longestGapMinutes} min</span>
-                  )}
-                </div>
+                <h1>{greeting ?? "Your day"}</h1>
               </div>
-              <div className="mini-stats care-workspace-stats">
-                <div>
-                  <span className="icon-circle food">
-                    <Utensils size={19} />
-                  </span>
-                  <div>
-                    <p>Carbs logged</p>
-                    <strong>
-                      {fmt(
-                        dayEntries.reduce(
-                          (n, e) => n + (e.kind === "food" ? (e.carbs ?? 0) : 0),
-                          0,
-                        ),
-                      )}
-                      <small> g</small>
-                    </strong>
-                    {dayDoseFoods.length > 0 && (
-                      <span className="reading-breakdown">
-                        + {fmt(dayDoseFoods.reduce((sum, food) => sum + food.carbs, 0))} g in
-                        meal-dose records
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="icon-circle insulin">
-                    <Syringe size={19} />
-                  </span>
-                  <div>
-                    <p>Rapid-acting logged</p>
-                    <strong>
-                      {fmt(
-                        dayEntries.reduce(
-                          (n, e) => n + (e.insulin === "Rapid-acting" ? (e.units ?? 0) : 0),
-                          0,
-                        ),
-                      )}
-                      <small> units</small>
-                    </strong>
-                  </div>
-                </div>
-                <div>
-                  <span className="icon-circle glucose">
-                    <Droplet size={19} />
-                  </span>
-                  <div>
-                    <p>Glucose readings</p>
-                    <strong>
-                      {readings.length + dailyCgmSummary.uniqueReadings}
-                      <small> total</small>
-                    </strong>
-                    <span className="reading-breakdown">
-                      {readings.length} manual · {dailyCgmSummary.uniqueReadings} CGM
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="recent-care" aria-label="Latest recorded care across all days">
-                <div>
-                  <span>
-                    <Syringe size={16} />
-                    Latest Rapid-acting
-                  </span>
-                  <strong>
-                    {lastRapid ? `${fmt(lastRapid.units ?? 0)} units` : "None recorded"}
-                  </strong>
-                  <small>
-                    {lastRapid
-                      ? `${date(lastRapid.at)} · ${time(lastRapid.at)}`
-                      : "Check the full care history"}
-                  </small>
-                </div>
-                <div>
-                  <span>
-                    <Moon size={16} />
-                    Latest Long-acting
-                  </span>
-                  <strong>
-                    {lastBasal ? `${fmt(lastBasal.units ?? 0)} units` : "None recorded"}
-                  </strong>
-                  <small>
-                    {lastBasal
-                      ? `${date(lastBasal.at)} · ${time(lastBasal.at)}`
-                      : "No dose recorded"}
-                  </small>
-                </div>
-                <button
-                  type="button"
-                  disabled={plan.basal === 0}
-                  onClick={() => setNightOpen(true)}
+              {canLog && (
+                <nav
+                  className="quick-actions mobile-actions care-workspace-mobile-actions"
+                  aria-label="Quick logging"
                 >
-                  <Moon size={17} />
-                  <span>
-                    Evening routine<small>{basalLabel}</small>
-                  </span>
-                  <ChevronRight size={17} />
-                </button>
-              </div>
-              <Dialog open={showFoodTools} onOpenChange={setShowFoodTools}>
-                <DialogContent className="care-dialog food-builder-dialog">
-                  <DialogHeader>
-                    <DialogTitle>Food builder</DialogTitle>
-                    <DialogDescription>
-                      Search saved foods, add something new, and set the portion eaten. This is
-                      calculation support, not an instruction to give insulin.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <FoodPicker
-                    savedFoods={savedFoods}
-                    items={foodBuilderItems}
-                    onItemsChange={setFoodBuilderItems}
-                    onSaveFood={saveFoodFavorite}
-                    onDeleteFood={removeFavorite}
-                    recentFoods={recentFoodItems}
-                  />
-                  {foodBuilderItems.length > 0 && (
-                    <div className="food-builder-actions">
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          const items = foodBuilderItems;
-                          setShowFoodTools(false);
-                          openDoseFlow("Carbs", null, {
-                            carbs: fmt(items.reduce((sum, item) => sum + item.carbs, 0)),
-                            foodItems: items,
-                          });
-                        }}
-                      >
-                        Use these carbs in insulin calculator
-                      </button>
-                      <button
-                        type="button"
-                        className="button full outline"
-                        disabled={
-                          loading ||
-                          !!error ||
-                          foodBuilderItems.reduce((sum, item) => sum + item.carbs, 0) > 1000
-                        }
-                        onClick={() => {
-                          const items = foodBuilderItems;
-                          setShowFoodTools(false);
-                          open("food", undefined, {
-                            carbs: fmt(items.reduce((sum, item) => sum + item.carbs, 0)),
-                            foodItems: items,
-                            note: foodItemsNote(items),
-                          });
-                        }}
-                      >
-                        Log this food
-                        <ArrowUpRight size={16} />
-                      </button>
-                      <p className="tiny centered">Food logging does not record an insulin dose.</p>
-                    </div>
-                  )}
-                </DialogContent>
-              </Dialog>
-              <div className="team-card care-workspace-team">
-                <Phone size={18} />
-                <div>
-                  <strong>Questions about a dose or symptoms?</strong>
-                  <p>
-                    Follow your current care plan and contact{" "}
-                    {careTeamName ?? "your own diabetes care team"}. Carby does not provide a
-                    clinical contact service.
-                  </p>
-                  {contactLines
-                    // A care team name with nothing else is already named in the sentence above.
-                    .filter((line) => line.key !== "careTeam" || line.phone || line.availability)
-                    .map((line) => (
-                      <div key={line.key} className="care-workspace-contact">
-                        {line.phone ? (
-                          <a href={line.phone.href}>
-                            {line.title}: {line.phone.number}
-                          </a>
-                        ) : (
-                          <strong>{line.title}</strong>
-                        )}
-                        {line.availability && <p>{line.availability}</p>}
-                      </div>
-                    ))}
-                  <button type="button" onClick={() => setEmergencyOpen(true)}>
-                    Low glucose & emergency help
-                  </button>
-                </div>
-              </div>
-            </section>
-            <aside className="side-column">
-              {canLog ? (
-                <div className="quick-actions">
                   <button
                     type="button"
-                    onClick={() => open("glucose")}
+                    className="quick-food"
+                    onClick={() => open("food")}
                     disabled={loading || !!error}
                   >
-                    <Droplet size={19} />
-                    Log glucose
-                    <Plus size={17} />
-                  </button>
-                  <button type="button" onClick={() => open("food")} disabled={loading || !!error}>
-                    <Utensils size={19} />
-                    Meal or snack
-                    <Plus size={17} />
+                    <Utensils size={20} aria-hidden="true" />
+                    <span>
+                      <span className="quick-verb">Log </span>food
+                    </span>
+                    <Plus size={16} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
                     onClick={() => open("insulin")}
                     disabled={loading || !!error}
                   >
-                    <Syringe size={19} />
-                    Log insulin
-                    <Plus size={17} />
+                    <Syringe size={20} aria-hidden="true" />
+                    <span>
+                      <span className="quick-verb">Log </span>insulin
+                    </span>
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => open("glucose")}
+                    disabled={loading || !!error}
+                  >
+                    <Droplet size={20} aria-hidden="true" />
+                    <span>
+                      <span className="quick-verb">Log </span>glucose
+                    </span>
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="quick-illness"
+                    onClick={() => setIllnessEditor({ record: null })}
+                    disabled={loading || !!error}
+                  >
+                    <Thermometer size={20} aria-hidden="true" />
+                    <span>
+                      <span className="quick-verb">Log </span>illness
+                    </span>
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
+                </nav>
+              )}
+              <div className="date-control">
+                <button aria-label="Previous day" onClick={() => shiftDay(-1)} disabled={!day}>
+                  <ChevronLeft size={18} />
+                </button>
+                <input
+                  aria-label="Selected day"
+                  type="date"
+                  value={day}
+                  onChange={(e) => {
+                    if (e.target.value) selectDay(e.target.value);
+                  }}
+                />
+                <button aria-label="Next day" onClick={() => shiftDay(1)} disabled={!day}>
+                  <ChevronRight size={18} />
+                </button>
+                {day !== today && (
+                  <button className="today-button" onClick={() => selectDay(today)}>
+                    Today
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="daily-alerts">
+              {error && (
+                <div className="error-banner" role="alert">
+                  {error}{" "}
+                  <button
+                    onClick={() => {
+                      void load(true);
+                    }}
+                  >
+                    Retry
                   </button>
                 </div>
-              ) : (
-                <p className="notice view-only-banner" role="status">
-                  <Eye size={16} aria-hidden="true" />
-                  View only. You can see {personLabel(profile?.name)}’s log but can’t add to it.
+              )}
+              {shareDelayed && (
+                <div className="notice timing-warning share-status-banner" role="status">
+                  <strong>Dexcom data delayed.</strong> Last reading:{" "}
+                  {dexcomLatestShareAt
+                    ? `${date(dexcomLatestShareAt)} at ${time(dexcomLatestShareAt)}`
+                    : "none received"}
+                  . Last attempt:{" "}
+                  {dexcomLastAttempt
+                    ? `${date(dexcomLastAttempt)} at ${time(dexcomLastAttempt)}`
+                    : "not yet"}
+                  . {dexcomFailure && <span>{dexcomFailure} </span>}Use the G7 app or primary device
+                  for current treatment decisions.{" "}
+                  <button
+                    type="button"
+                    className="button subtle"
+                    onClick={() => setImportOpen(true)}
+                  >
+                    Sync details
+                  </button>
+                </div>
+              )}
+              {syncState && (
+                <SyncNotice
+                  status={syncState}
+                  busy={saving}
+                  canManage={canManage}
+                  onResolve={(action) =>
+                    void mutate({ action }).then((ok) => {
+                      if (ok) void load(true);
+                    })
+                  }
+                />
+              )}
+              {historyLimited && (
+                <p className="notice" role="status">
+                  Loaded CGM history reached its limit. Earlier days may be incomplete; check
+                  coverage before comparing periods.
                 </p>
               )}
-              <DailyLog
-                day={day}
-                today={today}
-                plan={plan}
-                desktopLog={desktopLog}
-                loading={loading}
-                groupedEvents={groupedEvents}
-                dayIllnesses={dayIllnesses}
-                entryCount={dayEntries.length}
-                doseFoodRecords={dayDoseFoods}
-                cgmCount={sampledCgm.length}
-                dayCgmCount={dayCgm.length}
-                dailyCgmUniqueReadings={dailyCgmSummary.uniqueReadings}
-                cgmInterval={cgmInterval}
-                onCgmIntervalChange={setCgmInterval}
-                entries={entries}
-                linkedRecordIds={linkedRecordIds}
-                selectedFoodIds={selectedFoodIds}
-                onToggleFoodSelection={toggleFoodSelection}
-                selectedFoods={selectedFoods}
-                selectedCarbs={selectedCarbs}
-                selectedRatio={selectedRatio}
-                selectedFoodMath={selectedFoodMath}
-                selectionMeal={selectionMeal}
-                onSelectionMealChange={setSelectionMeal}
-                onClearSelectedFoods={() => setSelectedFoodIds([])}
-                onLogSelectedFoodDose={logSelectedFoodDose}
-                onEditIllness={(illness) => setIllnessEditor({ record: illness })}
-                onSelectEntry={open}
-                onSelectDoseFood={openDoseFood}
-              />
-            </aside>
-          </div>
-        </TabsContent>
-        <TabsContent
-          value="insights"
-          forceMount
-          hidden={view !== "insights"}
-          className="care-page-panel"
-        >
-          <Insights
-            active={view === "insights"}
-            entries={entries}
-            cgm={cgm}
-            timezone={plan.timezone}
-            illnesses={illnessWindows}
-            patientName={profile?.name}
-            plan={plan}
-            onLogIllness={canLog ? () => setIllnessEditor({ record: null }) : undefined}
-          />
-        </TabsContent>
-        <TabsContent
-          value="logbook"
-          forceMount
-          hidden={view !== "logbook"}
-          className="care-page-panel"
-        >
-          {Number.isFinite(nowMs) && (
-            <Logbook
+
+              {day && day !== today && (
+                <div className="history-context" role="status">
+                  <Clock3 size={17} />
+                  <span>
+                    Reviewing {date(fromLocal(day + "T12:00", plan.timezone))}. This is a historical
+                    view.
+                  </span>
+                  <button type="button" onClick={() => selectDay(today)}>
+                    Back to today
+                  </button>
+                </div>
+              )}
+              <CallNotices triggers={triggers} plan={plan} />
+            </div>
+
+            <div className="workspace" data-layout="overview">
+              <section className="main-column">
+                <div className="reading-card">
+                  <div className="reading-top">
+                    <div>
+                      <span className="overline">
+                        <Activity size={16} /> LATEST LOGGED ·{" "}
+                        {day === today ? "TODAY" : "SELECTED DAY"}
+                      </span>
+                      <div className="reading-value">
+                        {loading ? (
+                          <Loader2 className="spin" />
+                        ) : latest?.status ? (
+                          latestIsCgm ? (
+                            latest.status.toUpperCase()
+                          ) : (
+                            meterStatusLabel(latest.status)
+                          )
+                        ) : (
+                          (latest?.value ?? "—")
+                        )}
+                        {latest?.value != null && <span>mg/dL</span>}
+                      </div>
+                      <p>
+                        {latest
+                          ? `${latest.source} · ${date(latest.at)}, ${time(latest.at)}`
+                          : "No reading recorded for this day."}
+                      </p>
+                      {readingAgeLabel && (
+                        <span
+                          className={`care-workspace-reading-age${readingCurrent ? "" : " is-delayed"}`}
+                        >
+                          {readingAgeLabel}
+                          {!readingCurrent ? " · check a current reading" : ""}
+                        </span>
+                      )}
+                      {dexcomConnected && day === today && shareDelayed && (
+                        <button
+                          type="button"
+                          className="care-workspace-reading-sync"
+                          disabled={dexcomBusy}
+                          onClick={() => {
+                            setImportOpen(true);
+                            void syncDexcom(true);
+                          }}
+                        >
+                          {dexcomBusy ? (
+                            <Loader2 size={15} className="spin" />
+                          ) : (
+                            <RefreshCw size={15} />
+                          )}
+                          Sync Dexcom
+                        </button>
+                      )}
+                    </div>
+                    <div className="reading-top-alert">
+                      {ketoneWarning && (
+                        <div className="reading-notice warning" role="alert">
+                          <strong>Check ketones</strong>
+                          <span>
+                            {latest!.status === "High"
+                              ? latestIsCgm
+                                ? "CGM reports HIGH."
+                                : "Meter reads HI."
+                              : `Glucose above ${plan.ketoneCheckAbove} mg/dL.`}{" "}
+                            Follow your sick-day plan and contact your care team for guidance.
+                          </span>
+                        </div>
+                      )}
+                      {!ketoneWarning && (
+                        <span className="reading-pill">
+                          {!latest
+                            ? "No reading yet"
+                            : day !== today
+                              ? "Past day · for review"
+                              : latestIsCgm && latestCgm?.source === "Dexcom Clarity"
+                                ? "Clarity data · check primary device"
+                                : !readingCurrent
+                                  ? lowReading
+                                    ? "Earlier low · recheck glucose now"
+                                    : "Stored reading · check current glucose"
+                                  : levelLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {readingCurrent && lowReading && (
+                    <div className="care-workspace-low" role="alert">
+                      <strong>Low glucose · follow your care plan</strong>
+                      <p>
+                        Check your primary device and follow your clinician’s low-glucose
+                        instructions. Do not give insulin to treat a low.
+                      </p>
+                      <p>
+                        If unconscious, having a seizure, or unable to swallow safely, call your
+                        local emergency number immediately. Use prescribed rescue medicine according
+                        to its instructions.
+                      </p>
+                      <div className="care-workspace-low-actions">
+                        <button type="button" onClick={() => setEmergencyOpen(true)}>
+                          {instructions.lowGlucose || instructions.severeLow
+                            ? "Open your low-glucose instructions"
+                            : "See emergency guidance"}
+                        </button>
+                        <button type="button" onClick={() => setLowTreatmentOpen(true)}>
+                          Log treatment
+                        </button>
+                        <button type="button" onClick={() => open("glucose")}>
+                          Log recheck
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <GlucoseChart
+                    plan={plan}
+                    illnesses={illnessWindows}
+                    now={now?.getTime() ?? NaN}
+                    correctionAt={chartCorrectionAt}
+                    correctionHours={plan.correctionHours}
+                    estimate={estimate}
+                    onSelectIllness={(illness) => setIllnessEditor({ record: illness })}
+                    key={day}
+                    onSelectDoseFood={(dose) => openDoseFood(dose)}
+                    onSelectEntry={(entry) => open(entry.kind, entry)}
+                    entries={entries}
+                    cgm={cgm}
+                    dexcomEvents={dexcomEvents}
+                    timezone={plan.timezone}
+                    day={day}
+                    today={today}
+                    range={chartRange}
+                    onRangeChange={setChartRange}
+                    cgmHistoryStart={cgmHistoryStart}
+                    cgmHistoryCapped={historyLimited}
+                  />
+                  <div className="data-quality">
+                    {chartMultiDay && day && (
+                      <span>
+                        <strong>{date(fromLocal(day + "T12:00", plan.timezone))} only:</strong>{" "}
+                        coverage, totals and the daily log
+                      </span>
+                    )}
+                    <span>
+                      Observed CGM coverage: <strong>{dailyCgmSummary.coveragePercent}%</strong>
+                    </span>
+                    <span>
+                      {latestCgm && day === today && now
+                        ? `Latest imported point: ${timeAgo(latestCgm.at, now.getTime())}`
+                        : `${dailyCgmSummary.uniqueReadings} unique CGM points`}
+                    </span>
+                    {day === today && runningSensor && (
+                      <span title={`Sensor ending ${runningSensor.sensorId.slice(-4)}`}>
+                        {runningSensor.inUse ? (
+                          <>
+                            Sensor day <strong>{runningSensor.day}</strong> · started{" "}
+                            {date(runningSensor.firstAt)}
+                          </>
+                        ) : (
+                          `Last sensor: ${date(runningSensor.firstAt)} – ${date(runningSensor.lastAt)}`
+                        )}
+                      </span>
+                    )}
+                    {day === today && now && claritySync && (
+                      <span
+                        className={
+                          clarityBehind(claritySync, now.getTime()) ? "is-delayed" : undefined
+                        }
+                        title={claritySync.lastError ?? undefined}
+                      >
+                        {claritySync.lastError
+                          ? "Clarity sync failed"
+                          : claritySync.lastSync
+                            ? `Clarity synced ${timeAgo(claritySync.lastSync, now.getTime())}`
+                            : "Clarity not synced yet"}
+                        {claritySync.latestAt &&
+                          ` · data through ${date(claritySync.latestAt)}, ${time(claritySync.latestAt)}`}
+                      </span>
+                    )}
+                    {dailyCgmSummary.longestGapMinutes > 30 && (
+                      <span>Longest gap: {dailyCgmSummary.longestGapMinutes} min</span>
+                    )}
+                  </div>
+                </div>
+                <div className="mini-stats care-workspace-stats">
+                  <div>
+                    <span className="icon-circle food">
+                      <Utensils size={19} />
+                    </span>
+                    <div>
+                      <p>Carbs logged</p>
+                      <strong>
+                        {fmt(
+                          dayEntries.reduce(
+                            (n, e) => n + (e.kind === "food" ? (e.carbs ?? 0) : 0),
+                            0,
+                          ),
+                        )}
+                        <small> g</small>
+                      </strong>
+                      {dayDoseFoods.length > 0 && (
+                        <span className="reading-breakdown">
+                          + {fmt(dayDoseFoods.reduce((sum, food) => sum + food.carbs, 0))} g in
+                          meal-dose records
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="icon-circle insulin">
+                      <Syringe size={19} />
+                    </span>
+                    <div>
+                      <p>Rapid-acting logged</p>
+                      <strong>
+                        {fmt(
+                          dayEntries.reduce(
+                            (n, e) => n + (e.insulin === "Rapid-acting" ? (e.units ?? 0) : 0),
+                            0,
+                          ),
+                        )}
+                        <small> units</small>
+                      </strong>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="icon-circle glucose">
+                      <Droplet size={19} />
+                    </span>
+                    <div>
+                      <p>Glucose readings</p>
+                      <strong>
+                        {readings.length + dailyCgmSummary.uniqueReadings}
+                        <small> total</small>
+                      </strong>
+                      <span className="reading-breakdown">
+                        {readings.length} manual · {dailyCgmSummary.uniqueReadings} CGM
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="recent-care" aria-label="Latest recorded care across all days">
+                  <div>
+                    <span>
+                      <Syringe size={16} />
+                      Latest Rapid-acting
+                    </span>
+                    <strong>
+                      {lastRapid ? `${fmt(lastRapid.units ?? 0)} units` : "None recorded"}
+                    </strong>
+                    <small>
+                      {lastRapid
+                        ? `${date(lastRapid.at)} · ${time(lastRapid.at)}`
+                        : "Check the full care history"}
+                    </small>
+                  </div>
+                  <div>
+                    <span>
+                      <Moon size={16} />
+                      Latest Long-acting
+                    </span>
+                    <strong>
+                      {lastBasal ? `${fmt(lastBasal.units ?? 0)} units` : "None recorded"}
+                    </strong>
+                    <small>
+                      {lastBasal
+                        ? `${date(lastBasal.at)} · ${time(lastBasal.at)}`
+                        : "No dose recorded"}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={plan.basal === 0}
+                    onClick={() => setNightOpen(true)}
+                  >
+                    <Moon size={17} />
+                    <span>
+                      Evening routine<small>{basalLabel}</small>
+                    </span>
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+                <Dialog open={showFoodTools} onOpenChange={setShowFoodTools}>
+                  <DialogContent className="care-dialog food-builder-dialog">
+                    <DialogHeader>
+                      <DialogTitle>Food builder</DialogTitle>
+                      <DialogDescription>
+                        Search saved foods, add something new, and set the portion eaten. This is
+                        calculation support, not an instruction to give insulin.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <FoodPicker
+                      savedFoods={savedFoods}
+                      items={foodBuilderItems}
+                      onItemsChange={setFoodBuilderItems}
+                      onSaveFood={saveFoodFavorite}
+                      onDeleteFood={removeFavorite}
+                      recentFoods={recentFoodItems}
+                    />
+                    {foodBuilderItems.length > 0 && (
+                      <div className="food-builder-actions">
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            const items = foodBuilderItems;
+                            setShowFoodTools(false);
+                            openDoseFlow("Carbs", null, {
+                              carbs: fmt(items.reduce((sum, item) => sum + item.carbs, 0)),
+                              foodItems: items,
+                            });
+                          }}
+                        >
+                          Use these carbs in insulin calculator
+                        </button>
+                        <button
+                          type="button"
+                          className="button full outline"
+                          disabled={
+                            loading ||
+                            !!error ||
+                            foodBuilderItems.reduce((sum, item) => sum + item.carbs, 0) > 1000
+                          }
+                          onClick={() => {
+                            const items = foodBuilderItems;
+                            setShowFoodTools(false);
+                            open("food", undefined, {
+                              carbs: fmt(items.reduce((sum, item) => sum + item.carbs, 0)),
+                              foodItems: items,
+                              note: foodItemsNote(items),
+                            });
+                          }}
+                        >
+                          Log this food
+                          <ArrowUpRight size={16} />
+                        </button>
+                        <p className="tiny centered">
+                          Food logging does not record an insulin dose.
+                        </p>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
+                <div className="team-card care-workspace-team">
+                  <Phone size={18} />
+                  <div>
+                    <strong>Questions about a dose or symptoms?</strong>
+                    <p>
+                      Follow your current care plan and contact{" "}
+                      {careTeamName ?? "your own diabetes care team"}. Carby does not provide a
+                      clinical contact service.
+                    </p>
+                    {contactLines
+                      // A care team name with nothing else is already named in the sentence above.
+                      .filter((line) => line.key !== "careTeam" || line.phone || line.availability)
+                      .map((line) => (
+                        <div key={line.key} className="care-workspace-contact">
+                          {line.phone ? (
+                            <a href={line.phone.href}>
+                              {line.title}: {line.phone.number}
+                            </a>
+                          ) : (
+                            <strong>{line.title}</strong>
+                          )}
+                          {line.availability && <p>{line.availability}</p>}
+                        </div>
+                      ))}
+                    <button type="button" onClick={() => setEmergencyOpen(true)}>
+                      Low glucose & emergency help
+                    </button>
+                  </div>
+                </div>
+              </section>
+              <aside className="side-column">
+                {canLog ? (
+                  <div className="quick-actions">
+                    <button
+                      type="button"
+                      onClick={() => open("glucose")}
+                      disabled={loading || !!error}
+                    >
+                      <Droplet size={19} />
+                      Log glucose
+                      <Plus size={17} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => open("food")}
+                      disabled={loading || !!error}
+                    >
+                      <Utensils size={19} />
+                      Meal or snack
+                      <Plus size={17} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => open("insulin")}
+                      disabled={loading || !!error}
+                    >
+                      <Syringe size={19} />
+                      Log insulin
+                      <Plus size={17} />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="notice view-only-banner" role="status">
+                    <Eye size={16} aria-hidden="true" />
+                    View only. You can see {personLabel(profile?.name)}’s log but can’t add to it.
+                  </p>
+                )}
+                <DailyLog
+                  day={day}
+                  today={today}
+                  plan={plan}
+                  desktopLog={desktopLog}
+                  loading={loading}
+                  groupedEvents={groupedEvents}
+                  dayIllnesses={dayIllnesses}
+                  entryCount={dayEntries.length}
+                  doseFoodRecords={dayDoseFoods}
+                  cgmCount={sampledCgm.length}
+                  dayCgmCount={dayCgm.length}
+                  dailyCgmUniqueReadings={dailyCgmSummary.uniqueReadings}
+                  cgmInterval={cgmInterval}
+                  onCgmIntervalChange={setCgmInterval}
+                  entries={entries}
+                  linkedRecordIds={linkedRecordIds}
+                  selectedFoodIds={selectedFoodIds}
+                  onToggleFoodSelection={toggleFoodSelection}
+                  selectedFoods={selectedFoods}
+                  selectedCarbs={selectedCarbs}
+                  selectedRatio={selectedRatio}
+                  selectedFoodMath={selectedFoodMath}
+                  selectionMeal={selectionMeal}
+                  onSelectionMealChange={setSelectionMeal}
+                  onClearSelectedFoods={() => setSelectedFoodIds([])}
+                  onLogSelectedFoodDose={logSelectedFoodDose}
+                  onEditIllness={(illness) => setIllnessEditor({ record: illness })}
+                  onSelectEntry={open}
+                  onSelectDoseFood={openDoseFood}
+                />
+              </aside>
+            </div>
+          </TabsContent>
+          <TabsContent
+            value="insights"
+            forceMount
+            hidden={view !== "insights"}
+            className="care-page-panel"
+          >
+            <Insights
+              active={view === "insights"}
               entries={entries}
               cgm={cgm}
-              plan={plan}
+              timezone={plan.timezone}
               illnesses={illnessWindows}
-              now={nowMs}
+              patientName={profile?.name}
+              plan={plan}
+              onLogIllness={canLog ? () => setIllnessEditor({ record: null }) : undefined}
             />
-          )}
-          <AppointmentsPanel
-            appointments={appointments}
-            plan={plan}
-            now={nowMs}
-            onSave={async (appointment) => {
-              const ok = await mutate({ action: "saveAppointment", appointment });
-              if (ok) {
-                toast.success("Appointment saved");
-                void load(true);
-              }
-              return ok;
-            }}
-            onDelete={async (appointment) => {
-              const ok = await mutate({ action: "deleteAppointment", id: appointment.id });
-              if (ok) {
-                setAppointments((current) => current.filter((item) => item.id !== appointment.id));
-                toast.success("Appointment deleted");
-                void load(true);
-              }
-              return ok;
-            }}
-          />
-        </TabsContent>
-        <TabsContent
-          value="reports"
-          forceMount
-          hidden={view !== "reports"}
-          className="care-page-panel"
-        >
-          <DoctorReport
-            entries={entries}
-            cgm={cgm}
-            dexcomEvents={dexcomEvents}
-            timezone={plan.timezone}
-            illnesses={illnessWindows}
-            patientName={profile?.name}
-            plan={plan}
-            active={view === "reports"}
-          />
-        </TabsContent>
-        <footer>
-          <span>Carby · Your daily care log</span>
-          <span>
-            Times in {plan.timezone} ·{" "}
-            {dexcomConnected ? "Dexcom Share connected" : "Dexcom Share not connected"}
-          </span>
-        </footer>
-      </main>
+          </TabsContent>
+          <TabsContent
+            value="logbook"
+            forceMount
+            hidden={view !== "logbook"}
+            className="care-page-panel"
+          >
+            {Number.isFinite(nowMs) && (
+              <Logbook
+                entries={entries}
+                cgm={cgm}
+                plan={plan}
+                illnesses={illnessWindows}
+                now={nowMs}
+              />
+            )}
+            <AppointmentsPanel
+              appointments={appointments}
+              plan={plan}
+              now={nowMs}
+              onSave={async (appointment) => {
+                const ok = await mutate({ action: "saveAppointment", appointment });
+                if (ok) {
+                  toast.success("Appointment saved");
+                  void load(true);
+                }
+                return ok;
+              }}
+              onDelete={async (appointment) => {
+                const ok = await mutate({ action: "deleteAppointment", id: appointment.id });
+                if (ok) {
+                  setAppointments((current) =>
+                    current.filter((item) => item.id !== appointment.id),
+                  );
+                  toast.success("Appointment deleted");
+                  void load(true);
+                }
+                return ok;
+              }}
+            />
+          </TabsContent>
+          <TabsContent
+            value="reports"
+            forceMount
+            hidden={view !== "reports"}
+            className="care-page-panel"
+          >
+            <DoctorReport
+              entries={entries}
+              cgm={cgm}
+              dexcomEvents={dexcomEvents}
+              timezone={plan.timezone}
+              illnesses={illnessWindows}
+              patientName={profile?.name}
+              plan={plan}
+              active={view === "reports"}
+            />
+          </TabsContent>
+          <footer>
+            <span>Carby · Your daily care log</span>
+            <span>
+              Times in {plan.timezone} ·{" "}
+              {dexcomConnected ? "Dexcom Share connected" : "Dexcom Share not connected"}
+            </span>
+          </footer>
+        </main>
+      </div>
       {canLog && (
         <LogMenu
           name={profile?.name}
