@@ -66,6 +66,7 @@ import { notifyCareChanged } from "@/lib/live-refresh";
 import { CarbyWordmark } from "./carby-wordmark";
 import PersonMenu from "./person-menu";
 import { usePersonAccess } from "./person-context";
+import { useSheetHeader } from "./sheet-header";
 import { CareContactFields, OtherContactFields } from "./care-contacts";
 import { EmergencyInstructionFields } from "./emergency-instructions";
 import { GlucoseRangeFields } from "./glucose-range-fields";
@@ -160,6 +161,7 @@ export default function PlanPage({
   name?: string;
 }) {
   const access = usePersonAccess();
+  const sheetHeader = useSheetHeader();
   const canManage = can(access.role, "manage");
   const [plan, setPlan] = useState(initialPlan);
   const [draft, setDraft] = useState(initialPlan);
@@ -300,7 +302,7 @@ export default function PlanPage({
   return (
     <div className="care-redesign plan-page">
       <Toaster richColors />
-      <header className="topbar care-workspace-topbar">
+      <header className="topbar care-workspace-topbar" {...sheetHeader}>
         <Link className="carby-brand" href="/" aria-label="Carby home">
           <CarbyWordmark />
         </Link>

@@ -86,6 +86,7 @@ import ShortcutsDialog from "./shortcuts-dialog";
 import { createShortcutMatcher } from "@/lib/shortcuts";
 import { SHOW_HINTS } from "./button-hints";
 import { usePersonAccess } from "./person-context";
+import { useSheetHeader } from "./sheet-header";
 import { can, personLabel } from "@/lib/people";
 import { personHref } from "@/lib/person-request";
 import { toast } from "sonner";
@@ -236,6 +237,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const [setup, setSetup] = useState<{ incompletePlan?: PlanDraft } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const personAccess = usePersonAccess();
+  const sheetHeader = useSheetHeader();
   const canLog = can(personAccess.role, "log");
   const canManage = can(personAccess.role, "manage");
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
@@ -1744,7 +1746,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           onLog={() => open("glucose")}
         />
       )}
-      <header className="topbar care-workspace-topbar">
+      <header className="topbar care-workspace-topbar" {...sheetHeader}>
         <Link className="carby-brand" href="/" aria-label="Carby home">
           <CarbyWordmark />
         </Link>
