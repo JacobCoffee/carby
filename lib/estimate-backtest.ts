@@ -1,6 +1,6 @@
-import type { CgmReading } from "./care";
+import type { CgmReading, Entry } from "./care";
 import { uniqueCgm } from "./cgm-metrics";
-import type { GlucoseEstimate } from "./glucose-estimate";
+import { LOGGED_AGE_MINUTES, type GlucoseEstimate } from "./glucose-estimate";
 
 /**
  * Replays an estimator over past CGM readings the way the app runs it: at each test time it sees
@@ -34,11 +34,38 @@ const median = (values: number[]) => {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 };
 
+/** What was logged in the three hours before `now`, as a backtest group. */
+export function loggedGroup(entries: Entry[], now: number) {
+  const since = now - LOGGED_AGE_MINUTES[LOGGED_AGE_MINUTES.length - 1] * MINUTE;
+  const recent = entries.filter((e) => {
+    const at = Date.parse(e.at);
+    return at <= now && at > since;
+  });
+  const food = recent.some((e) => e.kind === "food" && e.carbs);
+  const insulin = recent.some((e) => e.kind === "insulin" && e.insulin === "Rapid-acting");
+  return food && insulin
+    ? "Food and insulin"
+    : food
+      ? "Food only"
+      : insulin
+        ? "Insulin only"
+        : "Nothing logged";
+}
+
 export function backtestEstimate(
   cgm: CgmReading[],
   estimator: Estimator,
   /** Test every `everyMinutes`, from `from` on, so different estimators can share test times. */
-  { everyMinutes = 15, from = -Infinity }: { everyMinutes?: number; from?: number } = {},
+  {
+    everyMinutes = 15,
+    from = -Infinity,
+    group,
+  }: {
+    everyMinutes?: number;
+    from?: number;
+    /** Also score each test time's group separately, such as what was logged before it. */
+    group?: (now: number) => string;
+  } = {},
 ) {
   const readings = uniqueCgm(cgm).toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const times = readings.map((r) => Date.parse(r.at));
@@ -67,6 +94,7 @@ export function backtestEstimate(
   type Case = {
     minutes: number;
     trend: Trend | null;
+    group: string | null;
     miss: number;
     stay: number;
     inside: boolean;
@@ -89,6 +117,7 @@ export function backtestEstimate(
           : change >= STEADY_MGDL
             ? "rising"
             : "steady";
+    const named = group ? group(times[i]) : null;
     for (const point of estimate.points) {
       if (point.minutes === 0) continue;
       const actual = exactNear(Date.parse(point.at), MATCH_MINUTES * MINUTE);
@@ -96,6 +125,7 @@ export function backtestEstimate(
       cases.push({
         minutes: point.minutes,
         trend,
+        group: named,
         miss: Math.abs(point.median - actual),
         stay: Math.abs(estimate.value - actual),
         inside: actual >= point.low && actual <= point.high,
@@ -126,5 +156,11 @@ export function backtestEstimate(
         score(cases.filter((c) => c.trend === trend)),
       ]),
     ) as Record<Trend, HorizonScore[]>,
+    byGroup: Object.fromEntries(
+      [...new Set(cases.flatMap((c) => (c.group === null ? [] : [c.group])))].map((name) => [
+        name,
+        score(cases.filter((c) => c.group === name)),
+      ]),
+    ) as Record<string, HorizonScore[]>,
   };
 }

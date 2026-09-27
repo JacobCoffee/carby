@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { backtestEstimate } from "../lib/estimate-backtest.ts";
+import { backtestEstimate, loggedGroup } from "../lib/estimate-backtest.ts";
 
 // Synthetic readings every 5 minutes; nothing here is a clinical value.
 const H = 3600000;
@@ -64,4 +64,44 @@ test("a flat estimate misses exactly as much as assuming glucose stays where it 
     ahead(now, () => ({ low: valueAt(now), median: valueAt(now), high: valueAt(now) })),
   );
   for (const s of all) assert.equal(s.medianMiss, s.stayMiss);
+});
+
+test("grouped scores split the same cases by each test time's group", () => {
+  const run = backtestEstimate(
+    cgm,
+    (_, now) =>
+      ahead(now, (t) => ({ low: valueAt(t) - 5, median: valueAt(t), high: valueAt(t) + 5 })),
+    { group: (now) => ((now - start) % (2 * H) < H ? "first hour" : "second hour") },
+  );
+  assert.deepEqual(Object.keys(run.byGroup).toSorted(), ["first hour", "second hour"]);
+  for (const [i, s] of run.all.entries())
+    assert.equal(s.cases, run.byGroup["first hour"][i].cases + run.byGroup["second hour"][i].cases);
+  assert.deepEqual(backtestEstimate(cgm, () => ({ state: "no-reading" })).byGroup, {});
+});
+
+test("the logged group is what was logged in the three hours before, and nothing after", () => {
+  const now = start + 6 * H;
+  const entry = (hoursBefore, fields) => ({
+    at: new Date(now - hoursBefore * H).toISOString(),
+    ...fields,
+  });
+  const food = (h) => entry(h, { kind: "food", carbs: 30 });
+  const rapid = (h) => entry(h, { kind: "insulin", insulin: "Rapid-acting", units: 1 });
+  assert.equal(loggedGroup([], now), "Nothing logged");
+  assert.equal(loggedGroup([food(1)], now), "Food only");
+  assert.equal(loggedGroup([rapid(2.5)], now), "Insulin only");
+  assert.equal(loggedGroup([food(0.5), rapid(0.5)], now), "Food and insulin");
+  // Too long ago, still to come, a long-acting dose, or food with no carbs don't count.
+  assert.equal(
+    loggedGroup(
+      [
+        food(3.5),
+        food(-0.5),
+        entry(1, { kind: "insulin", insulin: "Long-acting", units: 7 }),
+        entry(1, { kind: "food", carbs: 0 }),
+      ],
+      now,
+    ),
+    "Nothing logged",
+  );
 });

@@ -1,4 +1,4 @@
-import type { CgmReading } from "./care";
+import type { CgmReading, Entry } from "./care";
 import { uniqueCgm } from "./cgm-metrics";
 
 /**
@@ -60,7 +60,21 @@ function solve(a: number[][], b: number[]) {
   return b.map((value, i) => value / a[i][i]);
 }
 
+/** Extra inputs the fit can learn from, beyond the CGM trend. */
+type Extras = {
+  /** More predictors at time `t`, computed only from what was known at `t`. */
+  features: (t: number) => number[];
+  /** Pull toward zero for the extra weights, so thin evidence leaves the CGM-only fit alone. */
+  ridge: number;
+  /** Whether the history at `t` is like the moment being estimated; unlike moments aren't fitted. */
+  like: (t: number) => boolean;
+};
+
 export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate {
+  return fitEstimate(cgm, now, null);
+}
+
+function fitEstimate(cgm: CgmReading[], now: number, extras: Extras | null): GlucoseEstimate {
   if (!Number.isFinite(now)) return { state: "no-reading" };
   const readings = uniqueCgm(cgm)
     .map((r) => ({
@@ -90,7 +104,7 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
     if (Math.abs(readings[j].t - t) <= step / 2) grid[i] = readings[j].value;
   }
   const lags = LAG_MINUTES.map((m) => m / GRID_MINUTES);
-  const changes = (i: number) => {
+  const inputs = (i: number) => {
     const value = grid[i];
     if (value === null || i < lags[lags.length - 1]) return null;
     const out: number[] = [];
@@ -99,10 +113,14 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
       if (before === null) return null;
       out.push(value - before);
     }
-    return out;
+    return extras ? [...out, ...extras.features(first + i * step)] : out;
   };
-  const recent = changes(size - 1);
+  const recent = inputs(size - 1);
   if (!recent) return { state: "no-reading" };
+  const width = recent.length;
+  const like = extras
+    ? Array.from({ length: size }, (_, i) => extras.like(first + i * step))
+    : null;
 
   const points: EstimatePoint[] = [
     {
@@ -126,7 +144,8 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
     const recentOutcome: boolean[] = [];
     const calibrationStart = size - CALIBRATION_MINUTES / GRID_MINUTES;
     for (let i = 0; i + ahead < size; i++) {
-      const x = changes(i);
+      if (like && !(like[i] && like[i + ahead])) continue;
+      const x = inputs(i);
       const [value, later] = [grid[i], grid[i + ahead]];
       if (!x || value === null || later === null) continue;
       xs.push(x);
@@ -138,17 +157,17 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
     const calibration = recentOutcome.filter(Boolean).length;
     const split = calibration >= MIN_CALIBRATION && xs.length - calibration >= MIN_EXAMPLES;
     // Least squares with no intercept, lightly regularized so near-duplicate lags stay stable.
-    const a = lags.map(() => lags.map(() => 0));
-    const b = lags.map(() => 0);
+    const a = recent.map(() => recent.map(() => 0));
+    const b = recent.map(() => 0);
     for (let r = 0; r < xs.length; r++) {
       if (split && recentOutcome[r]) continue;
-      for (let p = 0; p < lags.length; p++) {
+      for (let p = 0; p < width; p++) {
         b[p] += xs[r][p] * ys[r];
-        for (let q = 0; q < lags.length; q++) a[p][q] += xs[r][p] * xs[r][q];
+        for (let q = 0; q < width; q++) a[p][q] += xs[r][p] * xs[r][q];
       }
     }
-    const ridge = (1e-6 * a.reduce((sum, row, p) => sum + row[p], 0)) / lags.length;
-    a.forEach((row, p) => (row[p] += ridge));
+    const ridge = (1e-6 * lags.reduce((sum, _, p) => sum + a[p][p], 0)) / lags.length;
+    a.forEach((row, p) => (row[p] += p < lags.length ? ridge : (extras?.ridge ?? ridge)));
     const weights = solve(a, b);
     if (!weights) return { state: "learning", examples: xs.length };
     const fit = (x: number[]) => x.reduce((sum, v, p) => sum + v * weights[p], 0);
@@ -171,6 +190,59 @@ export function glucoseEstimate(cgm: CgmReading[], now: number): GlucoseEstimate
     });
   }
   return { state: "ready", at: points[0].at, value: current.value, examples, points };
+}
+
+/**
+ * Food and rapid-acting insulin count by how long ago they were logged, in these spans of
+ * minutes, so a meal just eaten (still to rise) and one two hours ago (coming back down) are told
+ * apart. Statistical buckets, not insulin action times.
+ */
+export const LOGGED_AGE_MINUTES = [0, 30, 60, 120, 180];
+/** How strongly the logged weights are pulled toward zero (no effect), in the units below. */
+const LOGGED_RIDGE = 50;
+
+/**
+ * The same estimate, also learning from the person's own history how glucose moved in the three
+ * hours after logged carbs (per 10 g) and rapid-acting insulin (per unit). There is no built-in
+ * food or insulin curve: with little history the weights stay near zero and the estimate is the
+ * CGM-only one. Moments inside `excluded` spans (such as sick periods) are learned only from each
+ * other, and moments outside only from moments outside. Not shown in the app: kept for comparing
+ * with the CGM-only estimate in `scripts/estimate-backtest.ts` until it proves more accurate.
+ */
+export function loggedEstimate(
+  cgm: CgmReading[],
+  now: number,
+  logged: { entries: Entry[]; excluded?: { start: number; end: number }[] },
+): GlucoseEstimate {
+  const events = logged.entries
+    .map((e) => ({
+      t: Date.parse(e.at),
+      carbs: e.kind === "food" ? (e.carbs ?? 0) / 10 : 0,
+      rapid: e.kind === "insulin" && e.insulin === "Rapid-acting" ? (e.units ?? 0) : 0,
+    }))
+    .filter((e) => (e.carbs || e.rapid) && e.t <= now)
+    .sort((a, b) => a.t - b.t);
+  const excluded = logged.excluded ?? [];
+  const inExcluded = (t: number) => excluded.some((span) => t >= span.start && t < span.end);
+  const nowExcluded = inExcluded(now);
+  return fitEstimate(cgm, now, {
+    features: (t) => {
+      const spans = LOGGED_AGE_MINUTES.length - 1;
+      const out = Array.from({ length: 2 * spans }, () => 0);
+      for (const e of events) {
+        if (e.t > t) break;
+        const age = (t - e.t) / MINUTE;
+        for (let s = 0; s < spans; s++)
+          if (age >= LOGGED_AGE_MINUTES[s] && age < LOGGED_AGE_MINUTES[s + 1]) {
+            out[s] += e.carbs;
+            out[spans + s] += e.rapid;
+          }
+      }
+      return out;
+    },
+    ridge: LOGGED_RIDGE,
+    like: (t) => inExcluded(t) === nowExcluded,
+  });
 }
 
 /** An estimate value as text: mg/dL, or the sensor's HIGH/LOW at its limits. */
