@@ -90,6 +90,15 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 **Likely range:** with about a day of CGM data, the chart and the Evening routine dialog show a likely range for the next 2 hours. It starts at the current reading and comes from a damped trend fitted on the person's own CGM history: how much of the last hour's rise or fall carried on. The range is how far that fit missed on the most recent day, which it wasn't fitted on. It uses CGM readings only, so it can't see food, insulin or activity, and it is not dosing advice. Tested on earlier days, it wasn't reliable further ahead than 2 hours, so it stops there. To check how well it has done on your own history, run `bun scripts/estimate-backtest.ts <backup.ndjson>` on a **Download all data** backup; it reads the file only.
 
+## Food lookup
+
+In **Add a new food**, type a food name or barcode and choose **Look up**, or choose **Scan barcode** to use the camera. Picking a result fills in the name, carbs, serving size and unit, and nothing is added until you check the values against the package and choose **Add this food**.
+
+- Barcodes are looked up in [Open Food Facts](https://world.openfoodfacts.org) first, then in [USDA FoodData Central](https://fdc.nal.usda.gov) if Open Food Facts doesn't know the product or lists no carbs. Name searches ask both; FoodData Central also covers plain foods such as fruit and rice.
+- FoodData Central needs `USDA_API_KEY` ([free key](https://fdc.nal.usda.gov/api-key-signup)). Without it, only Open Food Facts is used.
+- Only the barcode or the search words leave Carby. Values come from each database as published and can be wrong, so check them against the label.
+- Scanning uses the browser's barcode reader where it has one, and otherwise a decoder Carby serves itself. The camera needs HTTPS (or localhost).
+
 ## Sync with another Carby (optional)
 
 If you run two deployments, say one on your computer and one online, each change you log on one (the sender) can be forwarded to the other (the receiver), and the receiver's own changes can come back. Entries, meals and doses, illness periods and check-ins, appointments, saved foods, the care plan and the profile are synced, including edits and deletes. CGM readings and Dexcom events are not; connect Dexcom on each deployment.

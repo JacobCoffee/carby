@@ -31,7 +31,7 @@
 .food-picker-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   margin-top: 7px;
 }
 .food-picker-chip {
@@ -78,6 +78,56 @@
 .food-picker-new > strong {
   font-size: 13px;
   color: var(--ink-muted);
+}
+.food-picker-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.food-picker-lookup .food-picker-search {
+  flex: 1 1 220px;
+}
+.food-picker-lookup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.food-picker-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.food-picker-result {
+  font-size: 13px;
+}
+.food-picker-result small {
+  color: var(--ink-muted);
+}
+.food-picker-result .food-picker-chip-row {
+  margin-top: 6px;
+}
+.food-picker-results .food-picker-empty,
+.food-picker-source {
+  margin: 0;
+}
+.barcode-scanner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.barcode-scanner video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--canvas);
+}
+.barcode-scanner .helper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
 }
 .food-picker-new-fields {
   display: grid;
