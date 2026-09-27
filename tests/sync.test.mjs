@@ -1,6 +1,12 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { acceptConfig, pushConfig, syncDecision, syncRequestHeaders } from "../lib/sync.ts";
+import {
+  acceptConfig,
+  pushConfig,
+  syncDecision,
+  syncQueues,
+  syncRequestHeaders,
+} from "../lib/sync.ts";
 
 const record = (revision, note = "") => JSON.stringify({ id: "r", revision, note });
 const token = "t".repeat(32);
@@ -47,7 +53,7 @@ test("sync needs every setting and a long token, and only sends over https off t
   assert.equal(pushConfig({}), null);
   assert.deepEqual(
     acceptConfig({ CARBY_SYNC_ACCEPT_TOKEN: token, CARBY_SYNC_ACCEPT_PERSON: "github:1" }),
-    { token, person: "github:1" },
+    { token, person: "github:1", sendBack: false },
   );
   assert.equal(
     acceptConfig({ CARBY_SYNC_ACCEPT_TOKEN: "short", CARBY_SYNC_ACCEPT_PERSON: "github:1" }),
@@ -70,4 +76,21 @@ test("a Sites access token is sent in its own header, beside the sync token", ()
   // Blank means no gate.
   const blank = syncRequestHeaders(pushConfig({ ...push, CARBY_SYNC_PUSH_SITES_TOKEN: " " }));
   assert.equal("OAI-Sites-Authorization" in blank, false);
+});
+
+test("changes are queued only for the person sent, or the one sent back when that's on", () => {
+  const push = pushConfig({
+    CARBY_SYNC_PUSH_URL: "https://carby.example",
+    CARBY_SYNC_PUSH_TOKEN: token,
+    CARBY_SYNC_PUSH_PERSON: "local_dev",
+  });
+  const accept = { CARBY_SYNC_ACCEPT_TOKEN: token, CARBY_SYNC_ACCEPT_PERSON: "github:1" };
+  assert.equal(syncQueues("local_dev", push, null), true);
+  assert.equal(syncQueues("someone", push, null), false);
+  // A receiver keeps no queue unless it sends back, and then only for its own person.
+  assert.equal(syncQueues("github:1", null, acceptConfig(accept)), false);
+  const sendBack = acceptConfig({ ...accept, CARBY_SYNC_ACCEPT_SEND_BACK: "1" });
+  assert.equal(syncQueues("github:1", null, sendBack), true);
+  assert.equal(syncQueues("github:2", null, sendBack), false);
+  assert.equal(syncQueues("github:1", null, null), false);
 });

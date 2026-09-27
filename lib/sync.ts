@@ -6,12 +6,15 @@ import { illnessSchema } from "./illness";
 import { profileSchema } from "./profile";
 
 /**
- * One-way sync: care records saved on one deployment (the sender) are forwarded to another (the
- * receiver). The sender queues each changed record in `sync_outbox` in the same transaction as
- * the change, then sends the record as it now stands. The receiver applies it only when its own
- * copy is still the one the sender last had, so a record edited directly on the receiver is
- * held back as a conflict instead of being overwritten. CGM readings and Dexcom events are not
- * sent: each deployment syncs its own from Dexcom.
+ * Sync between two deployments: care records saved on one (the sender) are forwarded to the
+ * other (the receiver), and with send-back on, the receiver's own changes go the other way. The
+ * side that saves queues each changed record in `sync_outbox` in the same transaction as the
+ * change. The sender pushes its queue to the receiver; the receiver can't reach the sender (say
+ * a computer at home), so the sender pulls the receiver's queue. Either way the record goes as
+ * it now stands and is applied only when the copy there is still the one last synced, so a
+ * record edited on both sides is held back as a conflict instead of being overwritten. Records
+ * received by sync are never queued again, so nothing echoes. CGM readings and Dexcom events
+ * are not sent: each deployment syncs its own from Dexcom.
  */
 export const SYNC_TABLES = [
   "entries",
@@ -34,7 +37,8 @@ const MIN_TOKEN = 32;
 
 /** `sitesToken` passes a ChatGPT Sites access gate in front of the receiver. */
 export type PushConfig = { url: string; token: string; person: string; sitesToken?: string };
-export type AcceptConfig = { token: string; person: string };
+/** `sendBack`: the receiver also queues its own changes for the sender to pull. */
+export type AcceptConfig = { token: string; person: string; sendBack: boolean };
 type Env = Record<string, string | undefined>;
 
 /** Sender settings: all three, a URL without a path, and a long token, or no sending. */
@@ -71,7 +75,13 @@ export function syncRequestHeaders(config: PushConfig): Record<string, string> {
 export function acceptConfig(env: Env): AcceptConfig | null {
   const token = env.CARBY_SYNC_ACCEPT_TOKEN?.trim() ?? "";
   const person = env.CARBY_SYNC_ACCEPT_PERSON?.trim() ?? "";
-  return person && token.length >= MIN_TOKEN ? { token, person } : null;
+  if (!person || token.length < MIN_TOKEN) return null;
+  return { token, person, sendBack: env.CARBY_SYNC_ACCEPT_SEND_BACK?.trim() === "1" };
+}
+
+/** Whether `owner`'s changes are queued here: they're sent, or pulled back by the sender. */
+export function syncQueues(owner: string, push: PushConfig | null, accept: AcceptConfig | null) {
+  return owner === push?.person || (accept?.sendBack === true && owner === accept.person);
 }
 
 const id = z.string().min(1).max(200);
@@ -89,6 +99,34 @@ export const syncChangeSchema = z.discriminatedUnion("table", [
 ]);
 export type SyncChange = z.infer<typeof syncChangeSchema>;
 export const syncRequestSchema = z.object({ changes: z.array(syncChangeSchema).min(1).max(BATCH) });
+
+const tag = z.string().max(200);
+/** The receiver's queued changes, as the sender pulls them, and how many it holds back. */
+export const pullOfferSchema = z.object({
+  items: z.array(z.object({ recordId: id, queued: tag, change: syncChangeSchema })).max(BATCH),
+  held: z.number().int().min(0),
+});
+export type PullOffer = z.infer<typeof pullOfferSchema>;
+/** What the sender did with each pulled change, so the receiver can clear or hold it. */
+export const pullAckSchema = z.object({
+  pulled: z
+    .array(
+      z.object({
+        table: z.enum(SYNC_TABLES),
+        recordId: id,
+        queued: tag,
+        revision: tag.nullable(),
+        status: z.enum(["applied", "same", "conflict", "rejected"]),
+        theirs: tag.nullable().optional(),
+        error: z.string().max(300).optional(),
+      }),
+    )
+    .min(1)
+    .max(BATCH),
+});
+export type PullAck = z.infer<typeof pullAckSchema>["pulled"][number];
+/** The sender's choice for pulled changes held back because they were edited there too. */
+export const pullResolveSchema = z.object({ resolve: z.enum(["send", "discard"]) });
 export type SyncResult = {
   table: SyncTable;
   id: string;
@@ -322,17 +360,17 @@ const REVISION_SQL = (table: SyncTable) =>
     : "NULL";
 
 /**
- * Statements that queue these records for sending, for the same batch as the change and ahead
- * of it, so `previous` reads each record before the change. Empty when this deployment doesn't
- * send, or sends a different person.
+ * Statements that queue these records to be sent or pulled, for the same batch as the change and
+ * ahead of it, so `previous` reads each record before the change. Empty when `queues` is false
+ * (see `syncQueues`).
  */
 export function queueSyncStatements(
   db: Database,
-  config: PushConfig | null,
+  queues: boolean,
   owner: string,
   refs: readonly SyncRef[],
 ): Statement[] {
-  if (!config || owner !== config.person) return [];
+  if (!queues) return [];
   return refs.map((ref) =>
     db
       .prepare(
@@ -413,6 +451,85 @@ async function outgoing(db: Database, owner: string, row: OutboxRow): Promise<Sy
   }
 }
 
+/** Up to one batch of `owner`'s pending changes, oldest first, as their records now stand. */
+async function pendingChanges(db: Database, owner: string) {
+  const rows = (
+    await db
+      .prepare(
+        "SELECT tbl, record_id, previous, queued FROM sync_outbox WHERE owner = $1 AND state = 'pending' ORDER BY queued LIMIT $2",
+      )
+      .bind(owner, BATCH)
+      .all<OutboxRow>()
+  ).results;
+  const items: { row: OutboxRow; change: SyncChange }[] = [];
+  for (const row of rows) {
+    try {
+      items.push({ row, change: await outgoing(db, owner, row) });
+    } catch {
+      await db
+        .prepare("DELETE FROM sync_outbox WHERE owner = $1 AND tbl = $2 AND record_id = $3")
+        .bind(owner, row.tbl, row.record_id)
+        .run();
+    }
+  }
+  return { found: rows.length, items };
+}
+
+/** Clears a change the other side applied, or holds it with the reason it didn't. */
+async function settle(
+  db: Database,
+  owner: string,
+  row: Pick<OutboxRow, "tbl" | "record_id" | "queued">,
+  sentRevision: string | null,
+  outcome: Pick<SyncResult, "status" | "theirs" | "error">,
+) {
+  if (outcome.status === "applied" || outcome.status === "same") {
+    // Clear it, unless it changed again meanwhile: then the other side now holds the revision
+    // just sent.
+    const cleared = await db
+      .prepare(
+        "DELETE FROM sync_outbox WHERE owner = $1 AND tbl = $2 AND record_id = $3 AND queued = $4",
+      )
+      .bind(owner, row.tbl, row.record_id, row.queued)
+      .run();
+    if (!cleared.meta.changes)
+      await db
+        .prepare(
+          "UPDATE sync_outbox SET previous = $4 WHERE owner = $1 AND tbl = $2 AND record_id = $3",
+        )
+        .bind(owner, row.tbl, row.record_id, sentRevision)
+        .run();
+  } else
+    await db
+      .prepare(
+        "UPDATE sync_outbox SET state = $4, theirs = $5, error = $6 WHERE owner = $1 AND tbl = $2 AND record_id = $3 AND queued = $7",
+      )
+      .bind(
+        owner,
+        row.tbl,
+        row.record_id,
+        outcome.status,
+        outcome.theirs ?? null,
+        (outcome.error ?? "").slice(0, 300),
+        row.queued,
+      )
+      .run();
+}
+
+/** The other Carby's reply as JSON, or an error that says why there isn't a usable one. */
+async function answer(response: Response): Promise<unknown> {
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok)
+    throw new Error(
+      body && typeof body === "object" && "error" in body && typeof body.error === "string"
+        ? body.error
+        : `The other Carby answered ${response.status}.`,
+    );
+  return body;
+}
+const failure = (error: unknown) =>
+  (error instanceof Error ? error.message : "Could not reach the other Carby.").slice(0, 300);
+
 const running = new Map<string, Promise<void>>();
 
 /**
@@ -430,99 +547,166 @@ export function flushSync(
   if (active) return active;
   const run = (async () => {
     for (let round = 0; round < ROUNDS; round++) {
-      const rows = (
-        await db
-          .prepare(
-            "SELECT tbl, record_id, previous, queued FROM sync_outbox WHERE owner = $1 AND state = 'pending' ORDER BY queued LIMIT $2",
-          )
-          .bind(owner, BATCH)
-          .all<OutboxRow>()
-      ).results;
-      if (!rows.length) return;
-      const changes: SyncChange[] = [];
-      for (const row of rows) {
-        try {
-          changes.push(await outgoing(db, owner, row));
-        } catch {
-          await db
-            .prepare("DELETE FROM sync_outbox WHERE owner = $1 AND tbl = $2 AND record_id = $3")
-            .bind(owner, row.tbl, row.record_id)
-            .run();
-        }
-      }
-      if (!changes.length) continue;
+      const { found, items } = await pendingChanges(db, owner);
+      if (!found) return;
+      if (!items.length) continue;
       let results: SyncResult[];
       try {
-        const response = await send(`${config.url}/api/sync`, {
-          method: "POST",
-          headers: syncRequestHeaders(config),
-          body: JSON.stringify({ changes }),
-          signal: AbortSignal.timeout(TIMEOUT_MS),
-        });
-        const body: unknown = await response.json().catch(() => null);
+        const body = await answer(
+          await send(`${config.url}/api/sync`, {
+            method: "POST",
+            headers: syncRequestHeaders(config),
+            body: JSON.stringify({ changes: items.map((item) => item.change) }),
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+          }),
+        );
         if (
-          !response.ok ||
           !body ||
           typeof body !== "object" ||
           !("results" in body) ||
           !Array.isArray(body.results)
         )
-          throw new Error(
-            body && typeof body === "object" && "error" in body && typeof body.error === "string"
-              ? body.error
-              : `The other Carby answered ${response.status}.`,
-          );
+          throw new Error("The other Carby's answer couldn't be read.");
         results = body.results as SyncResult[];
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Could not reach the other Carby.";
         await db
           .prepare("UPDATE sync_outbox SET error = $2 WHERE owner = $1 AND state = 'pending'")
-          .bind(owner, message.slice(0, 300))
+          .bind(owner, failure(error))
           .run();
         return;
       }
-      for (const [index, sent] of changes.entries()) {
-        const row = rows.find(
-          (r) => r.tbl === sent.table && (r.record_id === sent.id || r.tbl === "profiles"),
-        )!;
+      for (const [index, { row, change }] of items.entries()) {
         const outcome = results[index];
-        if (!outcome || outcome.table !== sent.table || outcome.id !== sent.id) continue;
-        if (outcome.status === "applied" || outcome.status === "same") {
-          // Clear it, unless it changed again while sending: then what the receiver now holds is
-          // the revision just sent.
-          const cleared = await db
-            .prepare(
-              "DELETE FROM sync_outbox WHERE owner = $1 AND tbl = $2 AND record_id = $3 AND queued = $4",
-            )
-            .bind(owner, row.tbl, row.record_id, row.queued)
-            .run();
-          if (!cleared.meta.changes)
-            await db
-              .prepare(
-                "UPDATE sync_outbox SET previous = $4 WHERE owner = $1 AND tbl = $2 AND record_id = $3",
-              )
-              .bind(owner, row.tbl, row.record_id, revisionOf(sent.row?.data ?? null))
-              .run();
-        } else
-          await db
-            .prepare(
-              "UPDATE sync_outbox SET state = $4, theirs = $5, error = $6 WHERE owner = $1 AND tbl = $2 AND record_id = $3 AND queued = $7",
-            )
-            .bind(
-              owner,
-              row.tbl,
-              row.record_id,
-              outcome.status,
-              outcome.theirs ?? null,
-              (outcome.error ?? "").slice(0, 300),
-              row.queued,
-            )
-            .run();
+        if (!outcome || outcome.table !== change.table || outcome.id !== change.id) continue;
+        await settle(db, owner, row, revisionOf(change.row?.data ?? null), outcome);
       }
     }
   })().finally(() => running.delete(owner));
   running.set(owner, run);
   return run;
+}
+
+/** For the sender to pull: the receiver's queued changes for `person`, and how many are held. */
+export async function offerChanges(db: Database, person: string): Promise<PullOffer> {
+  const { items } = await pendingChanges(db, person);
+  const held = await db
+    .prepare(
+      "SELECT count(*) AS n FROM sync_outbox WHERE owner = $1 AND state IN ('conflict', 'rejected')",
+    )
+    .bind(person)
+    .first<{ n: number | string }>();
+  return {
+    items: items.map(({ row, change }) => ({
+      recordId: row.record_id,
+      queued: row.queued,
+      change,
+    })),
+    held: Number(held?.n ?? 0),
+  };
+}
+
+/** On the receiver: clears or holds each change the sender pulled, as it reports. */
+export async function settlePulled(db: Database, person: string, pulled: readonly PullAck[]) {
+  for (const ack of pulled)
+    await settle(
+      db,
+      person,
+      { tbl: ack.table, record_id: ack.recordId, queued: ack.queued },
+      ack.revision,
+      ack,
+    );
+}
+
+/** The last pull for each sending person: why it failed, and how many the receiver holds. */
+export type PullState = { error: string | null; held: number };
+const pullStates = new Map<string, PullState>();
+const pulling = new Map<string, Promise<void>>();
+
+/**
+ * Pulls the receiver's own changes and stores them for `owner`, until it has none left or a
+ * request fails. A receiver without send-back (404), or too old to have it (405), is quiet.
+ * One pull per owner runs at a time; a call while one runs waits for it.
+ */
+export function pullSync(
+  db: Database,
+  config: PushConfig | null,
+  owner: string,
+  send: typeof fetch = fetch,
+): Promise<void> {
+  if (!config || owner !== config.person) return Promise.resolve();
+  const active = pulling.get(owner);
+  if (active) return active;
+  const run = (async () => {
+    for (let round = 0; round < ROUNDS; round++) {
+      let offer: PullOffer;
+      try {
+        const response = await send(`${config.url}/api/sync`, {
+          method: "GET",
+          headers: syncRequestHeaders(config),
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        // 404: send-back is off there. 405: it runs a Carby from before pulling existed.
+        if (response.status === 404 || response.status === 405) {
+          pullStates.delete(owner);
+          return;
+        }
+        const parsed = pullOfferSchema.safeParse(await answer(response));
+        if (!parsed.success) throw new Error("The other Carby's changes couldn't be read.");
+        offer = parsed.data;
+      } catch (error) {
+        pullStates.set(owner, { error: failure(error), held: pullStates.get(owner)?.held ?? 0 });
+        return;
+      }
+      pullStates.set(owner, { error: null, held: offer.held });
+      if (!offer.items.length) return;
+      const pulled: PullAck[] = [];
+      // In order, as they were queued: a meal's food before the dose that links it.
+      for (const { recordId, queued, change } of offer.items) {
+        const outcome = await applySyncChange(db, owner, "Carby sync", change);
+        pulled.push({
+          table: change.table,
+          recordId,
+          queued,
+          revision: revisionOf(change.row?.data ?? null),
+          status: outcome.status,
+          theirs: outcome.theirs ?? null,
+          ...(outcome.error ? { error: outcome.error } : {}),
+        });
+      }
+      try {
+        await answer(
+          await send(`${config.url}/api/sync`, {
+            method: "POST",
+            headers: syncRequestHeaders(config),
+            body: JSON.stringify({ pulled }),
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+          }),
+        );
+      } catch (error) {
+        // Stored here already; offered again, they come back as the same and are cleared then.
+        pullStates.set(owner, { error: failure(error), held: offer.held });
+        return;
+      }
+    }
+  })().finally(() => pulling.delete(owner));
+  pulling.set(owner, run);
+  return run;
+}
+
+/** Asks the receiver to send its held changes against the copies here, or to drop them. */
+export async function resolvePulled(
+  config: PushConfig,
+  choice: "send" | "discard",
+  send: typeof fetch = fetch,
+) {
+  await answer(
+    await send(`${config.url}/api/sync`, {
+      method: "POST",
+      headers: syncRequestHeaders(config),
+      body: JSON.stringify({ resolve: choice }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    }),
+  );
 }
 
 export type SyncStatus = {
@@ -531,6 +715,8 @@ export type SyncStatus = {
   /** Why the last attempt to send failed, while changes are still waiting. */
   error: string | null;
   held: { table: SyncTable; id: string; state: "conflict" | "rejected"; error: string | null }[];
+  /** The last pull, when the other Carby sends its changes back. */
+  pull: PullState | null;
 };
 
 export async function syncStatus(
@@ -557,10 +743,11 @@ export async function syncStatus(
         ? [{ table: r.tbl, id: r.record_id, state: r.state, error: r.error }]
         : [],
     ),
+    pull: pullStates.get(owner) ?? null,
   };
 }
 
-/** "Send mine anyway" sends held changes against the receiver's copy; "keep theirs" drops them. */
+/** "Send mine anyway" sends held changes against the other copy; "keep theirs" drops them. */
 export function resolveHeld(db: Database, owner: string, choice: "send" | "discard") {
   return db
     .prepare(

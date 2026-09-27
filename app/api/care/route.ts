@@ -23,10 +23,14 @@ import {
 import { clarityReadingStatements, clarityEventStatements } from "@/lib/cgm-sql";
 import type { ClarityFreshness, SensorSession } from "@/lib/cgm-summary";
 import {
+  acceptConfig,
   flushSync,
+  pullSync,
   pushConfig,
   queueSyncStatements,
   resolveHeld,
+  resolvePulled,
+  syncQueues,
   syncStatus,
   type SyncRef,
 } from "@/lib/sync";
@@ -39,6 +43,8 @@ const MANAGE_ACTIONS = new Set([
   "importDexcomEvents",
   "syncResend",
   "syncDiscard",
+  "syncPullSend",
+  "syncPullDiscard",
 ]);
 function audit(
   db: ReturnType<typeof database>,
@@ -168,9 +174,11 @@ export async function GET(request: Request) {
     ]);
     const push = pushConfig(process.env);
     const sync = await syncStatus(db, push, owner);
-    // Anything still waiting, say after the other Carby was unreachable, goes on each refresh.
+    // Anything still waiting, say after the other Carby was unreachable, goes on each refresh,
+    // and the other Carby's own changes, when it sends them back, come in the same way.
     if (sync?.pending)
       void flushSync(db, push, owner).catch((e: unknown) => console.warn("sync send failed", e));
+    void pullSync(db, push, owner).catch((e: unknown) => console.warn("sync pull failed", e));
     const savedPlan: unknown = plan ? JSON.parse(plan.data) : null;
     const parsedPlan = plan ? planSchema.safeParse(savedPlan) : null;
     return conditionalJson(request, {
@@ -237,9 +245,10 @@ export async function POST(request: Request) {
     if (access instanceof Response) return access;
     const owner = access.person;
     const db = database();
-    // With one-way sync on, each change queues its records for sending in the same batch.
+    // With sync on, each change queues its records to be sent (or pulled) in the same batch.
     const push = pushConfig(process.env);
-    const queue = (...refs: SyncRef[]) => queueSyncStatements(db, push, owner, refs);
+    const queues = syncQueues(owner, push, acceptConfig(process.env));
+    const queue = (...refs: SyncRef[]) => queueSyncStatements(db, queues, owner, refs);
     const send = () =>
       void flushSync(db, push, owner).catch((e: unknown) => console.warn("sync send failed", e));
     if (body.action === "plan") {
@@ -792,6 +801,18 @@ export async function POST(request: Request) {
       ]);
     } else if (body.action === "syncResend" || body.action === "syncDiscard") {
       await resolveHeld(db, owner, body.action === "syncResend" ? "send" : "discard");
+    } else if (body.action === "syncPullSend" || body.action === "syncPullDiscard") {
+      if (!push) return reply({ error: "Sync is not set up here." }, 400);
+      try {
+        await resolvePulled(push, body.action === "syncPullSend" ? "send" : "discard");
+      } catch (e) {
+        return reply(
+          { error: e instanceof Error ? e.message : "Could not reach the other Carby." },
+          503,
+        );
+      }
+      // Take their copies now, so the notice reflects the choice on the next refresh.
+      await pullSync(db, push, owner);
     } else {
       return reply({ error: "Invalid action." }, 400);
     }

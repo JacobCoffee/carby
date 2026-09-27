@@ -90,14 +90,15 @@ Clarity uses an unofficial interface and may break if Dexcom changes it.
 
 **Likely range:** with about a day of CGM data, the chart and the Evening routine dialog show a likely range for the next 2 hours. It starts at the current reading and comes from a damped trend fitted on the person's own CGM history: how much of the last hour's rise or fall carried on. The range is how far that fit missed on the most recent day, which it wasn't fitted on. It uses CGM readings only, so it can't see food, insulin or activity, and it is not dosing advice. Tested on earlier days, it wasn't reliable further ahead than 2 hours, so it stops there. To check how well it has done on your own history, run `bun scripts/estimate-backtest.ts <backup.ndjson>` on a **Download all data** backup; it reads the file only.
 
-## Send records to another Carby (optional)
+## Sync with another Carby (optional)
 
-If you run two deployments, say one on your computer and one online, each change you log on one (the sender) can be forwarded to the other (the receiver). Entries, meals and doses, illness periods and check-ins, appointments, saved foods, the care plan and the profile are sent, including edits and deletes. CGM readings and Dexcom events are not; connect Dexcom on each deployment.
+If you run two deployments, say one on your computer and one online, each change you log on one (the sender) can be forwarded to the other (the receiver), and the receiver's own changes can come back. Entries, meals and doses, illness periods and check-ins, appointments, saved foods, the care plan and the profile are synced, including edits and deletes. CGM readings and Dexcom events are not; connect Dexcom on each deployment.
 
 - **Sender:** set `CARBY_SYNC_PUSH_URL` (the receiver's address), `CARBY_SYNC_PUSH_TOKEN` and `CARBY_SYNC_PUSH_PERSON` (the person whose changes are sent; local sign-in is `local_dev`). If the receiver is a ChatGPT Sites deployment behind Sites access control, also set `CARBY_SYNC_PUSH_SITES_TOKEN`; it's sent as `OAI-Sites-Authorization`.
 - **Receiver:** set `CARBY_SYNC_ACCEPT_TOKEN` to the same token (`openssl rand -hex 32`) and `CARBY_SYNC_ACCEPT_PERSON` to the person there, such as `github:12345`. Received changes appear in its change history as made by Carby sync.
+- **Both ways:** also set `CARBY_SYNC_ACCEPT_SEND_BACK=1` on the receiver. It then keeps its own changes for the sender, which picks them up on each dashboard refresh; the receiver never has to reach the sender, so the sender can be a computer at home.
 
-Changes are queued with the save, so nothing is lost when the receiver is unreachable; they go on the next save or refresh, and the dashboard says when they're waiting. If a record was also changed on the receiver, the change is held back and the dashboard offers **Send mine anyway** or **Keep theirs**. Only changes made after sync is turned on are sent, so start both from the same data: download a backup from the sender and use **Replace from backup** on the receiver.
+Changes are queued with the save, so nothing is lost when the other side is unreachable; they go on the next save or refresh, and the dashboard says when they're waiting. If a record was changed on both sides, the change is held back and the sender's dashboard offers **Send mine anyway** or **Keep theirs**, or for the receiver's changes **Use theirs** or **Keep mine**. Only changes made after sync is turned on are synced, so start both from the same data: download a backup from the sender and use **Replace from backup** on the receiver.
 
 ## Backups
 
