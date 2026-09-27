@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { estimateLabel, glucoseEstimate } from "../lib/glucose-estimate.ts";
+import { estimateLabel, glucoseEstimate, loggedEstimate } from "../lib/glucose-estimate.ts";
 
 // Synthetic readings every 5 minutes; nothing here is a clinical value.
 const H = 3600000;
@@ -114,4 +114,92 @@ test("when the last day turns noisier, the range widens to its misses instead of
     width(history(30)) >= 2.5 * width(history(8)),
     `${width(history(30))} vs ${width(history(8))}`,
   );
+});
+
+// Logged food and insulin. Meals every 5 hours (never aligned with the hour); every other one
+// has no insulin and rises 80 over an hour, then falls back by three hours. Doses in between
+// fall 60 over 90 minutes and come back.
+let entryIds = 0;
+const logged = (t, fields) => ({
+  id: `00000000-0000-4000-8000-${String(++entryIds).padStart(12, "0")}`,
+  at: new Date(t).toISOString(),
+  glucose: null,
+  source: null,
+  ketones: null,
+  carbs: null,
+  units: null,
+  insulin: null,
+  meal: null,
+  note: "",
+  ...fields,
+});
+const bump = (age, size, rise, back) =>
+  age < 10 * 60000
+    ? 0
+    : age < rise
+      ? (size * (age - 10 * 60000)) / (rise - 10 * 60000)
+      : age < back
+        ? (size * (back - age)) / (back - rise)
+        : 0;
+const mealTimes = Array.from({ length: 20 }, (_, i) => days(4) + 3 * H + i * 5 * H).filter(
+  (t) => t < now,
+);
+const doseTimes = mealTimes.map((t) => t + 2.5 * H).filter((t) => t < now);
+const response = (t, meals = mealTimes, doses = doseTimes) => {
+  let v = 150;
+  for (const m of meals) if (t >= m) v += bump(t - m, 80, H, 3 * H);
+  for (const d of doses) if (t >= d) v -= bump(t - d, 60, 1.5 * H, 3 * H);
+  return Math.round(v + 3 * noise(t));
+};
+const loggedEntries = (meals = mealTimes, doses = doseTimes) => [
+  ...meals.map((t) => logged(t, { kind: "food", carbs: 40, meal: "Snack" })),
+  ...doses.map((t) => logged(t, { kind: "insulin", units: 1.5, insulin: "Rapid-acting" })),
+];
+
+test("with nothing logged, the logged estimate is the CGM-only estimate", () => {
+  const cgm = series(days(4), now, waves);
+  assert.deepEqual(loggedEstimate(cgm, now, { entries: [] }), glucoseEstimate(cgm, now));
+});
+
+test("food logged just now bends the estimate up, and insulin logged just now bends it down", () => {
+  const meal = mealTimes.at(-1),
+    dose = doseTimes.at(-1);
+  for (const [at, direction] of [
+    [meal + 5 * 60000, 1],
+    [dose + 5 * 60000, -1],
+  ]) {
+    const cgm = series(days(4), at, (t) => response(t));
+    const entries = loggedEntries().filter((e) => Date.parse(e.at) <= at);
+    const hour = (e) => e.points.find((p) => p.minutes === 60).median - e.value;
+    const plain = glucoseEstimate(cgm, at),
+      withLogs = loggedEstimate(cgm, at, { entries });
+    assert.equal(withLogs.state, "ready");
+    // The trend is still flat, so the CGM-only estimate can't see it coming.
+    assert.ok(Math.abs(hour(plain)) < 15, `CGM only: ${hour(plain)}`);
+    assert.ok(direction * hour(withLogs) > 30, `with logs: ${hour(withLogs)}`);
+  }
+});
+
+test("sick periods are learned only from sick periods", () => {
+  // The last two days are a sick period in which meals barely moved glucose.
+  const sickFrom = days(2);
+  const values = (t) =>
+    t >= sickFrom
+      ? response(
+          t,
+          mealTimes.filter((m) => m < sickFrom - 3 * H),
+          doseTimes,
+        )
+      : response(t);
+  const meal = mealTimes.at(-1);
+  const at = meal + 5 * 60000;
+  const cgm = series(days(4), at, values);
+  const entries = loggedEntries().filter((e) => Date.parse(e.at) <= at);
+  const rise = (excluded) =>
+    loggedEstimate(cgm, at, { entries, excluded }).points.find((p) => p.minutes === 60).median -
+    cgm.at(-1).value;
+  const sick = [{ start: sickFrom, end: now + H }];
+  // Learned from the sick days alone, a meal now isn't expected to rise much.
+  assert.ok(rise(sick) < 20, `sick: ${rise(sick)}`);
+  assert.ok(rise([]) > rise(sick) + 10, `all: ${rise([])} vs sick: ${rise(sick)}`);
 });
