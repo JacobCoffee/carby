@@ -2804,9 +2804,9 @@ main {
   position: absolute;
   top: 4px;
   z-index: 2;
-  transform: translateX(-50%);
   min-width: 185px;
-  max-width: min(310px, 90%);
+  /* Never wider than the room beside a centred cursor, so it can't spill back over the line. */
+  max-width: min(310px, calc(50% - 20px));
   padding: 9px 11px;
   border: 1px solid var(--info-border);
   border-radius: 9px;
@@ -2824,7 +2824,9 @@ main {
 .plot-tooltip span {
   margin-top: 3px;
 }
+/* Inline-block so a source list or date moves to the next line whole instead of splitting mid-phrase. */
 .plot-tooltip small {
+  display: inline-block;
   color: var(--chart-panel-ink-muted);
 }
 .topbar .correction-nav-button {

@@ -882,6 +882,14 @@ const GlucoseChart = memo(function GlucoseChart({
     return minute >= start && minute <= end ? [{ at, minute }] : [];
   });
   const cursorX = cursor === null ? null : x(cursor);
+  // The readout sits beside the cursor line on the roomier side, so the hovered point and its
+  // neighbours stay visible instead of disappearing under it.
+  const tooltipSide =
+    cursorX === null
+      ? undefined
+      : cursorX > (LEFT + RIGHT) / 2
+        ? { right: `calc(${100 - (cursorX / W) * 100}% + 12px)` }
+        : { left: `calc(${(cursorX / W) * 100}% + 12px)` };
   const labelCount = span === 24 && !zoom ? 5 : 4;
   const labels = Array.from(
     { length: labelCount },
@@ -1777,10 +1785,7 @@ const GlucoseChart = memo(function GlucoseChart({
               ))}
         </svg>
         {cursor !== null && (
-          <div
-            className="plot-tooltip"
-            style={{ left: `${Math.max(15, Math.min(85, ((cursor - start) / duration) * 100))}%` }}
-          >
+          <div className="plot-tooltip" style={tooltipSide}>
             <strong>
               {new Date(bounds.start + cursor * 60000).toLocaleString("en-US", {
                 timeZone: timezone,
@@ -1795,7 +1800,8 @@ const GlucoseChart = memo(function GlucoseChart({
             {sameTime.length ? (
               mergeReadings(sameTime).map((r, i) => (
                 <span key={r.at + r.source + i}>
-                  {when(r.at)} ·{" "}
+                  {/* The header already names this minute; only a reading off the cursor gets its own time. */}
+                  {when(r.at) !== clock(cursor) && `${when(r.at)} · `}
                   {r.value !== null
                     ? `${r.value} mg/dL`
                     : `${r.status?.toUpperCase()} ${r.status === "High" ? "(>400)" : "(<40)"} · exact value unknown`}{" "}

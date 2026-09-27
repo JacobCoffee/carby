@@ -524,7 +524,7 @@
 }
 .care-redesign .plot-tooltip {
   pointer-events: none;
-  max-width: min(340px, 92%);
+  max-width: min(340px, calc(50% - 20px));
   font-size: 13px;
   line-height: 1.5;
   z-index: 4;
@@ -1104,6 +1104,7 @@
     position: static;
     transform: none;
     left: auto !important;
+    right: auto !important;
     width: 100%;
     max-width: none;
     margin-top: 8px;
