@@ -1665,6 +1665,27 @@
 .care-contact-fields .field.is-wide {
   grid-column: 1 / -1;
 }
+/* Other contacts: a column with room between the intro, each contact and the Add button. Each
+ * contact is its own group under a divider, with its Remove action inline below its fields. */
+.other-contact-fields {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+.other-contact-fields > p,
+.other-contact-row {
+  justify-self: stretch;
+}
+.other-contact-row {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.other-contact-row > .two-fields {
+  width: 100%;
+}
 .plan-settings-group {
   margin-top: 14px;
 }
@@ -2499,6 +2520,15 @@
   color: var(--ink);
   font: inherit;
   padding: 10px 12px;
+}
+/* Textareas grow with their text (four lines at least) instead of taking the one-line input height. */
+.care-setup-form textarea {
+  height: auto;
+  min-height: 104px;
+  max-height: 60vh;
+  field-sizing: content;
+  line-height: 1.5;
+  resize: vertical;
 }
 .care-setup-form small,
 .care-setup-form .helper {

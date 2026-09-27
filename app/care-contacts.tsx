@@ -145,7 +145,7 @@ export function OtherContactFields({
           </div>
           <button
             type="button"
-            className="button outline"
+            className="text-button delete"
             disabled={disabled}
             onClick={() => remove(index)}
           >
