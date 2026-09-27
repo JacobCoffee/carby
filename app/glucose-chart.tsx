@@ -39,6 +39,8 @@ import {
   chartRangeDays,
   chartZoom,
   zoomAround,
+  timeLabelCount,
+  TIME_LABEL_PX,
   type ChartRange,
   type ChartZoom,
 } from "@/lib/chart-window";
@@ -912,13 +914,17 @@ const GlucoseChart = memo(function GlucoseChart({
       : cursorX > (LEFT + RIGHT) / 2
         ? { right: `calc(${100 - (cursorX / W) * 100}% + 12px)` }
         : { left: `calc(${(cursorX / W) * 100}% + 12px)` };
-  const labelCount = span === 24 && !zoom ? 5 : 4;
   // The day view keeps its own clock labels; any stretch past midnight is the likely range.
   const labelSpan = span === 24 && !zoom ? duration - ahead : duration;
+  // As many as fit: a phone-width chart gets fewer, so neighbouring times never overlap.
+  const labelCount = timeLabelCount(x(start + labelSpan) - x(start), span === 24 && !zoom ? 5 : 4);
   const labels = Array.from(
     { length: labelCount },
     (_, i) => start + (labelSpan * i) / (labelCount - 1),
   );
+  // The last label hugs the right edge only when it is the edge; a midnight before the likely
+  // range is centred on its line, kept inside the chart.
+  const lastAtEdge = labelSpan === duration;
   // Long spans label whole days; a multi-day chart zoomed to a day and a half or less uses clock times.
   const dayAxis = multiDay && duration > 2160;
   // Days on screen, clipped to the zoom, labelled counting back from the last so it is always named.
@@ -1826,9 +1832,15 @@ const GlucoseChart = memo(function GlucoseChart({
             : labels.map((minute, i) => (
                 <text
                   key={i}
-                  x={x(minute)}
+                  x={
+                    i === labels.length - 1 && !lastAtEdge
+                      ? Math.min(x(minute), W - TIME_LABEL_PX / 2)
+                      : x(minute)
+                  }
                   y={AXIS_LABEL_Y}
-                  textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}
+                  textAnchor={
+                    i === 0 ? "start" : i === labels.length - 1 && lastAtEdge ? "end" : "middle"
+                  }
                   fill="var(--chart-panel-ink-muted)"
                   fontSize="13"
                 >

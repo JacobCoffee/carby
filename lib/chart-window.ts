@@ -75,3 +75,16 @@ export function zoomAround(
     fullWidth,
   );
 }
+
+/** Width of a clock label such as "12:00 AM" on the time axis, in chart pixels. */
+export const TIME_LABEL_PX = 60;
+
+/**
+ * How many evenly spaced time labels fit across `span` chart pixels: at most `most`, never fewer
+ * than 2. The first and last labels hug the edges, so each needs a whole label's width beside
+ * half of its neighbour's, plus a gap.
+ */
+export function timeLabelCount(span: number, most: number, label = TIME_LABEL_PX, gap = 10) {
+  for (let n = most; n > 2; n--) if (span / (n - 1) >= label * 1.5 + gap) return n;
+  return 2;
+}
