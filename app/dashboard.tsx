@@ -206,7 +206,6 @@ import {
   temperatureUnitLabels,
   type TemperatureUnit,
 } from "@/lib/care";
-type History = { plan: Plan; at: string };
 type CareSnapshot = {
   illnessWindows?: IllnessWindow[];
   appointments?: Appointment[];
@@ -214,7 +213,6 @@ type CareSnapshot = {
   plan: Plan | null;
   planDraft?: PlanDraft;
   profile?: Profile | null;
-  history: History[];
   savedFoods: SavedFood[];
   cgm: CgmReading[];
   dexcomEvents: DexcomEvent[];
@@ -233,68 +231,6 @@ type ShareStatus = {
   // The server sends the configured username and region only. The password stays there.
   defaults?: PublicDexcomDefaults | null;
 };
-function Choice({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="choice" aria-label={label}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((v) => (
-            <SelectItem key={v} value={v}>
-              {v}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </label>
-  );
-}
-function NumberField({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max = 1000,
-  step = "any",
-  placeholder,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (v: string) => void;
-  min?: number;
-  max?: number;
-  step?: string;
-  placeholder?: string;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        min={min}
-        max={max}
-        step={step}
-        value={typeof value === "number" && !Number.isFinite(value) ? "" : value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
-  );
-}
 const fmt = (n: number) => Number(n.toFixed(2)).toString();
 export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const [setup, setSetup] = useState<{ incompletePlan?: PlanDraft } | null>(null);
@@ -308,7 +244,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     [savedFoods, setSavedFoods] = useState<SavedFood[]>([]),
     [cgm, setCgm] = useState<CgmReading[]>([]),
     [plan, setPlan] = useState<Plan>(initialPlan),
-    [history, setHistory] = useState<History[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false),
@@ -471,18 +406,10 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   }, []);
   const [view, setView] = useState("daily");
   const [selectionMeal, setSelectionMeal] = useState<MealRatio | null>(null);
-  const [planOpen, setPlanOpen] = useState(false),
-    [draft, setDraft] = useState<Plan>(initialPlan),
-    [planConfirmed, setPlanConfirmed] = useState(false),
-    [badContacts, setBadContacts] = useState<CareContactKey[]>([]),
-    [badOtherContacts, setBadOtherContacts] = useState<string[]>([]),
-    [badInstructions, setBadInstructions] = useState<EmergencyInstructionKey[]>([]),
-    [badPlanSettings, setBadPlanSettings] = useState<PlanSettingsKey[]>([]);
   const formsOpen = !!(
     illnessEditor ||
     modal ||
     doseFlow ||
-    planOpen ||
     showFoodTools ||
     pendingCsv ||
     lowTreatmentOpen ||
@@ -553,7 +480,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
             setPlan(data.plan);
             pendingPlan.current = null;
           }
-          setHistory(data.history);
           setDay((day) => day || dateKey(new Date(), loadedTimezone));
         }
         // Server settings, not live status: apply them once and never over a typed edit.
@@ -1294,46 +1220,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     }
     return ok;
   }
-  async function savePlan(e: FormEvent) {
-    e.preventDefault();
-    const parsed = planSchema.safeParse(draft);
-    const invalidContacts = parsed.success ? [] : contactIssues(parsed.error.issues);
-    const invalidOtherContacts = parsed.success ? [] : otherContactIssues(parsed.error.issues);
-    const invalidInstructions = parsed.success ? [] : instructionIssues(parsed.error.issues);
-    const invalidPlanSettings = planSettingsIssues(draft);
-    setBadContacts(invalidContacts);
-    setBadOtherContacts(invalidOtherContacts);
-    setBadInstructions(invalidInstructions);
-    setBadPlanSettings(invalidPlanSettings);
-    if (
-      invalidContacts.length ||
-      invalidOtherContacts.length ||
-      invalidInstructions.length ||
-      invalidPlanSettings.length
-    ) {
-      toast.error(
-        invalidPlanSettings.length
-          ? "Check the marked care-plan settings."
-          : invalidContacts.length || invalidOtherContacts.length
-            ? "Check the marked care contacts."
-            : "Check the marked emergency instructions.",
-      );
-      return;
-    }
-    if (!parsed.success || !planConfirmed) {
-      toast.error(
-        "Check the care-plan values and confirm they match the clinician’s instructions.",
-      );
-      return;
-    }
-    if (await mutate({ action: "plan", plan: parsed.data })) {
-      pendingPlan.current = null;
-      setPlan(parsed.data);
-      setPlanOpen(false);
-      toast.success("Care plan updated");
-      void load();
-    }
-  }
   async function saveFoodFavorite(food: SavedFood): Promise<boolean> {
     const parsed = savedFoodSchema.safeParse(food);
     if (!parsed.success) {
@@ -1461,15 +1347,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const checkInIllness = checkInEditor
     ? (illnessWindows.find((w) => w.id === checkInEditor.illnessId) ?? null)
     : null;
-  function openPlanEditor() {
-    setDraft(plan);
-    setPlanConfirmed(false);
-    setBadContacts([]);
-    setBadOtherContacts([]);
-    setBadInstructions([]);
-    setBadPlanSettings([]);
-    setPlanOpen(true);
-  }
   function shiftDay(delta: number) {
     const d = new Date(day + "T12:00:00Z");
     d.setUTCDate(d.getUTCDate() + delta);
@@ -1729,7 +1606,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         label: "Care plan",
         icon: <Settings2 size={17} />,
         keywords: ["care plan", "settings", "ratios", "contacts"],
-        onSelect: openPlanEditor,
+        onSelect: () => window.location.assign("/plan"),
       },
     ];
     const savedFoodGroup: CommandPaletteItem[] = savedFoods.map((food) => ({
@@ -2003,9 +1880,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               )}
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Settings</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={openPlanEditor}>
-                <Settings2 size={17} />
-                Care plan
+              <DropdownMenuItem asChild>
+                <Link href="/plan">
+                  <Settings2 size={17} />
+                  Care plan
+                </Link>
               </DropdownMenuItem>
               {canManage && (
                 <DropdownMenuItem onSelect={() => setProfileDialogOpen(true)}>
@@ -2947,10 +2826,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
             setCheckInEditor(null);
             open("glucose");
           }}
-          onChooseUnit={() => {
-            setCheckInEditor(null);
-            openPlanEditor();
-          }}
+          onChooseUnit={() => window.location.assign("/plan#schedule")}
         />
       )}
       <Dialog open={nightOpen} onOpenChange={setNightOpen}>
@@ -3384,222 +3260,6 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={planOpen}
-        onOpenChange={(v) => {
-          if (!saving) setPlanOpen(v);
-        }}
-      >
-        <DialogContent className="care-dialog plan-dialog">
-          <DialogHeader>
-            <DialogTitle>Your care plan</DialogTitle>
-            <DialogDescription>
-              Update these values only when your clinician changes the plan. Previous entries keep
-              their original plan snapshot.
-            </DialogDescription>
-          </DialogHeader>
-          <Tabs defaultValue="settings">
-            <TabsList>
-              <TabsTrigger value="settings">Current settings</TabsTrigger>
-              <TabsTrigger value="history">Plan history</TabsTrigger>
-            </TabsList>
-            <TabsContent value="settings">
-              <form onSubmit={savePlan} className="entry-form">
-                {!canManage && (
-                  <p className="notice" role="status">
-                    Only an owner can change the care plan. You can read it here.
-                  </p>
-                )}
-                <div className="two-fields">
-                  <NumberField
-                    label="Glucose target (mg/dL)"
-                    value={draft.target}
-                    min={70}
-                    max={250}
-                    onChange={(v) => setDraft({ ...draft, target: v === "" ? NaN : Number(v) })}
-                  />
-                  <NumberField
-                    label="Correction factor (mg/dL per unit)"
-                    value={draft.factor}
-                    min={1}
-                    onChange={(v) => setDraft({ ...draft, factor: v === "" ? NaN : Number(v) })}
-                  />
-                </div>
-                <MealRatioFields
-                  ratios={getMealRatios(draft)}
-                  onChange={(mealRatios) => setDraft({ ...draft, mealRatios })}
-                />
-                <NumberField
-                  label="Correction review interval (hours)"
-                  value={draft.correctionHours}
-                  min={0.01}
-                  max={24}
-                  onChange={(v) =>
-                    setDraft({ ...draft, correctionHours: v === "" ? NaN : Number(v) })
-                  }
-                />
-                <PlanSettingsFields
-                  draft={draft}
-                  invalid={badPlanSettings}
-                  onChange={(next, changed) => {
-                    // A toggled-off group is absent from `next`, so copy each key rather than spread.
-                    const merged: Record<string, unknown> = { ...draft };
-                    for (const key of planSettingsKeys) {
-                      if (key in next) merged[key] = next[key];
-                      else delete merged[key];
-                    }
-                    setDraft(merged as Plan);
-                    setBadPlanSettings((keys) => keys.filter((key) => key !== changed));
-                  }}
-                />
-                <GlucoseRangeFields
-                  ranges={draft.glucoseRanges}
-                  onChange={(glucoseRanges) => {
-                    const { glucoseRanges: _, ...rest } = draft;
-                    setDraft(glucoseRanges ? { ...rest, glucoseRanges } : rest);
-                  }}
-                />
-                <div className="two-fields">
-                  <Choice
-                    label="Dose increments"
-                    value={String(draft.increment)}
-                    onChange={(v) => setDraft({ ...draft, increment: Number(v) })}
-                    options={["0.5", "1"]}
-                  />
-                  <Choice
-                    label="Rounding rule"
-                    value={draft.rounding === "down" ? "Round down" : "Round nearest"}
-                    onChange={(v) =>
-                      setDraft({ ...draft, rounding: v === "Round down" ? "down" : "nearest" })
-                    }
-                    options={["Round down", "Round nearest"]}
-                  />
-                </div>
-                <div className="two-fields">
-                  <NumberField
-                    label="Long-acting units (0 disables reminder)"
-                    value={draft.basal}
-                    min={0}
-                    max={100}
-                    step="0.5"
-                    onChange={(v) =>
-                      setDraft({
-                        ...draft,
-                        basal: v === "" ? NaN : Number(v),
-                        basalTime: v !== "" && Number(v) === 0 ? "" : draft.basalTime,
-                      })
-                    }
-                  />
-                  <label className="field">
-                    <span>Long-acting time</span>
-                    <input
-                      type="time"
-                      required={draft.basal > 0}
-                      disabled={draft.basal === 0}
-                      value={draft.basalTime}
-                      onChange={(e) => setDraft({ ...draft, basalTime: e.target.value })}
-                    />
-                  </label>
-                </div>
-                <div className="two-fields">
-                  <TimeZoneField
-                    value={draft.timezone}
-                    onChange={(timezone) => setDraft({ ...draft, timezone })}
-                  />
-                  <label className="field">
-                    <span>Temperature unit (illness check-ins)</span>
-                    <Select
-                      value={draft.temperatureUnit ?? ""}
-                      onValueChange={(value) =>
-                        setDraft({ ...draft, temperatureUnit: value as TemperatureUnit })
-                      }
-                    >
-                      <SelectTrigger className="choice" aria-label="Temperature unit">
-                        <SelectValue placeholder="Choose a unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {temperatureUnits.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {temperatureUnitLabels[unit]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </label>
-                </div>
-                <label className="field">
-                  <span>Clinician update / notes</span>
-                  <textarea
-                    value={draft.note}
-                    onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-                    maxLength={1000}
-                  />
-                </label>
-                <CareContactFields
-                  values={draft.contacts ?? {}}
-                  invalid={badContacts}
-                  onChange={(contacts, changed) => {
-                    setDraft({ ...draft, contacts });
-                    setBadContacts((keys) => keys.filter((key) => key !== changed));
-                  }}
-                />
-                <OtherContactFields
-                  values={draft.otherContacts ?? []}
-                  invalid={badOtherContacts}
-                  onChange={(otherContacts) => {
-                    const { otherContacts: _, ...rest } = draft;
-                    setDraft(otherContacts.length ? { ...rest, otherContacts } : rest);
-                    setBadOtherContacts([]);
-                  }}
-                />
-                <EmergencyInstructionFields
-                  values={draft.emergencyInstructions ?? {}}
-                  invalid={badInstructions}
-                  onChange={(emergencyInstructions, changed) => {
-                    setDraft({ ...draft, emergencyInstructions });
-                    setBadInstructions((keys) => keys.filter((key) => key !== changed));
-                  }}
-                />
-                <p className="notice">
-                  Reminders use the schedule saved here while Carby is open. They do not confirm
-                  whether insulin was given and do not schedule external notifications.
-                </p>
-                <label className="check-row">
-                  <Checkbox
-                    checked={planConfirmed}
-                    onCheckedChange={(v) => setPlanConfirmed(v === true)}
-                  />
-                  <span>These values match your clinician’s instructions.</span>
-                </label>
-                <button
-                  className="button primary full"
-                  disabled={!canManage || saving || !planConfirmed || loading || !!error}
-                >
-                  Save care plan
-                </button>
-              </form>
-            </TabsContent>
-            <TabsContent value="history">
-              <div className="plan-history">
-                {history.length === 0 && <p>No saved plan history yet.</p>}
-                {history.map((h) => (
-                  <article key={h.at}>
-                    <strong>
-                      {date(h.at)} · {time(h.at)}
-                    </strong>
-                    <p>
-                      Target {h.plan.target} · Factor {h.plan.factor} · {ratioSummary(h.plan)}
-                      <br />
-                      Long-acting {h.plan.basal} units at {h.plan.basalTime}
-                    </p>
-                    <p>{h.plan.note}</p>
-                  </article>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
         </DialogContent>
       </Dialog>
     </Tabs>
