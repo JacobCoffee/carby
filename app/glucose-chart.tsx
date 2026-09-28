@@ -50,6 +50,14 @@ import { nightlySchedule } from "@/lib/nightly-reminder";
 import { glucoseLevel, glucoseLevelNames } from "@/lib/glucose-metrics";
 import { estimateLabel, type GlucoseEstimate } from "@/lib/glucose-estimate";
 import {
+  formatGlucose,
+  glucoseToMgdl,
+  glucoseToUnit,
+  glucoseUnitOf,
+  glucoseWithUnit,
+  type GlucoseUnit,
+} from "@/lib/glucose-units";
+import {
   glucoseRanges,
   dateKey,
   entryGlucoseLabel,
@@ -82,7 +90,10 @@ type Props = {
   cgmHistoryStart?: number | null;
   cgmHistoryCapped?: boolean;
   /** Review times inside `correctionQuietHours` are left off; `basal` at `basalTime` draws a nightly line. */
-  plan: Pick<Plan, "glucoseRanges" | "meter" | "basal" | "basalTime" | "correctionQuietHours">;
+  plan: Pick<
+    Plan,
+    "glucoseRanges" | "glucoseUnit" | "meter" | "basal" | "basalTime" | "correctionQuietHours"
+  >;
   /** The next two hours' likely range from CGM history; drawn ahead of now. */
   estimate?: GlucoseEstimate | null;
 };
@@ -296,6 +307,7 @@ const SensorLayer = memo(function SensorLayer({
   max,
   dense,
   timezone,
+  unit,
 }: {
   points: CgmReading[];
   runs: StatusRun[];
@@ -306,6 +318,7 @@ const SensorLayer = memo(function SensorLayer({
   max: number;
   dense: boolean;
   timezone: string;
+  unit: GlucoseUnit;
 }) {
   const x = (at: string) =>
     LEFT + (((Date.parse(at) - origin) / 60000 - start) / duration) * (right - LEFT);
@@ -359,7 +372,7 @@ const SensorLayer = memo(function SensorLayer({
             fill="var(--chart-sensor)"
           >
             <title>
-              {stamp(p.at, timezone, dense)} · {p.value} mg/dL · {p.source}
+              {stamp(p.at, timezone, dense)} · {glucoseWithUnit(p.value!, unit)} · {p.source}
             </title>
           </circle>
         ))}
@@ -396,8 +409,10 @@ const SensorLayer = memo(function SensorLayer({
                 {stamp(run.first.at, timezone, dense)}
                 {run.count > 1 ? `–${stamp(run.last.at, timezone, dense)}` : ""} · Dexcom{" "}
                 {run.status.toUpperCase()}{" "}
-                {run.status === "High" ? "(above 400 mg/dL)" : "(below 40 mg/dL)"}, exact value
-                unknown; {run.count} readings
+                {run.status === "High"
+                  ? `(above ${glucoseWithUnit(400, unit)})`
+                  : `(below ${glucoseWithUnit(40, unit)})`}
+                , exact value unknown; {run.count} readings
               </title>
             </g>
           );
@@ -556,6 +571,7 @@ const GlucoseChart = memo(function GlucoseChart({
   const totalMinutes = dayMinutes + ahead;
   const minuteOf = (at: string) => (Date.parse(at) - bounds.start) / 60000;
   const quietHours = plan.correctionQuietHours;
+  const unit = glucoseUnitOf(plan);
   // The plan gives no corrections in its quiet hours, so a review due then is not marked.
   const correctionAt =
     nextReviewAt && !inQuietHours(Date.parse(nextReviewAt), quietHours, timezone)
@@ -949,7 +965,12 @@ const GlucoseChart = memo(function GlucoseChart({
     : [];
   // Range lines keep their dashes; a label that would crowd a nearer-priority one is dropped.
   const axisTicks: { value: number; labeled: boolean }[] = [];
-  for (const value of [ranges.low, ranges.high, Math.round(max / 100) * 100, ranges.veryHigh])
+  // The top gridline falls on a round value in the person's unit: 100 mg/dL or 5 mmol/L steps.
+  const gridTop =
+    unit === "mmol/L"
+      ? glucoseToMgdl(Math.floor(glucoseToUnit(max, unit) / 5) * 5, unit)
+      : Math.round(max / 100) * 100;
+  for (const value of [ranges.low, ranges.high, gridTop, ranges.veryHigh])
     if (!axisTicks.some((t) => t.value === value))
       axisTicks.push({
         value,
@@ -1049,7 +1070,7 @@ const GlucoseChart = memo(function GlucoseChart({
           layer: "device",
           Icon: null,
           color: "var(--chart-device)",
-          title: `${when(e.at)} · Dexcom ${e.type}${e.value !== null ? ` · ${e.value} mg/dL` : ""}`,
+          title: `${when(e.at)} · Dexcom ${e.type}${e.value !== null ? ` · ${glucoseWithUnit(e.value, unit)}` : ""}`,
         })),
       ],
     },
@@ -1129,74 +1150,74 @@ const GlucoseChart = memo(function GlucoseChart({
         : cgmHistoryStart >= to
           ? `This ${scope} is older than the loaded history. The dashboard loads about the last 45 days of CGM readings and Dexcom events, so only logged entries appear here.`
           : `Loaded CGM history starts ${eventDateTime(new Date(cgmHistoryStart).toISOString(), timezone)}. The dashboard loads about the last 45 days of CGM readings and Dexcom events, so earlier parts of this ${scope} show logged entries only.`;
-  const records = useMemo(
-    () =>
-      [
-        ...visiblePoints.map((e) => ({
-          at: e.at,
-          type: "Sensor",
-          detail:
-            e.value !== null
-              ? `${e.value} mg/dL`
-              : `${e.status?.toUpperCase()} ${e.status === "High" ? "(>400 mg/dL)" : "(<40 mg/dL)"} · exact value unknown`,
-          source: e.source,
-        })),
-        ...visibleManual.map((e) => ({
-          at: e.at,
-          type: e.source === "Finger-stick" ? "Finger-stick" : "Manual Dexcom",
-          detail: entryGlucoseLabel(e, plan.meter),
-          source: e.source ?? "Manual",
-        })),
-        ...visibleDoseFood.map((food) => ({
-          at: food.at,
-          type: "Food in meal-dose record",
-          detail: `${food.carbs} g carbs${food.description ? ` · ${food.description}` : ""}; meal time not separately recorded`,
-          source: "Meal-dose calculation",
-          timeNote: "dose time",
-        })),
-        ...visibleFood.map((e) => ({
-          at: e.at,
-          type: "Food",
-          detail: `${e.meal} · ${e.carbs} g carbs`,
-          source: "Logged",
-        })),
-        ...visibleInsulin.map((e) => ({
-          at: e.at,
-          type: "Insulin",
-          detail: `${e.insulin} · ${e.units} units`,
-          source: "Logged",
-        })),
-        ...visibleExercise.map((e) => ({
-          at: e.at,
-          type: "Exercise",
-          detail: `${e.minutes ?? "—"} min${e.intensity ? ` · ${e.intensity}` : ""}`,
-          source: "Logged",
-        })),
-        ...visibleRescue.map((e) => ({
-          at: e.at,
-          type: "Rescue medication",
-          detail: e.medication ?? "Given",
-          source: "Logged",
-        })),
-        ...visibleEvents.map((e) => ({
-          at: e.at,
-          type: "Dexcom event",
-          detail: `${e.type}${e.value !== null ? ` · ${e.value} mg/dL` : ""}`,
-          source: e.source,
-        })),
-      ].sort((a, b) => a.at.localeCompare(b.at)),
-    [
-      visiblePoints,
-      visibleManual,
-      visibleFood,
-      visibleInsulin,
-      visibleExercise,
-      visibleRescue,
-      visibleDoseFood,
-      visibleEvents,
-      plan.meter,
-    ],
-  );
+  const records = useMemo(() => {
+    // Read from the plan here: the compiler can't tell a unit derived outside stays unchanged.
+    const shown = glucoseUnitOf(plan);
+    return [
+      ...visiblePoints.map((e) => ({
+        at: e.at,
+        type: "Sensor",
+        detail:
+          e.value !== null
+            ? glucoseWithUnit(e.value, shown)
+            : `${e.status?.toUpperCase()} ${e.status === "High" ? `(>${glucoseWithUnit(400, shown)})` : `(<${glucoseWithUnit(40, shown)})`} · exact value unknown`,
+        source: e.source,
+      })),
+      ...visibleManual.map((e) => ({
+        at: e.at,
+        type: e.source === "Finger-stick" ? "Finger-stick" : "Manual Dexcom",
+        detail: entryGlucoseLabel(e, plan),
+        source: e.source ?? "Manual",
+      })),
+      ...visibleDoseFood.map((food) => ({
+        at: food.at,
+        type: "Food in meal-dose record",
+        detail: `${food.carbs} g carbs${food.description ? ` · ${food.description}` : ""}; meal time not separately recorded`,
+        source: "Meal-dose calculation",
+        timeNote: "dose time",
+      })),
+      ...visibleFood.map((e) => ({
+        at: e.at,
+        type: "Food",
+        detail: `${e.meal} · ${e.carbs} g carbs`,
+        source: "Logged",
+      })),
+      ...visibleInsulin.map((e) => ({
+        at: e.at,
+        type: "Insulin",
+        detail: `${e.insulin} · ${e.units} units`,
+        source: "Logged",
+      })),
+      ...visibleExercise.map((e) => ({
+        at: e.at,
+        type: "Exercise",
+        detail: `${e.minutes ?? "—"} min${e.intensity ? ` · ${e.intensity}` : ""}`,
+        source: "Logged",
+      })),
+      ...visibleRescue.map((e) => ({
+        at: e.at,
+        type: "Rescue medication",
+        detail: e.medication ?? "Given",
+        source: "Logged",
+      })),
+      ...visibleEvents.map((e) => ({
+        at: e.at,
+        type: "Dexcom event",
+        detail: `${e.type}${e.value !== null ? ` · ${glucoseWithUnit(e.value, shown)}` : ""}`,
+        source: e.source,
+      })),
+    ].sort((a, b) => a.at.localeCompare(b.at));
+  }, [
+    visiblePoints,
+    visibleManual,
+    visibleFood,
+    visibleInsulin,
+    visibleExercise,
+    visibleRescue,
+    visibleDoseFood,
+    visibleEvents,
+    plan,
+  ]);
   const keyStep = duration > 1440 ? 60 : 5;
   /** The chart minute under the pointer, kept inside the plotted span. */
   function minuteAt(event: PointerEvent<SVGSVGElement>) {
@@ -1513,7 +1534,7 @@ const GlucoseChart = memo(function GlucoseChart({
               />
               {labeled && (
                 <text x="0" y={y(value) + 4} fill="var(--chart-panel-ink-muted)" fontSize="13">
-                  {value}
+                  {formatGlucose(value, unit)}
                 </text>
               )}
             </g>
@@ -1531,7 +1552,7 @@ const GlucoseChart = memo(function GlucoseChart({
                 className="chart-estimate-median"
                 points={estimatePoints.map((p) => `${p.px},${estimateY(p.median)}`).join(" ")}
               />
-              <title>{`Likely range from ${estimateLabel(estimate.value)} at ${eventTime(estimate.at, timezone)}: middle line is the median, band is where most past cases from your CGM history landed. CGM only, so it can't see food, insulin or activity. Not dosing advice.`}</title>
+              <title>{`Likely range from ${estimateLabel(estimate.value, unit)} at ${eventTime(estimate.at, timezone)}: middle line is the median, band is where most past cases from your CGM history landed. CGM only, so it can't see food, insulin or activity. Not dosing advice.`}</title>
             </g>
           )}
           <SensorLayer
@@ -1544,6 +1565,7 @@ const GlucoseChart = memo(function GlucoseChart({
             max={max}
             dense={duration > 1440}
             timezone={timezone}
+            unit={unit}
           />
           {shows("meter") && (
             <g data-layer="meter">
@@ -1560,7 +1582,7 @@ const GlucoseChart = memo(function GlucoseChart({
                       strokeWidth="2"
                     >
                       <title>
-                        {when(p.at)} · {p.glucose} mg/dL · {p.source}
+                        {when(p.at)} · {entryGlucoseLabel(p, plan)} · {p.source}
                       </title>
                     </circle>
                     {p.glucose! > 400 && (
@@ -1572,7 +1594,7 @@ const GlucoseChart = memo(function GlucoseChart({
                         fontSize="11"
                         fontWeight="700"
                       >
-                        {p.glucose}
+                        {formatGlucose(p.glucose!, unit)}
                       </text>
                     )}
                   </g>
@@ -1593,7 +1615,7 @@ const GlucoseChart = memo(function GlucoseChart({
                       strokeWidth="2"
                     >
                       <title>
-                        {when(p.at)} · {entryGlucoseLabel(p, plan.meter)} · {p.source}
+                        {when(p.at)} · {entryGlucoseLabel(p, plan)} · {p.source}
                       </title>
                     </circle>
                     <text
@@ -1867,8 +1889,8 @@ const GlucoseChart = memo(function GlucoseChart({
                   {/* The header already names this minute; only a reading off the cursor gets its own time. */}
                   {when(r.at) !== clock(cursor) && `${when(r.at)} · `}
                   {r.value !== null
-                    ? `${r.value} mg/dL`
-                    : `${r.status?.toUpperCase()} ${r.status === "High" ? "(>400)" : "(<40)"} · exact value unknown`}{" "}
+                    ? glucoseWithUnit(r.value, unit)
+                    : `${r.status?.toUpperCase()} ${r.status === "High" ? `(>${formatGlucose(400, unit)})` : `(<${formatGlucose(40, unit)})`} · exact value unknown`}{" "}
                   · {glucoseLevelNames[glucoseLevel(r, ranges)]}{" "}
                   <small>{r.sources.join(", ")}</small>
                 </span>
@@ -1878,13 +1900,13 @@ const GlucoseChart = memo(function GlucoseChart({
             )}
             {highAt !== null && priorSensor && (
               <span>
-                Previous sensor: {priorSensor.value} mg/dL at {when(priorSensor.at)}{" "}
-                <small>measured</small>
+                Previous sensor: {glucoseWithUnit(priorSensor.value!, unit)} at{" "}
+                {when(priorSensor.at)} <small>measured</small>
               </span>
             )}
             {highAt !== null && nearbyMeter && (
               <span>
-                Nearby finger-stick: {entryGlucoseLabel(nearbyMeter, plan.meter)} at{" "}
+                Nearby finger-stick: {entryGlucoseLabel(nearbyMeter, plan)} at{" "}
                 {when(nearbyMeter.at)} <small>measured separately</small>
               </span>
             )}
@@ -1919,7 +1941,8 @@ const GlucoseChart = memo(function GlucoseChart({
             {nearbyDexcom.map((e, i) => (
               <span key={e.at + e.type + i}>
                 {when(e.at)} · {e.type}
-                {e.value !== null ? ` · ${e.value} mg/dL` : ""} <small>Dexcom event</small>
+                {e.value !== null ? ` · ${glucoseWithUnit(e.value, unit)}` : ""}{" "}
+                <small>Dexcom event</small>
               </span>
             ))}
             {cursorIllness.map(({ illness }) => (
@@ -1939,7 +1962,7 @@ const GlucoseChart = memo(function GlucoseChart({
       </div>
       <span className="glucose-chart-sr" aria-live="polite">
         {keyboardMode && cursor !== null
-          ? `${clock(cursor)}. ${sameTime.map((r) => (r.value !== null ? `${r.value} milligrams per deciliter, ${r.source}` : `${r.status} ${r.status === "High" ? "above 400" : "below 40"}, exact value unknown, ${r.source}`)).join(". ") || "No glucose within ten minutes"}. ${nearbyFood.length} food records, ${nearbyDoseFood.length} meal-dose food details and ${nearbyInsulin.length} insulin records nearby.`
+          ? `${clock(cursor)}. ${sameTime.map((r) => (r.value !== null ? `${formatGlucose(r.value, unit)} ${unit === "mmol/L" ? "millimoles per liter" : "milligrams per deciliter"}, ${r.source}` : `${r.status} ${r.status === "High" ? `above ${formatGlucose(400, unit)}` : `below ${formatGlucose(40, unit)}`}, exact value unknown, ${r.source}`)).join(". ") || "No glucose within ten minutes"}. ${nearbyFood.length} food records, ${nearbyDoseFood.length} meal-dose food details and ${nearbyInsulin.length} insulin records nearby.`
           : ""}
       </span>
       <span className="glucose-chart-sr" aria-live="polite">
@@ -1968,7 +1991,8 @@ const GlucoseChart = memo(function GlucoseChart({
         }}
         reviewHours={correctionHours}
         cgm={visiblePoints.some((point) => point.value !== null)}
-        rangeLabel={`In range ${ranges.low}–${ranges.high} mg/dL`}
+        rangeLabel={`In range ${formatGlucose(ranges.low, unit)}–${formatGlucose(ranges.high, unit)} ${unit}`}
+        unit={unit}
       />
       <RecordsTable records={records} timezone={timezone} withDate={multiDay} />
     </div>

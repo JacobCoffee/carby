@@ -29,7 +29,7 @@ const LOW = 70,
 export type GlucoseSummary = {
   days: number;
   readings: number;
-  /** Hidden when more than 5% of readings were past the sensor's limit. */
+  /** In unrounded mg/dL. Hidden when more than 5% of readings were past the sensor's limit. */
   mean: number | null;
   inRange: number;
   below70: number;
@@ -84,7 +84,7 @@ function summarize(groups: Reading[][]): GlucoseSummary {
     mean:
       (capped / all.length) * 100 > CAPPED_LIMIT_PERCENT
         ? null
-        : Math.round(all.reduce((sum, r) => sum + r.value, 0) / all.length),
+        : all.reduce((sum, r) => sum + r.value, 0) / all.length,
     inRange: count((r) => r.value >= LOW && r.value <= HIGH),
     below70: count((r) => r.value < LOW),
     above180: count((r) => r.value > HIGH),
@@ -196,7 +196,7 @@ export function comparedWithUsual({
       (values.filter((r) => r.capped).length / values.length) * 100 > CAPPED_LIMIT_PERCENT
     )
       return null;
-    return Math.round(values.reduce((sum, r) => sum + r.value, 0) / values.length);
+    return values.reduce((sum, r) => sum + r.value, 0) / values.length;
   };
   const dayparts = weekReady
     ? DAYPARTS.map((part) => ({

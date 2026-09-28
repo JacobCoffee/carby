@@ -10,6 +10,8 @@ import {
 } from "@/lib/cgm-summary";
 import type { ClarityStatus } from "@/lib/clarity-sync";
 import { AGP_MIN_DAYS, AGP_MIN_WEAR_PERCENT } from "@/lib/glucose-metrics";
+import { STANDARD_GLUCOSE_RANGES } from "@/lib/care";
+import { glucoseWithUnit, type GlucoseUnit } from "@/lib/glucose-units";
 import { CARE_CHANGED } from "@/lib/live-refresh";
 import { AgpChart, LevelsBar } from "./cgm-overview";
 import { reportKindNames } from "./clarity-panel";
@@ -35,12 +37,14 @@ export default function ReportCgm({
   timezone,
   showCharts,
   now,
+  unit,
 }: {
   fromDay: string;
   toDay: string;
   timezone: string;
   showCharts: boolean;
   now: number;
+  unit: GlucoseUnit;
 }) {
   const { person } = usePersonAccess();
   // The server buckets days in the saved plan's zone, so a zone change (or a Clarity sync, which
@@ -114,14 +118,14 @@ export default function ReportCgm({
         .
       </p>
       {m.levels ? (
-        <LevelsBar levels={m.levels} />
+        <LevelsBar levels={m.levels} unit={unit} />
       ) : (
         <p className="report-caption">No connected CGM intervals.</p>
       )}
       <dl className="report-cgm-figures">
         <div>
           <dt>Mean glucose</dt>
-          <dd>{m.mean === null ? "—" : `${m.mean} mg/dL`}</dd>
+          <dd>{m.mean === null ? "—" : glucoseWithUnit(m.mean, unit)}</dd>
         </div>
         <div>
           <dt>GMI</dt>
@@ -134,13 +138,21 @@ export default function ReportCgm({
         <div>
           <dt>Lows ≥15 min</dt>
           <dd>
-            {lows.length} <small>({lows.filter((e) => e.severe).length} below 54)</small>
+            {lows.length}{" "}
+            <small>
+              ({lows.filter((e) => e.severe).length} below{" "}
+              {glucoseWithUnit(STANDARD_GLUCOSE_RANGES.veryLow, unit)})
+            </small>
           </dd>
         </div>
         <div>
           <dt>Highs ≥15 min</dt>
           <dd>
-            {highs.length} <small>({highs.filter((e) => e.severe).length} above 250)</small>
+            {highs.length}{" "}
+            <small>
+              ({highs.filter((e) => e.severe).length} above{" "}
+              {glucoseWithUnit(STANDARD_GLUCOSE_RANGES.veryHigh, unit)})
+            </small>
           </dd>
         </div>
       </dl>
@@ -159,7 +171,7 @@ export default function ReportCgm({
               ? ""
               : ` Preview only: a standard profile needs ${AGP_MIN_DAYS} days with ${AGP_MIN_WEAR_PERCENT}% CGM wear.`}
           </p>
-          <AgpChart slots={summary.agp} />
+          <AgpChart slots={summary.agp} unit={unit} />
         </div>
       )}
       <div className="report-cgm-device">
@@ -174,7 +186,7 @@ export default function ReportCgm({
               </p>
               <ul>
                 {summary.device.alerts.map((alert) => (
-                  <li key={alert.kind}>{describeAlert(alert)}</li>
+                  <li key={alert.kind}>{describeAlert(alert, unit)}</li>
                 ))}
               </ul>
             </>

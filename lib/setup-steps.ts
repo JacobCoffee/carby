@@ -10,6 +10,13 @@ import {
   type Plan,
   type PlanField,
 } from "./care";
+import {
+  formatFactor,
+  formatGlucose,
+  glucoseUnitOf,
+  glucoseWithUnit,
+  type GlucoseUnit,
+} from "./glucose-units";
 import { lastOvernightCheck } from "./overnight-check";
 
 /** The care plan setup steps, in order. Optional steps can be left blank. */
@@ -28,6 +35,7 @@ type FieldStep = Exclude<SetupStepId, "start" | "review">;
 
 /** The step that shows each plan setting. The temperature unit is set later, in the care plan. */
 const fieldSteps: Record<PlanField, FieldStep | null> = {
+  glucoseUnit: "math",
   target: "math",
   factor: "math",
   ratio: "math",
@@ -113,16 +121,19 @@ export type SummaryGroup = { step: number; title: string; rows: SummaryRow[] };
 /**
  * Every value a plan holds, grouped by the setup step that asks for it, in step order, for the
  * review step. It restates what was entered and nothing else: unset optional settings read
- * "Not set", and blank contacts and instructions are left out.
+ * "Not set", and blank contacts and instructions are left out. Glucose values read in `unit`,
+ * the plan's own unless another is given; the glucose unit row always names the plan's own.
  */
-export function planSummary(plan: Plan): SummaryGroup[] {
+export function planSummary(plan: Plan, unit: GlucoseUnit = glucoseUnitOf(plan)): SummaryGroup[] {
   const ranges = plan.glucoseRanges;
   const { correctionCallCheck, sickDayChecks, lowTreatment, overnightCheck, meter } = plan;
   const quietHours = plan.correctionQuietHours;
+  const glucose = (mgdl: number) => glucoseWithUnit(mgdl, unit);
   const groups: Record<FieldStep, SummaryRow[]> = {
     math: [
-      { label: "Glucose target", value: `${plan.target} mg/dL` },
-      { label: "Correction factor", value: `${plan.factor} mg/dL per unit` },
+      { label: "Glucose unit", value: glucoseUnitOf(plan) },
+      { label: "Glucose target", value: glucose(plan.target) },
+      { label: "Correction factor", value: `${formatFactor(plan.factor, unit)} ${unit} per unit` },
       { label: "Carbohydrate ratio", value: ratioSummary(plan) },
       { label: "Correction review interval", value: units(plan.correctionHours, "hour") },
       { label: "Dose increments", value: units(plan.increment, "unit") },
@@ -134,27 +145,28 @@ export function planSummary(plan: Plan): SummaryGroup[] {
     ranges: ranges
       ? glucoseRangeKeys.map((key) => ({
           label: glucoseRangeLabels[key],
-          value: `${ranges[key]} mg/dL`,
+          value: glucose(ranges[key]),
         }))
       : [
           {
             label: "Ranges",
             value: `Standard: ${glucoseRangeKeys
               .map(
-                (key) => `${glucoseRangeLabels[key].toLowerCase()} ${STANDARD_GLUCOSE_RANGES[key]}`,
+                (key) =>
+                  `${glucoseRangeLabels[key].toLowerCase()} ${formatGlucose(STANDARD_GLUCOSE_RANGES[key], unit)}`,
               )
-              .join(", ")} mg/dL`,
+              .join(", ")} ${unit}`,
           },
         ],
     safety: [
-      { label: "Treat a low below", value: `${plan.lowThreshold} mg/dL` },
-      { label: "Check ketones above", value: `${plan.ketoneCheckAbove} mg/dL` },
+      { label: "Treat a low below", value: glucose(plan.lowThreshold) },
+      { label: "Check ketones above", value: glucose(plan.ketoneCheckAbove) },
       { label: "High pattern", value: `${units(plan.patternRule.highDays, "day")} in a row` },
       { label: "Low pattern", value: `${units(plan.patternRule.lowDays, "day")} in a row` },
       {
         label: "Correction call check",
         value: correctionCallCheck
-          ? `Above ${correctionCallCheck.above} mg/dL, ${units(correctionCallCheck.hours, "hour")} after a correction`
+          ? `Above ${glucose(correctionCallCheck.above)}, ${units(correctionCallCheck.hours, "hour")} after a correction`
           : NOT_SET,
       },
       {
@@ -206,7 +218,13 @@ export function planSummary(plan: Plan): SummaryGroup[] {
       {
         label: "Glucose meter",
         value: meter
-          ? [meter.name, `HI above ${meter.hi}`, `LO below ${meter.lo}`].filter(Boolean).join(", ")
+          ? [
+              meter.name,
+              `HI above ${formatGlucose(meter.hi, unit)}`,
+              `LO below ${formatGlucose(meter.lo, unit)}`,
+            ]
+              .filter(Boolean)
+              .join(", ")
           : NOT_SET,
       },
     ],

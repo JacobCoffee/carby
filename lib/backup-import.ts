@@ -19,6 +19,7 @@ import {
   temperatureUnits,
   timeZoneSchema,
 } from "./care";
+import { glucoseUnitSchema } from "./glucose-units";
 import { illnessSchema, validateIllnessDates } from "./illness";
 import { profileSchema } from "./profile";
 import { appointmentSchema } from "./appointments";
@@ -226,6 +227,7 @@ const historicalPlanSchema = z
     meter: meterSchema.optional(),
     otherContacts: otherContactsSchema.optional(),
     temperatureUnit: z.enum(temperatureUnits).optional(),
+    glucoseUnit: glucoseUnitSchema.optional(),
   })
   .passthrough();
 const rowId = /^[\x21-\x7e]{1,200}$/;

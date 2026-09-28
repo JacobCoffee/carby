@@ -1,5 +1,6 @@
 import type { CgmReading, Entry, Plan } from "./care";
 import { fromLocal, meterStatusLabel } from "./care";
+import { formatGlucose, glucoseUnitOf } from "./glucose-units";
 import { uniqueCgm } from "./cgm-metrics";
 import { foodEntriesForMeal, mealHours, type MealWindow } from "./report-analysis";
 import { illnessOverlap, isSick, periodKind, type IllnessWindow } from "./illness";
@@ -146,15 +147,21 @@ const dayFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
-/** Descriptive text for one logbook cell; never a fabricated number for HI/LO. */
-export function logbookCellLabel(cell: LogbookCell, plan: Pick<Plan, "meter">): string {
+/** Descriptive text for one logbook cell in the plan's unit; never a fabricated number for HI/LO. */
+export function logbookCellLabel(
+  cell: LogbookCell,
+  plan: Pick<Plan, "meter" | "glucoseUnit">,
+): string {
   if (!cell) return "—";
-  if (cell.value !== null) return String(cell.value);
-  return cell.status ? meterStatusLabel(cell.status, plan.meter) : "—";
+  if (cell.value !== null) return formatGlucose(cell.value, glucoseUnitOf(plan));
+  return cell.status ? meterStatusLabel(cell.status, plan) : "—";
 }
 
 /** Plain text to read on the phone: "Sep 25 — Breakfast 143, Lunch 211, Dinner 134, Bedtime 156". */
-export function logbookCallIn(days: LogbookDay[], plan: Pick<Plan, "meter">): string {
+export function logbookCallIn(
+  days: LogbookDay[],
+  plan: Pick<Plan, "meter" | "glucoseUnit">,
+): string {
   return days
     .map((day) => {
       const parts = LOGBOOK_SLOTS.map(

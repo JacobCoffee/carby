@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import "./status-scene.css";
 
 // Glucose (mg/dL) → SVG y. The plot spans 0–400 over y 240→40, so anything past the
-// meter's 400 ceiling draws above the top rule, literally off the chart.
+// meter's ceiling draws above the top rule, literally off the chart. The lines carry no
+// numbers: these pages can't know whose plan, or which unit, to label them in.
 const y = (mgdl: number) => 240 - mgdl / 2;
 const RANGE_LOW = 70;
 const RANGE_HIGH = 180;
@@ -37,15 +38,6 @@ function Trace({ variant }: { variant: Variant }) {
       <line className="status-scene-rule" x1="0" x2="600" y1={y(RANGE_HIGH)} y2={y(RANGE_HIGH)} />
       <line className="status-scene-rule" x1="0" x2="600" y1={y(RANGE_LOW)} y2={y(RANGE_LOW)} />
       <line className="status-scene-ceiling" x1="0" x2="600" y1={y(CEILING)} y2={y(CEILING)} />
-      <text className="status-scene-axis" x="594" y={y(CEILING) + 16} textAnchor="end">
-        400
-      </text>
-      <text className="status-scene-axis" x="594" y={y(RANGE_HIGH) - 6} textAnchor="end">
-        180
-      </text>
-      <text className="status-scene-axis" x="594" y={y(RANGE_LOW) + 16} textAnchor="end">
-        70
-      </text>
       {variant === "off-chart" ? (
         <>
           <path className="status-scene-trace" d={OFF_CHART_TRACE} pathLength={1} />

@@ -1,4 +1,12 @@
 import { z } from "zod";
+import {
+  formatFactor,
+  formatGlucose,
+  glucoseUnitOf,
+  glucoseUnitSchema,
+  glucoseWithUnit,
+  type GlucoseUnit,
+} from "./glucose-units";
 export const mealRatioKeys = ["breakfast", "lunch", "dinner", "snack"] as const;
 export type MealRatio = (typeof mealRatioKeys)[number];
 export const mealRatioLabels: Record<MealRatio, string> = {
@@ -208,7 +216,8 @@ export const glucoseRangeLabels: Record<GlucoseRangeKey, string> = {
   high: "High above",
   veryHigh: "Very high above",
 };
-const rangeLimit = z.number().int().min(40).max(400);
+// Not whole numbers only: limits entered in mmol/L are kept as their exact mg/dL.
+const rangeLimit = z.number().min(40).max(400);
 /** Limits for reports and charts only; no dose calculation reads them. */
 export const glucoseRangesSchema = z
   .object({ veryLow: rangeLimit, low: rangeLimit, high: rangeLimit, veryHigh: rangeLimit })
@@ -221,7 +230,7 @@ export const patternRuleSchema = z.object({
   lowDays: positiveInt(1, 7),
 });
 export const correctionCallCheckSchema = z.object({
-  above: positiveInt(150, 600),
+  above: z.number().min(150).max(600),
   hours: z.number().min(0.5).max(12),
 });
 export const sickDayChecksSchema = z.object({
@@ -254,8 +263,8 @@ export const correctionQuietHoursSchema = z
 export type CorrectionQuietHours = z.infer<typeof correctionQuietHoursSchema>;
 export const meterSchema = z.object({
   name: z.string().trim().max(60).optional(),
-  hi: positiveInt(100, 1000),
-  lo: positiveInt(10, 100),
+  hi: z.number().min(100).max(1000),
+  lo: z.number().min(10).max(100),
 });
 export const temperatureUnits = ["F", "C"] as const;
 export type TemperatureUnit = (typeof temperatureUnits)[number];
@@ -292,8 +301,8 @@ const planFields = z.object({
   contacts: careContactsSchema.optional(),
   emergencyInstructions: emergencyInstructionsSchema.optional(),
   glucoseRanges: glucoseRangesSchema.optional(),
-  lowThreshold: z.number().int().min(40).max(150),
-  ketoneCheckAbove: z.number().int().min(100).max(400),
+  lowThreshold: z.number().min(40).max(150),
+  ketoneCheckAbove: z.number().min(100).max(400),
   patternRule: patternRuleSchema,
   correctionCallCheck: correctionCallCheckSchema.optional(),
   sickDayChecks: sickDayChecksSchema.optional(),
@@ -311,6 +320,11 @@ const planFields = z.object({
   otherContacts: otherContactsSchema.optional(),
   /** How illness check-in temperatures are entered and shown. Stored readings are in °C. */
   temperatureUnit: z.enum(temperatureUnits).optional(),
+  /**
+   * How glucose is entered and shown. Stored values are always mg/dL; a plan without it was
+   * entered in mg/dL.
+   */
+  glucoseUnit: glucoseUnitSchema.optional(),
 });
 /** Each plan setting's own schema, for forms that check one field at a time. */
 export const planFieldSchemas = planFields.shape;
@@ -373,7 +387,8 @@ export function planDraft(saved: unknown): PlanDraft {
       key === "rescueMedication" ||
       key === "meter" ||
       key === "otherContacts" ||
-      key === "temperatureUnit"
+      key === "temperatureUnit" ||
+      key === "glucoseUnit"
     )
       continue;
     if (source[key] === undefined) {
@@ -475,6 +490,7 @@ export function planDraft(saved: unknown): PlanDraft {
     "usualChangePercent",
     "rescueMedication",
     "temperatureUnit",
+    "glucoseUnit",
   ] as const) {
     if (source[key] === undefined) continue;
     const result = planFields.shape[key].safeParse(source[key]);
@@ -673,11 +689,14 @@ export function math(
     includeCorrection && glucose !== null ? Math.max(0, (glucose - p.target) / p.factor) : 0;
   const raw = food + correction;
   const scaled = raw / p.increment;
+  // The allowance absorbs floating-point error in both rules: a plan entered in mmol/L is held as
+  // exact mg/dL fractions, and its 2.75 units may come out as 2.7499999999999996.
   return {
     food,
     correction,
     raw,
-    rounded: (p.rounding === "down" ? Math.floor(scaled + 1e-9) : Math.round(scaled)) * p.increment,
+    rounded:
+      (p.rounding === "down" ? Math.floor(scaled + 1e-9) : Math.round(scaled + 1e-9)) * p.increment,
   };
 }
 /** Two decimals, truncated so 2.4999 reads 2.49 and never looks like it reached 2.5. */
@@ -772,24 +791,43 @@ export function cgmSegments(readings: CgmReading[]): CgmReading[][] {
   if (current.length) segments.push(current);
   return segments;
 }
-export function cgmLabel(reading: CgmReading): string {
+export function cgmLabel(reading: CgmReading, unit: GlucoseUnit): string {
   return reading.value === null
     ? `${reading.status?.toUpperCase() ?? "Out of range"} (out of range)`
-    : String(reading.value);
+    : formatGlucose(reading.value, unit);
 }
+type MeterPlan = Pick<Plan, "meter" | "glucoseUnit">;
 /** A meter's HI/LO result, with the meter's limit when the plan records it. Never a number. */
-export function meterStatusLabel(
-  status: "High" | "Low",
-  meter?: Pick<NonNullable<Plan["meter"]>, "hi" | "lo">,
-): string {
+export function meterStatusLabel(status: "High" | "Low", plan?: MeterPlan): string {
   const label = status === "High" ? "HI" : "LO";
+  const meter = plan?.meter;
   if (!meter) return label;
-  return `${label} (${status === "High" ? `above ${meter.hi}` : `below ${meter.lo}`})`;
+  const limit = formatGlucose(status === "High" ? meter.hi : meter.lo, glucoseUnitOf(plan));
+  return `${label} (${status === "High" ? "above" : "below"} ${limit})`;
 }
-/** A logged glucose reading: its value, or the meter's HI/LO result when it had none. */
+/** A logged glucose reading in the plan's unit, or the meter's HI/LO result when it had none. */
 export function entryGlucoseLabel(
   entry: Pick<Entry, "glucose" | "status">,
-  meter?: Pick<NonNullable<Plan["meter"]>, "hi" | "lo">,
+  plan: MeterPlan,
 ): string {
-  return entry.status ? meterStatusLabel(entry.status, meter) : `${entry.glucose} mg/dL`;
+  return entry.status
+    ? meterStatusLabel(entry.status, plan)
+    : glucoseWithUnit(entry.glucose!, glucoseUnitOf(plan));
+}
+/** Fields of log records that hold mg/dL: a reading, and a calculation's glucose and target. */
+const glucoseKeys = new Set(["glucose", "value", "target"]);
+/**
+ * A log record as lower-case search text, with glucose in the unit it is shown in, so "5.5" finds
+ * a 5.5 mmol/L reading and the stored mg/dL behind it matches nothing.
+ */
+export function logSearchText(item: unknown, unit: GlucoseUnit): string {
+  return JSON.stringify(item, (key, value: unknown) =>
+    typeof value !== "number"
+      ? value
+      : glucoseKeys.has(key)
+        ? formatGlucose(value, unit)
+        : key === "factor"
+          ? formatFactor(value, unit)
+          : value,
+  ).toLocaleLowerCase();
 }

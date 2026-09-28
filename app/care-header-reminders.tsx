@@ -18,6 +18,7 @@ import type { LowRecheck } from "@/lib/low-treatment";
 import type { SickDayStatus } from "@/lib/sick-day";
 import { illnessLabel } from "@/lib/illness";
 import { meterStatusLabel, type Plan } from "@/lib/care";
+import { glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import { reminderAttention, remindersOpen } from "@/lib/reminder-attention";
 import { usePersonAccess } from "./person-context";
 import "./care-header-reminders.css";
@@ -166,7 +167,7 @@ export default function CareHeaderReminders({
   loading: boolean;
   unavailable: boolean;
   stale: boolean;
-  /** Current above-range reading ("335 mg/dL" or "HIGH") once the review time has arrived. */
+  /** Current above-range reading ("335 mg/dL", "18.6 mmol/L" or "HIGH") once the review time has arrived. */
   stillHigh: string | null;
   onCorrection: () => void;
   onNightly: () => void;
@@ -357,7 +358,13 @@ export default function CareHeaderReminders({
             </strong>
             <span className="care-reminder-detail">
               {lowRecheck.reading
-                ? `${lowRecheck.reading.status ? meterStatusLabel(lowRecheck.reading.status) : `${lowRecheck.reading.value} mg/dL`} at ${time(lowRecheck.reading.at)}`
+                ? `${
+                    lowRecheck.reading.status
+                      ? meterStatusLabel(lowRecheck.reading.status)
+                      : lowRecheck.reading.value === null
+                        ? "Reading"
+                        : glucoseWithUnit(lowRecheck.reading.value, glucoseUnitOf(plan))
+                  } at ${time(lowRecheck.reading.at)}`
                 : `Due ${time(lowRecheck.dueAt)}`}
               {stale ? " · Last loaded log" : ""}
             </span>

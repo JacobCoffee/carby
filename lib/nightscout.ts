@@ -1,4 +1,5 @@
 import { cgmSchema, entrySchema, type CgmReading, type Entry } from "./care";
+import { glucoseToMgdl } from "./glucose-units";
 
 /**
  * The Nightscout collections Carby accepts uploads to. Glucose and log records become Carby
@@ -30,7 +31,6 @@ export const SERVER_FIELDS = [
 export const MAX_UPLOAD_DOCS = 1000;
 /** A document dated further ahead of the server clock than this is refused, as Carby refuses log entries. */
 export const FUTURE_SLACK_MS = 60000;
-export const MMOL_TO_MGDL = 18.0182;
 
 export type Doc = Record<string, unknown>;
 export function isDoc(value: unknown): value is Doc {
@@ -245,7 +245,7 @@ export function project(
       entry: {
         ...blank(at, ""),
         kind: "glucose",
-        glucose: Math.round(mmol ? glucose * MMOL_TO_MGDL : glucose),
+        glucose: Math.round(glucoseToMgdl(glucose, mmol ? "mmol/L" : "mg/dL")),
         source: "Finger-stick",
         ketones: "Not checked",
       },

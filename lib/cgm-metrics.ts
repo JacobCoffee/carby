@@ -10,6 +10,7 @@ export type CgmSummary = {
   above250Percent: number | null;
   /** Time in the plan's own glucose range, only computed when a range is passed to summarizeCgm. */
   inPlanRangePercent: number | null;
+  /** Mean of exact samples in mg/dL, unrounded so it rounds once, in the unit it is shown in. */
   average: number | null;
   uniqueReadings: number;
   numericReadings: number;
@@ -111,9 +112,7 @@ export function summarizeCgm(
     above180Percent: percent(above180),
     above250Percent: percent(above250),
     inPlanRangePercent: range ? percent(inPlanRange) : null,
-    average: numeric.length
-      ? Math.round(numeric.reduce((sum, r) => sum + r.value!, 0) / numeric.length)
-      : null,
+    average: numeric.length ? numeric.reduce((sum, r) => sum + r.value!, 0) / numeric.length : null,
     uniqueReadings: points.length,
     numericReadings: numeric.length,
     highStatuses: points.filter((r) => r.status === "High").length,

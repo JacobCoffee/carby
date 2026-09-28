@@ -9,7 +9,17 @@ import {
   glucoseRanges,
   entryGlucoseLabel,
   meterStatusLabel,
+  STANDARD_GLUCOSE_RANGES,
 } from "@/lib/care";
+import {
+  formatFactor,
+  formatGlucose,
+  glucoseToMgdl,
+  glucoseUnitOf,
+  glucoseWithUnit,
+  otherGlucoseUnit,
+  type GlucoseUnit,
+} from "@/lib/glucose-units";
 import { summarizeCgm, uniqueCgm } from "@/lib/cgm-metrics";
 import { reportRangeIsValid } from "@/lib/report-analysis";
 import {
@@ -38,6 +48,24 @@ import CgmHistory from "./cgm-history";
 import "./report-enhancements.css";
 
 type Section = "charts" | "meals" | "insulin" | "overnight" | "notes";
+type ReportPlan = Pick<Plan, "meter" | "glucoseUnit">;
+/** Dexcom reports HIGH above and LOW below these sensor limits, in mg/dL, without a value. */
+const SENSOR_HIGH = 400,
+  SENSOR_LOW = 40;
+/** The consensus range the report's observed-time figures use, e.g. "70–180 mg/dL". */
+function standardRange(unit: GlucoseUnit) {
+  const { low, high } = STANDARD_GLUCOSE_RANGES;
+  return `${formatGlucose(low, unit)}–${formatGlucose(high, unit)} ${unit}`;
+}
+/** Chart gridlines in mg/dL: the standard range's edges, then round levels in the unit. */
+function gridLevels(unit: GlucoseUnit) {
+  const upper = unit === "mmol/L" ? [15, 20] : [300, 400];
+  return [
+    STANDARD_GLUCOSE_RANGES.low,
+    STANDARD_GLUCOSE_RANGES.high,
+    ...upper.map((level) => glucoseToMgdl(level, unit)),
+  ];
+}
 const clockFormatters = new Map<
   string,
   { clock: Intl.DateTimeFormat; display: Intl.DateTimeFormat }
@@ -79,13 +107,15 @@ function downloadCsv(
   cgm: CgmReading[],
   dexcomEvents: DexcomEvent[],
   timezone: string,
+  unit: GlucoseUnit,
 ) {
+  const glucose = (mgdl: number | null) => (mgdl === null ? "" : formatGlucose(mgdl, unit));
   const header = [
     "Timestamp (UTC)",
     `Date (${timezone})`,
     `Time (${timezone})`,
     "Category",
-    "Glucose (mg/dL)",
+    `Glucose (${unit})`,
     "Glucose status",
     "Source",
     "Ketones",
@@ -108,7 +138,7 @@ function downloadCsv(
         p.day,
         p.time,
         e.kind,
-        e.glucose,
+        glucose(e.glucose),
         e.status ?? "",
         e.source,
         e.ketones,
@@ -120,7 +150,7 @@ function downloadCsv(
         e.minutes,
         e.intensity,
         e.medication,
-        calculationLabel(e),
+        calculationLabel(e, unit),
         e.note,
       ];
     }),
@@ -131,7 +161,7 @@ function downloadCsv(
         p.day,
         p.time,
         "Imported CGM",
-        e.value,
+        glucose(e.value),
         e.status ?? "",
         e.source,
         "",
@@ -154,7 +184,7 @@ function downloadCsv(
         p.day,
         p.time,
         "Dexcom " + e.type,
-        e.value,
+        glucose(e.value),
         "",
         e.source,
         "",
@@ -179,9 +209,9 @@ function downloadCsv(
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function label(e: Entry, meter?: Plan["meter"]) {
+function label(e: Entry, plan: ReportPlan) {
   return e.kind === "glucose"
-    ? `${entryGlucoseLabel(e, meter)} (${e.source})${e.ketones && e.ketones !== "Not checked" ? ` · ketones ${e.ketones}` : ""}`
+    ? `${entryGlucoseLabel(e, plan)} (${e.source})${e.ketones && e.ketones !== "Not checked" ? ` · ketones ${e.ketones}` : ""}`
     : e.kind === "food"
       ? `${e.meal}: ${e.carbs} g carbs`
       : e.kind === "insulin"
@@ -190,13 +220,13 @@ function label(e: Entry, meter?: Plan["meter"]) {
           ? `Exercise${e.intensity ? ` · ${e.intensity}` : ""}${e.minutes !== null ? ` · ${e.minutes} min` : ""}`
           : `Rescue medication given${e.medication ? `: ${e.medication}` : ""}`;
 }
-function calculationLabel(e: Entry) {
+function calculationLabel(e: Entry, unit: GlucoseUnit) {
   if (e.kind !== "insulin" || !e.calculation) return "";
   const c = e.calculation;
-  return `Logged calculation: ${c.mode}; ${c.carbs} g carbs${c.glucose !== null ? `, ${c.glucose} mg/dL (${c.source ?? "source unspecified"})` : ""}; ${c.calculatedUnits} units calculated using target ${c.target} mg/dL, ${c.mode !== "Correction" ? `ratio 1:${c.ratio}${c.ratioMeal ? ` (${mealRatioLabels[c.ratioMeal]})` : ""}, ` : ""}correction factor ${c.factor} mg/dL/unit.${c.adjustment ? ` Original manual adjustment: ${c.adjustment.actualUnits} units recorded${c.adjustment.reason ? ` (${c.adjustment.reason})` : ""}; acknowledged ${c.adjustment.acknowledgedAt}.` : ""}`;
+  return `Logged calculation: ${c.mode}; ${c.carbs} g carbs${c.glucose !== null ? `, ${glucoseWithUnit(c.glucose, unit)} (${c.source ?? "source unspecified"})` : ""}; ${c.calculatedUnits} units calculated using target ${glucoseWithUnit(c.target, unit)}, ${c.mode !== "Correction" ? `ratio 1:${c.ratio}${c.ratioMeal ? ` (${mealRatioLabels[c.ratioMeal]})` : ""}, ` : ""}correction factor ${formatFactor(c.factor, unit)} ${unit}/unit.${c.adjustment ? ` Original manual adjustment: ${c.adjustment.actualUnits} units recorded${c.adjustment.reason ? ` (${c.adjustment.reason})` : ""}; acknowledged ${c.adjustment.acknowledgedAt}.` : ""}`;
 }
-function recordDetails(e: Entry) {
-  return [calculationLabel(e), e.note].filter(Boolean).join(" ");
+function recordDetails(e: Entry, unit: GlucoseUnit) {
+  return [calculationLabel(e, unit), e.note].filter(Boolean).join(" ");
 }
 /** Part of a day inside an illness period; null ends mean the day's own midnight. */
 type SickSpan = { from: string | null; to: string | null };
@@ -206,7 +236,7 @@ function DailyChart({
   cgm,
   dexcomEvents,
   timezone,
-  meter,
+  plan,
   sickSpans,
 }: {
   day: string;
@@ -214,9 +244,10 @@ function DailyChart({
   cgm: CgmReading[];
   dexcomEvents: DexcomEvent[];
   timezone: string;
-  meter?: Plan["meter"];
+  plan: ReportPlan;
   sickSpans: SickSpan[];
 }) {
+  const unit = glucoseUnitOf(plan);
   const readings = entries.filter((e) => e.kind === "glucose" && e.glucose !== null);
   const statusReadings = entries.filter((e) => e.kind === "glucose" && e.glucose === null);
   const cgms = uniqueCgm(cgm);
@@ -274,7 +305,7 @@ function DailyChart({
       .filter((e) => e.kind === "food")
       .map((e) => ({
         at: e.at,
-        text: `${localParts(e.at, timezone).time}: ${label(e)}${e.note ? ` · ${e.note}` : ""}`,
+        text: `${localParts(e.at, timezone).time}: ${label(e, plan)}${e.note ? ` · ${e.note}` : ""}`,
       })),
   );
   const insulin = packed(
@@ -282,13 +313,13 @@ function DailyChart({
       .filter((e) => e.kind === "insulin")
       .map((e) => ({
         at: e.at,
-        text: `${localParts(e.at, timezone).time}: ${label(e)}${e.note ? ` · ${e.note}` : ""}`,
+        text: `${localParts(e.at, timezone).time}: ${label(e, plan)}${e.note ? ` · ${e.note}` : ""}`,
       })),
   );
   const device = packed(
     dexcomEvents.map((e) => ({
       at: e.at,
-      text: `${localParts(e.at, timezone).time}: Dexcom ${e.type}${e.value !== null ? ` · ${e.value} mg/dL` : ""}${e.details ? ` · ${e.details}` : ""}`,
+      text: `${localParts(e.at, timezone).time}: Dexcom ${e.type}${e.value !== null ? ` · ${glucoseWithUnit(e.value, unit)}` : ""}${e.details ? ` · ${e.details}` : ""}`,
     })),
   );
   const notable = packed(
@@ -296,7 +327,7 @@ function DailyChart({
       .filter((e) => e.kind === "exercise" || e.kind === "rescue")
       .map((e) => ({
         at: e.at,
-        text: `${localParts(e.at, timezone).time}: ${label(e)}${e.note ? ` · ${e.note}` : ""}`,
+        text: `${localParts(e.at, timezone).time}: ${label(e, plan)}${e.note ? ` · ${e.note}` : ""}`,
       })),
   );
   return (
@@ -341,11 +372,11 @@ function DailyChart({
           );
         })}
         <rect x="40" y={y(180)} width="620" height={y(70) - y(180)} fill="var(--report-band-bg)" />
-        {[70, 180, 300, 400].map((n) => (
+        {gridLevels(unit).map((n) => (
           <g key={n}>
             <line x1="40" x2="660" y1={y(n)} y2={y(n)} stroke="var(--report-grid)" />
             <text x="2" y={y(n) + 4} fontSize="12" fill="var(--report-text)">
-              {n}
+              {formatGlucose(n, unit)}
             </text>
           </g>
         ))}
@@ -374,7 +405,7 @@ function DailyChart({
           .map((e) => (
             <circle key={e.at} cx={x(e)} cy={y(e.value!)} r="1.8" fill="var(--report-sensor)">
               <title>
-                {localParts(e.at, timezone).time}: {e.value} mg/dL · {e.source}
+                {localParts(e.at, timezone).time}: {glucoseWithUnit(e.value!, unit)} · {e.source}
               </title>
             </circle>
           ))}
@@ -386,15 +417,18 @@ function DailyChart({
             <g key={`${run.first.at}-${i}`}>
               <rect
                 x={left - 1}
-                y={y(high ? 400 : 40) - 3}
+                y={y(high ? SENSOR_HIGH : SENSOR_LOW) - 3}
                 width={Math.max(4, right - left + 2)}
                 height="6"
                 rx="2"
                 fill={high ? "var(--report-status-high)" : "var(--report-status-low)"}
               />
               <title>
-                Dexcom {run.status.toUpperCase()} ({high ? "above 400" : "below 40"} mg/dL) ·{" "}
-                {localParts(run.first.at, timezone).time}
+                Dexcom {run.status.toUpperCase()} (
+                {high
+                  ? `above ${glucoseWithUnit(SENSOR_HIGH, unit)}`
+                  : `below ${glucoseWithUnit(SENSOR_LOW, unit)}`}
+                ) · {localParts(run.first.at, timezone).time}
                 {run.first.at !== run.last.at ? `–${localParts(run.last.at, timezone).time}` : ""};
                 exact sensor value unknown
               </title>
@@ -414,7 +448,7 @@ function DailyChart({
             strokeWidth="1"
           >
             <title>
-              {localParts(e.at, timezone).time}: {e.glucose} mg/dL · {e.source}
+              {localParts(e.at, timezone).time}: {glucoseWithUnit(e.glucose!, unit)} · {e.source}
             </title>
           </circle>
         ))}
@@ -424,14 +458,14 @@ function DailyChart({
             <g key={e.id}>
               <rect
                 x={x(e) - 2}
-                y={y(high ? 400 : 40) - 3}
+                y={y(high ? SENSOR_HIGH : SENSOR_LOW) - 3}
                 width="4"
                 height="6"
                 rx="1"
                 fill={high ? "var(--report-status-high)" : "var(--report-status-low)"}
               />
               <title>
-                {localParts(e.at, timezone).time}: {meterStatusLabel(high ? "High" : "Low", meter)}{" "}
+                {localParts(e.at, timezone).time}: {meterStatusLabel(high ? "High" : "Low", plan)}{" "}
                 finger-stick · {e.source}
               </title>
             </g>
@@ -545,14 +579,14 @@ function nextDay(day: string) {
 function LogbookMatrixCell({
   cell,
   timezone,
-  meter,
+  plan,
   showMeals,
   showInsulin,
   pattern,
 }: {
   cell: LogbookCell;
   timezone: string;
-  meter?: Plan["meter"];
+  plan: ReportPlan;
   showMeals: boolean;
   showInsulin: boolean;
   pattern?: PatternFlag["kind"];
@@ -562,7 +596,8 @@ function LogbookMatrixCell({
       {cell ? (
         <>
           <strong>
-            {logbookCellLabel(cell, { meter })} {cell.value !== null && <small>mg/dL</small>}
+            {logbookCellLabel(cell, plan)}{" "}
+            {cell.value !== null && <small>{glucoseUnitOf(plan)}</small>}
           </strong>
           <span>
             {cell.source} · {localParts(cell.at, timezone).time}
@@ -593,7 +628,7 @@ function DailyMatrix({
   showMeals,
   showInsulin,
   showBedtime,
-  meter,
+  plan,
   patterns,
 }: {
   days: string[];
@@ -605,7 +640,7 @@ function DailyMatrix({
   showMeals: boolean;
   showInsulin: boolean;
   showBedtime: boolean;
-  meter?: Plan["meter"];
+  plan: ReportPlan;
   patterns: PatternFlag[];
 }) {
   const logbook = buildLogbook({ days, entries, cgm, timezone, illnesses, now });
@@ -662,7 +697,7 @@ function DailyMatrix({
                       key={slot}
                       cell={logbookDay?.cells[slot] ?? null}
                       timezone={timezone}
-                      meter={meter}
+                      plan={plan}
                       showMeals={showMeals}
                       showInsulin={showInsulin}
                       pattern={
@@ -731,10 +766,12 @@ function NumericPattern({
   days,
   cgm,
   timezone,
+  unit,
 }: {
   days: string[];
   cgm: CgmReading[];
   timezone: string;
+  unit: GlucoseUnit;
 }) {
   // One reading per calendar day and clock bin prevents uneven sampling from
   // giving a single day extra weight. Status-only samples have no percentile.
@@ -794,11 +831,11 @@ function NumericPattern({
         aria-label="Median and middle half of exact CGM values by time of day; missing bins are blank"
       >
         <rect x="40" y={y(180)} width="620" height={y(70) - y(180)} fill="var(--report-band-bg)" />
-        {[70, 180, 300, 400].map((n) => (
+        {gridLevels(unit).map((n) => (
           <g key={n}>
             <line x1="40" x2="660" y1={y(n)} y2={y(n)} stroke="var(--report-grid)" />
             <text x="2" y={y(n) + 4} fontSize="11" fill="var(--report-text)">
-              {n}
+              {formatGlucose(n, unit)}
             </text>
           </g>
         ))}
@@ -829,8 +866,8 @@ function NumericPattern({
               {Math.floor(s.bin / 2)
                 .toString()
                 .padStart(2, "0")}
-              :{s.bin % 2 ? "30" : "00"} · median {Math.round(s.median)}, middle half{" "}
-              {Math.round(s.low)}–{Math.round(s.high)} mg/dL · {s.count} days
+              :{s.bin % 2 ? "30" : "00"} · median {formatGlucose(s.median, unit)}, middle half{" "}
+              {formatGlucose(s.low, unit)}–{glucoseWithUnit(s.high, unit)} · {s.count} days
             </title>
           </circle>
         ))}
@@ -869,7 +906,7 @@ function NumericPattern({
     </section>
   );
 }
-function ChartKey() {
+function ChartKey({ unit }: { unit: GlucoseUnit }) {
   return (
     <div className="report-chart-key" aria-label="Daily chart key">
       <span>
@@ -886,7 +923,7 @@ function ChartKey() {
       </span>
       <span>
         <i className="key-range" />
-        HIGH at 400 threshold, exact value unknown
+        HIGH at {glucoseWithUnit(SENSOR_HIGH, unit)} threshold, exact value unknown
       </span>
       <span>
         <i className="key-tick food" />● Food
@@ -919,7 +956,10 @@ function DoctorReport({
   timezone: string;
   patientName?: string;
   illnesses?: IllnessWindow[];
-  plan: Pick<Plan, "glucoseRanges" | "lowThreshold" | "patternRule" | "meter" | "temperatureUnit">;
+  plan: Pick<
+    Plan,
+    "glucoseRanges" | "lowThreshold" | "patternRule" | "meter" | "glucoseUnit" | "temperatureUnit"
+  >;
   /** Whether the Reports view is showing; the long-term record loads only then. */
   active?: boolean;
 }) {
@@ -1025,7 +1065,10 @@ function DoctorReport({
       ? nowAt
       : fromLocal(nextDay(toDay) + "T00:00", timezone)
     : startAt;
+  const unit = glucoseUnitOf(plan);
   const planRange = glucoseRanges(plan);
+  // summarizeCgm's below/in/above figures use the consensus limits, whatever the plan's range.
+  const standard = STANDARD_GLUCOSE_RANGES;
   const metrics = summarizeCgm(selectedCgm, startAt, endAt, planRange);
   const sickIllnesses = illnesses.filter(isSick);
   const sickDaySet = new Set(
@@ -1178,7 +1221,7 @@ function DoctorReport({
           <button
             className="button outline"
             disabled={!valid || !hasData}
-            onClick={() => downloadCsv(selected, selectedCgm, selectedEvents, timezone)}
+            onClick={() => downloadCsv(selected, selectedCgm, selectedEvents, timezone, unit)}
           >
             Download full CSV
           </button>
@@ -1219,7 +1262,10 @@ function DoctorReport({
             </div>
             <section className="report-glance" aria-label="Glucose and care summary">
               <div className="report-range-card">
-                <span>Observed time 70–180 mg/dL</span>
+                <span>
+                  Observed time {standardRange(unit)}{" "}
+                  <small>({standardRange(otherGlucoseUnit(unit))})</small>
+                </span>
                 <strong>
                   {metrics.inRangePercent === null ? "—" : metrics.inRangePercent + "%"}
                 </strong>
@@ -1228,11 +1274,11 @@ function DoctorReport({
                     className="report-range-track"
                     role="img"
                     aria-label={
-                      "Observed time: below 70 " +
+                      `Observed time: below ${glucoseWithUnit(standard.low, unit)} ` +
                       metrics.below70Percent +
-                      "%; 70 to 180 " +
+                      `%; ${formatGlucose(standard.low, unit)} to ${glucoseWithUnit(standard.high, unit)} ` +
                       metrics.inRangePercent +
-                      "%; above 180 " +
+                      `%; above ${glucoseWithUnit(standard.high, unit)} ` +
                       metrics.above180Percent +
                       "%"
                     }
@@ -1247,21 +1293,22 @@ function DoctorReport({
               </div>
               <dl className="report-key-metrics">
                 <div>
-                  <dt>Below 70</dt>
+                  <dt>Below {formatGlucose(standard.low, unit)}</dt>
                   <dd>{metrics.below70Percent === null ? "—" : metrics.below70Percent + "%"}</dd>
                 </div>
                 <div>
-                  <dt>Above 180</dt>
+                  <dt>Above {formatGlucose(standard.high, unit)}</dt>
                   <dd>{metrics.above180Percent === null ? "—" : metrics.above180Percent + "%"}</dd>
                 </div>
                 <div>
-                  <dt>Above 250</dt>
+                  <dt>Above {formatGlucose(standard.veryHigh, unit)}</dt>
                   <dd>{metrics.above250Percent === null ? "—" : metrics.above250Percent + "%"}</dd>
                 </div>
                 {!planRange.standard && (
                   <div>
                     <dt>
-                      Time in plan range {planRange.low}–{planRange.high}
+                      Time in plan range {formatGlucose(planRange.low, unit)}–
+                      {formatGlucose(planRange.high, unit)}
                     </dt>
                     <dd>
                       {metrics.inPlanRangePercent === null ? "—" : metrics.inPlanRangePercent + "%"}
@@ -1270,7 +1317,7 @@ function DoctorReport({
                 )}
                 <div>
                   <dt>Mean of exact CGM samples</dt>
-                  <dd>{metrics.average === null ? "—" : metrics.average + " mg/dL"}</dd>
+                  <dd>{metrics.average === null ? "—" : glucoseWithUnit(metrics.average, unit)}</dd>
                 </div>
               </dl>
             </section>
@@ -1355,7 +1402,7 @@ function DoctorReport({
                 {metricsExcludingSick && (
                   <>
                     {" "}
-                    Observed time 70–180 mg/dL excluding sick days:{" "}
+                    Observed time {standardRange(unit)} excluding sick days:{" "}
                     <strong>
                       {metricsExcludingSick.inRangePercent === null
                         ? "—"
@@ -1386,6 +1433,7 @@ function DoctorReport({
                 timezone={timezone}
                 showCharts={sections.charts}
                 now={now}
+                unit={unit}
               />
             )}
             <section className="report-section report-patterns" aria-label="Patterns to review">
@@ -1427,7 +1475,7 @@ function DoctorReport({
               showMeals={sections.meals}
               showInsulin={sections.insulin}
               showBedtime={sections.overnight}
-              meter={plan.meter}
+              plan={plan}
               patterns={patterns}
             />
             {days.length > 30 && omitted > 0 && (
@@ -1437,7 +1485,7 @@ function DoctorReport({
               </p>
             )}
             {sections.charts && days.length >= 14 && metrics.coveragePercent >= 70 && (
-              <NumericPattern days={days} cgm={selectedCgm} timezone={timezone} />
+              <NumericPattern days={days} cgm={selectedCgm} timezone={timezone} unit={unit} />
             )}
             <dl className="report-care-totals">
               <div>
@@ -1466,7 +1514,7 @@ function DoctorReport({
                 or a HIGH/LOW status. Markers are grouped visually when times are close; exact
                 events remain in the table and CSV.
               </p>
-              {sections.charts && <ChartKey />}
+              {sections.charts && <ChartKey unit={unit} />}
               {activeDays.map((day) => {
                 const group = entriesByDay.get(day) ?? [];
                 const dayCgm = cgmByDay.get(day) ?? [];
@@ -1484,14 +1532,17 @@ function DoctorReport({
                     at: e.at,
                     key: e.id,
                     kind: e.kind,
-                    text: label(e, plan.meter),
-                    note: recordDetails(e),
+                    text: label(e, plan),
+                    note: recordDetails(e, unit),
                   })),
                   ...dayEvents.map((e, i) => ({
                     at: e.at,
                     key: e.at + e.type + i,
                     kind: "device",
-                    text: "Dexcom " + e.type + (e.value !== null ? " · " + e.value + " mg/dL" : ""),
+                    text:
+                      "Dexcom " +
+                      e.type +
+                      (e.value !== null ? " · " + glucoseWithUnit(e.value, unit) : ""),
                     note: e.details + " · " + e.source,
                   })),
                 ].sort((a, b) => a.at.localeCompare(b.at));
@@ -1531,7 +1582,7 @@ function DoctorReport({
                         cgm={dayCgm}
                         dexcomEvents={dayEvents}
                         timezone={timezone}
-                        meter={plan.meter}
+                        plan={plan}
                         sickSpans={sickSpans}
                       />
                     )}
@@ -1595,7 +1646,7 @@ function DoctorReport({
           </>
         )}
       </div>
-      <CgmHistory active={active} timezone={timezone} />
+      <CgmHistory active={active} timezone={timezone} unit={unit} />
     </section>
   );
 }

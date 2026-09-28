@@ -81,12 +81,6 @@
   stroke-dasharray: 6 4;
   opacity: 0.85;
 }
-.status-scene-axis {
-  fill: var(--chart-panel-ink-muted);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 .status-scene-trace {
   fill: none;
   stroke: var(--chart-sensor);

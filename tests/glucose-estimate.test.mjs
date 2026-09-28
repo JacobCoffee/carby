@@ -91,8 +91,9 @@ test("HIGH readings count as the sensor limit, so the range tops out at HIGH", (
   assert.equal(estimate.state, "ready");
   const end = estimate.points.at(-1);
   assert.equal(end.high, 400);
-  assert.equal(estimateLabel(end.high), "HIGH");
-  assert.equal(estimateLabel(142), "142");
+  assert.equal(estimateLabel(end.high, "mmol/L"), "HIGH");
+  assert.equal(estimateLabel(142, "mg/dL"), "142");
+  assert.equal(estimateLabel(142, "mmol/L"), "7.9");
 });
 
 test("when the last day turns noisier, the range widens to its misses instead of averaging them away", () => {

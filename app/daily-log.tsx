@@ -29,12 +29,14 @@ import {
   stepShortfall,
   exactUnits,
   entryGlucoseLabel,
+  logSearchText,
   type CgmReading,
   type DexcomEvent,
   type Entry,
   type MealRatio,
   type Plan,
 } from "@/lib/care";
+import { glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import type { DoseFood } from "@/lib/meal-log";
 import type { EntryModalKind } from "./entry-dialog";
 
@@ -144,6 +146,7 @@ export default function DailyLog({
     setLogSearch("");
     setShowAllEvents(false);
   }
+  const unit = glucoseUnitOf(plan);
   const time = (value: string) =>
     new Intl.DateTimeFormat("en-US", {
       timeZone: plan.timezone,
@@ -188,11 +191,9 @@ export default function DailyLog({
             (logFilter === "food" && row.kind === "dose-food") ||
             (row.kind === "manual" && (row.item as Entry).kind === logFilter)) &&
           (logSearch.trim() === "" ||
-            JSON.stringify(row.item)
-              .toLocaleLowerCase()
-              .includes(logSearch.trim().toLocaleLowerCase())),
+            logSearchText(row.item, unit).includes(logSearch.trim().toLocaleLowerCase())),
       ),
-    [groupedEvents, logFilter, logSearch],
+    [groupedEvents, logFilter, logSearch, unit],
   );
   return (
     <section className="panel timeline" id="daily-log">
@@ -401,7 +402,7 @@ export default function DailyLog({
                     <strong>
                       Dexcom {(item as DexcomEvent).type}
                       {(item as DexcomEvent).value !== null
-                        ? ` · ${(item as DexcomEvent).value} mg/dL`
+                        ? ` · ${glucoseWithUnit((item as DexcomEvent).value!, unit)}`
                         : ""}
                     </strong>
                     <p>{(item as DexcomEvent).details || "Imported from Clarity CSV"}</p>
@@ -416,7 +417,7 @@ export default function DailyLog({
                   <div className="event-body">
                     <strong>
                       {(item as CgmReading).value !== null
-                        ? `${(item as CgmReading).value} mg/dL`
+                        ? glucoseWithUnit((item as CgmReading).value!, unit)
                         : `${(item as CgmReading).status?.toUpperCase()} · out of range`}
                     </strong>
                     <p>
@@ -453,7 +454,7 @@ export default function DailyLog({
                         <div className="event-body">
                           <strong>
                             {e.kind === "glucose"
-                              ? entryGlucoseLabel(e, plan.meter)
+                              ? entryGlucoseLabel(e, plan)
                               : e.kind === "food"
                                 ? `${e.meal} · ${fmt(e.carbs!)} g carbs${e.lowSeverity ? ` · ${e.lowSeverity.toLowerCase()} low` : ""}`
                                 : e.kind === "exercise"
@@ -489,7 +490,7 @@ export default function DailyLog({
                                 ? ` · ${fmt(e.calculation.carbs)} g carbs`
                                 : ""}
                               {e.calculation.glucose !== null
-                                ? ` · ${e.calculation.glucose} mg/dL`
+                                ? ` · ${glucoseWithUnit(e.calculation.glucose, unit)}`
                                 : ""}
                               {e.calculation.foodEntryIds.length
                                 ? ` · linked food: ${e.calculation.foodEntryIds

@@ -39,6 +39,7 @@ Open <http://localhost:5173>. This starts PostgreSQL in Docker, runs migrations,
 
 New accounts start empty. Setup walks through your care plan one step at a time and ends with a review of every value before you save. You can import a backup instead. Carby has no clinical defaults; every value comes from your plan.
 
+- **Glucose unit:** mg/dL or mmol/L, chosen before the first glucose value. Every screen, report and export shows that person's unit, and values are typed in it. Carby stores glucose in mg/dL either way (backups, sync and the Nightscout API are unchanged) and converts with 18.01559 mg/dL per mmol/L, the factor Nightscout, xDrip+ and AAPS use. mmol/L shows to one decimal and mg/dL as whole numbers; a dose works out the same in either unit.
 - **Required:** the glucose level you treat a low below, the level you check ketones above, and how many days in a row make a pattern.
 - **Optional:** care contacts, emergency and sick-day instructions, low-treatment amount, meter HI/LO limits, and similar. Each turns on one feature. Instructions are shown exactly as you enter them. None of these changes dose calculations.
 - **Time zone:** all dates and times display in the care plan's zone.
@@ -112,7 +113,7 @@ Apps that upload to a Nightscout site (xDrip+, Juggluco, Loop, Trio and AAPS) ca
 
 Carby serves Nightscout's API v1 (`/api/v1`) and API v3 (`/api/v3`, with `history` and `lastModified`), which AAPS needs, plus the token exchange at `/api/v2/authorization/request/<token>`.
 
-- **What becomes part of the log:** sensor readings (`sgv`) become CGM readings, stored in mg/dL, with the app's device name as the source. Meter readings (`mbg`, and treatments with finger or manual glucose) become glucose entries, and a treatment's carbs become a food entry.
+- **What becomes part of the log:** sensor readings (`sgv`) become CGM readings, stored in mg/dL, with the app's device name as the source. Meter readings (`mbg`, and treatments with finger or manual glucose) become glucose entries, and a treatment's carbs become a food entry. Carby always answers in mg/dL, whatever unit the person reads glucose in.
 - **Insulin is logged only when the upload says which kind it is.** Bolus events and Trio's External Insulin are rapid-acting; Juggluco's "Long-Acting" and AAPS's basal-insulin flag are long-acting. xDrip+ doesn't say, so its doses aren't logged. No uploaded dose claims a purpose, since Loop sends meal boluses as corrections.
 - **Everything else is kept as sent:** temp basals, overrides, notes, device status, profiles, food and settings. The app can read it back, but it isn't part of the log, and a profile never changes the care plan.
 - **Ids and deletes:** each document keeps the `_id` or `identifier` the app gave it, and sending the same document again changes nothing. Deleting an uploaded entry in Carby is permanent; the app's next sync can't bring it back. When the app itself deletes a document and sends it again, as Loop and Juggluco do to edit one, it comes back. API v3 history reports deletions.

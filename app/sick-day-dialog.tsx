@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { careContactLines, careContactLinks, type Plan } from "@/lib/care";
+import { glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import { illnessLabel, type IllnessCheckIn } from "@/lib/illness";
 import type { SickDayStatus } from "@/lib/sick-day";
 import { CarePlanInstructions } from "./emergency-instructions";
@@ -97,7 +98,9 @@ export default function SickDayDialog({
               Turn on sick-day check reminders in care-plan settings to see check timing here.
             </p>
           )}
-          <p className="notice">Check ketones above {plan.ketoneCheckAbove} mg/dL.</p>
+          <p className="notice">
+            Check ketones above {glucoseWithUnit(plan.ketoneCheckAbove, glucoseUnitOf(plan))}.
+          </p>
           <section className="illness-check-ins" aria-label="Check-ins">
             <div>
               <h3>Check-ins</h3>
