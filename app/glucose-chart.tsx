@@ -49,6 +49,7 @@ import { inQuietHours, isCorrectionDose } from "@/lib/correction-review";
 import { nightlySchedule } from "@/lib/nightly-reminder";
 import { glucoseLevel, glucoseLevelNames } from "@/lib/glucose-metrics";
 import { estimateLabel, type GlucoseEstimate } from "@/lib/glucose-estimate";
+import { usualFastestFall, type DoseTiming } from "@/lib/dose-response";
 import {
   formatGlucose,
   glucoseToMgdl,
@@ -97,6 +98,8 @@ type Props = {
   >;
   /** The next two hours' likely range from CGM history; drawn ahead of now. */
   estimate?: GlucoseEstimate | null;
+  /** Rapid-acting timing from earlier clean doses; each rapid-acting dose gets its usual fastest fall. */
+  rapidTiming?: DoseTiming | null;
 };
 type ChartRecord = { at: string; type: string; detail: string; source: string; timeNote?: string };
 type StatusRun = { first: CgmReading; last: CgmReading; status: "High" | "Low"; count: number };
@@ -532,6 +535,7 @@ const GlucoseChart = memo(function GlucoseChart({
   correctionAt = null,
   correctionHours = 0,
   estimate = null,
+  rapidTiming = null,
   onSelectIllness,
   range,
   onRangeChange,
@@ -903,6 +907,26 @@ const GlucoseChart = memo(function GlucoseChart({
     const minute = minuteOf(at);
     return minute >= start && minute <= end ? [{ at, minute }] : [];
   });
+  // Where glucose usually fell fastest after rapid-acting, placed after each dose in view. The
+  // band for a dose still ahead of it gets a label, so the timing is readable before it passes.
+  const fallMarks = visibleInsulin.flatMap((dose) => {
+    const fall = usualFastestFall(dose, rapidTiming);
+    if (!fall) return [];
+    const from = minuteOf(fall.from),
+      to = minuteOf(fall.to);
+    return to >= start && from <= end
+      ? [{ key: dose.id, dose, fall, from, to, ahead: Date.parse(fall.to) > now }]
+      : [];
+  });
+  const labeledFall =
+    day === today
+      ? fallMarks
+          .filter((mark) => mark.ahead)
+          .reduce<(typeof fallMarks)[number] | undefined>(
+            (latest, mark) => (!latest || mark.from > latest.from ? mark : latest),
+            undefined,
+          )
+      : undefined;
   // The likely range from the current reading on: CGM-only, never dosing advice.
   const estimatePoints =
     estimate?.state === "ready"
@@ -1111,6 +1135,7 @@ const GlucoseChart = memo(function GlucoseChart({
   if (visibleEvents.length) presentLayers.add("device");
   if (showCorrection || reviewMarks.length) presentLayers.add("review");
   if (nightlyMarks.length) presentLayers.add("nightly");
+  if (fallMarks.length) presentLayers.add("fall");
   if (estimateShown) presentLayers.add("estimate");
   const pressable = (select: { label: string; run: () => void }) => ({
     role: "button",
@@ -1718,6 +1743,52 @@ const GlucoseChart = memo(function GlucoseChart({
               );
             }),
           )}
+          {shows("fall") &&
+            fallMarks.map((mark) => {
+              const left = x(Math.max(mark.from, start)),
+                right = x(Math.min(mark.to, end));
+              return (
+                <rect
+                  key={mark.key}
+                  data-layer="fall"
+                  className={mark.ahead ? "chart-fall-band is-ahead" : "chart-fall-band"}
+                  x={left}
+                  y={TOP}
+                  width={Math.max(2, right - left)}
+                  height={BOTTOM - TOP}
+                  pointerEvents="none"
+                />
+              );
+            })}
+          {shows("fall") &&
+            labeledFall &&
+            (() => {
+              const text = `Usual fastest fall · ${eventTime(labeledFall.fall.from, timezone)}`;
+              // Beside the band on whichever side has room for the words and no timing line
+              // (the correction review or a nightly dose) running through them.
+              const width = text.length * 6;
+              const lines = [
+                ...(shows("review") && showCorrection ? [x(correctionMinute!)] : []),
+                ...(shows("nightly") ? nightlyMarks.map((mark) => x(mark.minute)) : []),
+              ];
+              const clear = (left: number) =>
+                left >= LEFT &&
+                left + width <= RIGHT &&
+                lines.every((line) => line < left - 4 || line > left + width + 4);
+              const after = clear(x(labeledFall.to) + 6) || !clear(x(labeledFall.from) - 6 - width);
+              return (
+                <text
+                  data-layer="fall"
+                  className="chart-fall-label"
+                  x={after ? x(labeledFall.to) + 6 : x(labeledFall.from) - 6}
+                  y={TOP + 14}
+                  textAnchor={after ? "start" : "end"}
+                  pointerEvents="none"
+                >
+                  {text}
+                </text>
+              );
+            })()}
           {shows("nightly") &&
             nightlyMarks.map((mark) => (
               <line
@@ -1918,6 +1989,17 @@ const GlucoseChart = memo(function GlucoseChart({
                 {when(e.at)} · {e.insulin} · {e.units} units <small>dose logged</small>
               </span>
             ))}
+            {shows("fall") &&
+              cursor !== null &&
+              fallMarks
+                .filter((mark) => cursor >= mark.from && cursor <= mark.to)
+                .map((mark) => (
+                  <span key={`fall-${mark.key}`}>
+                    Usual fastest fall after {when(mark.dose.at)} rapid-acting ·{" "}
+                    {when(mark.fall.from)}–{when(mark.fall.to)}{" "}
+                    <small>from earlier doses · timing only</small>
+                  </span>
+                ))}
             {nearbyExercise.map((e) => (
               <span key={e.id}>
                 {when(e.at)} · Exercise{e.minutes ? ` · ${e.minutes} min` : ""}
@@ -1982,6 +2064,7 @@ const GlucoseChart = memo(function GlucoseChart({
           low: statusRuns.some((run) => run.status === "Low"),
         }}
         reviewHours={correctionHours}
+        rapidTiming={rapidTiming}
         cgm={visiblePoints.some((point) => point.value !== null)}
         rangeLabel={`In range ${formatGlucose(ranges.low, unit)}–${formatGlucose(ranges.high, unit)} ${unit}`}
         unit={unit}

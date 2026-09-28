@@ -154,6 +154,7 @@ import {
   shownCorrectionReview,
 } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
+import { doseResponses, doseTiming } from "@/lib/dose-response";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
 import { formatGlucose, glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import { EstimateChart } from "./estimate-chart";
@@ -873,6 +874,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   }, [cgm]);
   // The next two hours' likely range, fitted on this person's CGM history. Never dosing advice.
   const estimate = useMemo(() => glucoseEstimate(cgm, now?.getTime() ?? NaN), [cgm, now]);
+  // When glucose usually fell fastest after rapid-acting, from this person's own clean doses.
+  const rapidTiming = useMemo(
+    () => (now ? doseTiming(doseResponses(entries, cgm, now.getTime()), "Rapid-acting") : null),
+    [entries, cgm, now],
+  );
   // The care API loads CGM and Dexcom events from the last 45 days, newest first, up to 15,000 CGM rows.
   const cgmHistoryStart = historyLimited
     ? earliestLoadedCgm
@@ -2234,6 +2240,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                     correctionAt={chartCorrectionAt}
                     correctionHours={plan.correctionHours}
                     estimate={estimate}
+                    rapidTiming={rapidTiming}
                     onSelectIllness={(illness) => setIllnessEditor({ record: illness })}
                     key={day}
                     onSelectDoseFood={(dose) => openDoseFood(dose)}

@@ -209,3 +209,28 @@ export function doseTiming(
     medianLowestMinutes: lows.length >= minDoses ? median(lows) : null,
   };
 }
+
+/**
+ * Where glucose usually fell fastest after a rapid-acting dose, placed after this dose: the
+ * 15 minutes starting at the median `fastestFallFrom` of earlier comparable doses. Null for other
+ * entries, or until enough doses fell. A timing reference from the person's own log, not a
+ * prediction of this dose's effect.
+ */
+export function usualFastestFall(
+  dose: Entry,
+  timing: DoseTiming | null,
+): { from: string; to: string } | null {
+  if (
+    !timing ||
+    timing.fastestFallFrom === null ||
+    dose.kind !== "insulin" ||
+    dose.insulin !== timing.insulin
+  )
+    return null;
+  const from = Date.parse(dose.at) + timing.fastestFallFrom * MINUTE;
+  if (!Number.isFinite(from)) return null;
+  return {
+    from: new Date(from).toISOString(),
+    to: new Date(from + FALL_STEP_MINUTES * MINUTE).toISOString(),
+  };
+}

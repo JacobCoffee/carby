@@ -1,6 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import { Activity, Link2, Siren, Syringe, Utensils } from "lucide-react";
+import type { DoseTiming } from "@/lib/dose-response";
 import { formatGlucose, type GlucoseUnit } from "@/lib/glucose-units";
 
 /** Everything on the glucose chart that can be hidden. The CGM line and the range band stay. */
@@ -16,6 +17,7 @@ export type ChartLayer =
   | "device"
   | "review"
   | "nightly"
+  | "fall"
   | "estimate";
 
 type LayerInfo = { layer: ChartLayer; label: string; swatch: ReactNode; title?: string };
@@ -24,7 +26,12 @@ const icon = (Icon: typeof Utensils, color: string) => (
   <Icon size={14} color={color} strokeWidth={2.6} aria-hidden="true" />
 );
 
-function layers(status: { high: boolean; low: boolean }, reviewHours: number, unit: GlucoseUnit) {
+function layers(
+  status: { high: boolean; low: boolean },
+  reviewHours: number,
+  unit: GlucoseUnit,
+  rapidTiming: DoseTiming | null,
+) {
   const groups: { name: string; items: LayerInfo[] }[] = [
     {
       name: "Glucose",
@@ -101,6 +108,15 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number, un
           swatch: <i className="legend-nightly" aria-hidden="true" />,
           title: "The scheduled long-acting time from your care plan",
         },
+        {
+          layer: "fall",
+          label: "Insulin timing",
+          swatch: <i className="legend-fall" aria-hidden="true" />,
+          title:
+            rapidTiming?.fastestFallFrom != null
+              ? `After rapid-acting, glucose fell fastest ${rapidTiming.fastestFallFrom}–${rapidTiming.fastestFallFrom + 15} min in, the median of ${rapidTiming.doses} earlier doses with no food or other insulin nearby. A timing reference from your log, not a prediction of this dose.`
+              : undefined,
+        },
       ],
     },
   ];
@@ -118,6 +134,7 @@ export function ChartLegend({
   onPreview,
   status,
   reviewHours,
+  rapidTiming = null,
   cgm,
   rangeLabel,
   unit,
@@ -129,11 +146,13 @@ export function ChartLegend({
   onPreview: (layer: ChartLayer | null) => void;
   status: { high: boolean; low: boolean };
   reviewHours: number;
+  /** Where glucose usually fell fastest after rapid-acting, for the insulin timing chip. */
+  rapidTiming?: DoseTiming | null;
   cgm: boolean;
   rangeLabel: string;
   unit: GlucoseUnit;
 }) {
-  const groups = layers(status, reviewHours, unit)
+  const groups = layers(status, reviewHours, unit, rapidTiming)
     .map((group) => ({ ...group, items: group.items.filter((i) => present.has(i.layer)) }))
     .filter((group) => group.items.length || group.name === "Glucose");
   return (
