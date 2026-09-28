@@ -21,6 +21,7 @@ import {
   attachMealFoodSql,
 } from "@/lib/meal-log";
 import { clarityReadingStatements, clarityEventStatements } from "@/lib/cgm-sql";
+import { tombstoneFor } from "@/lib/nightscout-store";
 import type { ClarityFreshness, SensorSession } from "@/lib/cgm-summary";
 import {
   acceptConfig,
@@ -794,10 +795,12 @@ export async function POST(request: Request) {
         .bind(body.id, owner)
         .first<{ data: string }>();
       if (!previous) return reply({ error: "Entry no longer exists." }, 404);
+      const now = new Date().toISOString();
       await db.batch([
         ...queue({ table: "entries", id: body.id }),
         db.prepare("DELETE FROM entries WHERE id = $1 AND owner = $2").bind(body.id, owner),
         audit(db, owner, user.userId, user.displayName, body.id, "deleted", previous.data, null),
+        tombstoneFor(db, owner, body.id, now),
       ]);
     } else if (body.action === "syncResend" || body.action === "syncDiscard") {
       await resolveHeld(db, owner, body.action === "syncResend" ? "send" : "discard");

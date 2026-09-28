@@ -57,6 +57,13 @@
       "when": 1790552236278,
       "tag": "0007_api_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790553956605,
+      "tag": "0008_nightscout_records",
+      "breakpoints": true
     }
   ]
 }

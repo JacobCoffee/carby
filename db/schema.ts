@@ -291,6 +291,43 @@ export const apiTokens = pgTable(
   ],
 );
 /**
+ * Documents uploaded over the Nightscout API, as the uploader sent them. Each keeps the `_id`
+ * and `identifier` the client gave so every read and delete returns them, a key that makes an
+ * identical re-upload a no-op, and the Carby records it became (`carby`, a JSON list of
+ * `{ table, id }`). A deleted document stays as a tombstone for readers and v3 history. One deleted
+ * in Carby stays deleted whatever the uploader sends; one the uploader deleted may come back with
+ * the same id, since uploaders update a record by deleting and resending it. Not part of backups;
+ * the Carby records it made are.
+ */
+export const nightscoutRecords = pgTable(
+  "nightscout_records",
+  {
+    owner: text("owner").notNull(),
+    /** entries | treatments | devicestatus | profile */
+    collection: text("collection").notNull(),
+    id: text("id").notNull(),
+    identifier: text("identifier"),
+    /** The collection's natural key (for example an entry's type and time), hashed. */
+    dedupeKey: text("dedupe_key").notNull(),
+    at: text("at").notNull(),
+    data: text("data").notNull(),
+    carby: text("carby").notNull(),
+    token: text("token").notNull(),
+    created: text("created").notNull(),
+    modified: text("modified").notNull(),
+    deleted: text("deleted"),
+    /** carby | upload: who deleted it, and so whether the uploader can bring it back. */
+    deletedBy: text("deleted_by"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.owner, t.collection, t.id] }),
+    index("idx_nightscout_records_identifier").on(t.owner, t.collection, t.identifier),
+    index("idx_nightscout_records_dedupe").on(t.owner, t.collection, t.dedupeKey),
+    index("idx_nightscout_records_at").on(t.owner, t.collection, t.at),
+    index("idx_nightscout_records_modified").on(t.owner, t.collection, t.modified),
+  ],
+);
+/**
  * Records changed here that still have to reach another Carby deployment (one-way sync, only
  * when CARBY_SYNC_PUSH_* is set). One row per record; `previous` is the record's revision
  * before the first unsent change, so the receiver can tell whether it was edited there.

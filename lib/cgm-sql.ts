@@ -19,7 +19,8 @@ export function legacyRoundedAt(at: string): string | null {
   return rounded === at ? null : rounded;
 }
 
-async function rowId(key: string) {
+/** A CGM reading's row id: one per person per instant, whichever source saved it. */
+export async function cgmRowId(key: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
   return Array.from(new Uint8Array(digest))
     .map((n) => n.toString(16).padStart(2, "0"))
@@ -39,7 +40,13 @@ export async function clarityReadingStatements(
     readings.map(async (v) =>
       db
         .prepare(saveCgmSql)
-        .bind(await rowId(owner + "|" + v.at), owner, v.at, v.status ?? String(v.value), v.source),
+        .bind(
+          await cgmRowId(owner + "|" + v.at),
+          owner,
+          v.at,
+          v.status ?? String(v.value),
+          v.source,
+        ),
     ),
   );
   const legacyRows = readings.flatMap((v) => {
@@ -73,7 +80,9 @@ export function clarityEventStatements(
           "INSERT INTO dexcom_events (id, owner, at, data) VALUES ($1, $2, $3, $4) ON CONFLICT(id) DO NOTHING",
         )
         .bind(
-          await rowId(owner + "|" + v.at + "|" + v.type + "|" + v.details + "|" + String(v.value)),
+          await cgmRowId(
+            owner + "|" + v.at + "|" + v.type + "|" + v.details + "|" + String(v.value),
+          ),
           owner,
           v.at,
           JSON.stringify(v),
