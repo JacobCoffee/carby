@@ -8,6 +8,7 @@ import {
   tokenHash,
   verifyJwt,
   type ApiScope,
+  type Credential,
 } from "@/lib/api-tokens";
 import { profileSchema } from "@/lib/profile";
 import {
@@ -210,6 +211,43 @@ type TokenRow = {
 const TOKEN_SELECT =
   "SELECT t.id, t.person, t.account, t.label, t.scopes, t.token_hash, t.last_used, m.role, m.account_name FROM api_tokens t JOIN person_members m ON m.person = t.person AND m.account = t.account WHERE ";
 
+/** The token a credential names, with its account's current role, or null. Records its use. */
+async function findToken(
+  db: Database,
+  credential: Credential,
+  now: Date,
+): Promise<(TokenRow & { role: PersonRole }) | null> {
+  let row: TokenRow | null;
+  if (credential.kind === "jwt") {
+    const id = jwtTokenId(credential.jwt);
+    row = id ? await db.prepare(`${TOKEN_SELECT}t.id = $1`).bind(id).first<TokenRow>() : null;
+    if (row && !(await verifyJwt(credential.jwt, row.token_hash, now.getTime() / 1000))) row = null;
+  } else if (credential.kind === "secret") {
+    row = await db
+      .prepare(`${TOKEN_SELECT}t.secret_hash = $1`)
+      .bind(credential.sha1)
+      .first<TokenRow>();
+  } else {
+    row = await db
+      .prepare(`${TOKEN_SELECT}t.token_hash = $1`)
+      .bind(await tokenHash(credential.token))
+      .first<TokenRow>();
+  }
+  const role = row?.role;
+  if (!row || !role || !isRole(role)) return null;
+  // Record use at most once a minute, so a busy uploader doesn't write on every request.
+  if (!row.last_used || now.getTime() - Date.parse(row.last_used) > 60000)
+    await db
+      .prepare("UPDATE api_tokens SET last_used = $1 WHERE id = $2")
+      .bind(now.toISOString(), row.id)
+      .run();
+  return { ...row, role };
+}
+
+/** The token's scopes that its account's role still allows. */
+const liveScopes = (row: { scopes: string; role: PersonRole }) =>
+  parseScopes(row.scopes).filter((scope) => can(row.role, scopeNeed[scope]));
+
 /**
  * The access an API token gives a request, in any form Nightscout clients send it. The token acts
  * as the account that made it, so it stops working when that account leaves or loses the role
@@ -222,44 +260,37 @@ export async function tokenAccess(
   const credential = requestCredential(request);
   if (!credential) return tokenReply(401, "Add a Carby API token to this app.");
   try {
-    const db = database();
-    const now = new Date();
-    let row: TokenRow | null;
-    if (credential.kind === "jwt") {
-      const id = jwtTokenId(credential.jwt);
-      row = id ? await db.prepare(`${TOKEN_SELECT}t.id = $1`).bind(id).first<TokenRow>() : null;
-      if (row && !(await verifyJwt(credential.jwt, row.token_hash, now.getTime() / 1000)))
-        row = null;
-    } else if (credential.kind === "secret") {
-      row = await db
-        .prepare(`${TOKEN_SELECT}t.secret_hash = $1`)
-        .bind(credential.sha1)
-        .first<TokenRow>();
-    } else {
-      row = await db
-        .prepare(`${TOKEN_SELECT}t.token_hash = $1`)
-        .bind(await tokenHash(credential.token))
-        .first<TokenRow>();
-    }
-    if (!row || !isRole(row.role)) return tokenReply(401, "That Carby API token isn’t valid.");
-    const scopes = parseScopes(row.scopes);
-    if (!scopes.includes(scope) || !can(row.role, scopeNeed[scope]))
+    const row = await findToken(database(), credential, new Date());
+    if (!row) return tokenReply(401, "That Carby API token isn’t valid.");
+    const scopes = liveScopes(row);
+    if (!scopes.includes(scope))
       return tokenReply(
         403,
         scope === "upload" ? "This token can’t upload." : "This token can’t read.",
       );
-    // Record use at most once a minute, so a busy uploader doesn't write on every request.
-    if (!row.last_used || now.getTime() - Date.parse(row.last_used) > 60000)
-      await db
-        .prepare("UPDATE api_tokens SET last_used = $1 WHERE id = $2")
-        .bind(now.toISOString(), row.id)
-        .run();
     return {
       user: { userId: row.account, displayName: `${row.account_name} via ${row.label}` },
       person: row.person,
       role: row.role,
       token: { id: row.id, label: row.label, scopes },
     };
+  } catch (e) {
+    console.error("token check failed", e);
+    return tokenReply(503, "Carby is unavailable right now. Please retry.");
+  }
+}
+
+/**
+ * A token sent in a URL path, as /api/v2/authorization/request/<token> takes it, for signing a
+ * JWT: its id, label, current scopes and the stored hash the JWT is signed with.
+ */
+export async function tokenGrant(
+  token: string,
+): Promise<{ id: string; label: string; scopes: ApiScope[]; storedHash: string } | Response> {
+  try {
+    const row = await findToken(database(), { kind: "token", token }, new Date());
+    if (!row) return tokenReply(401, "That Carby API token isn’t valid.");
+    return { id: row.id, label: row.label, scopes: liveScopes(row), storedHash: row.token_hash };
   } catch (e) {
     console.error("token check failed", e);
     return tokenReply(503, "Carby is unavailable right now. Please retry.");
