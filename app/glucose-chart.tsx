@@ -71,6 +71,7 @@ import "./glucose-chart.css";
 type Props = {
   illnesses?: IllnessWindow[];
   now: number;
+  /** Next correction review to mark; the caller leaves out one in the plan's quiet hours. */
   correctionAt?: string | null;
   /** Plan's correction review interval; each correction dose or skipped correction gets a faint review line at its time + interval. */
   correctionHours?: number;
@@ -528,7 +529,7 @@ const GlucoseChart = memo(function GlucoseChart({
   onSelectDoseFood,
   illnesses = [],
   now,
-  correctionAt: nextReviewAt = null,
+  correctionAt = null,
   correctionHours = 0,
   estimate = null,
   onSelectIllness,
@@ -572,11 +573,6 @@ const GlucoseChart = memo(function GlucoseChart({
   const minuteOf = (at: string) => (Date.parse(at) - bounds.start) / 60000;
   const quietHours = plan.correctionQuietHours;
   const unit = glucoseUnitOf(plan);
-  // The plan gives no corrections in its quiet hours, so a review due then is not marked.
-  const correctionAt =
-    nextReviewAt && !inQuietHours(Date.parse(nextReviewAt), quietHours, timezone)
-      ? nextReviewAt
-      : null;
   const nightlyTimes = useMemo(
     () =>
       nightlySchedule(

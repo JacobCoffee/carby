@@ -4,6 +4,7 @@ import {
   correctionReviewStatus,
   inQuietHours,
   lastCorrectionEvent,
+  shownCorrectionReview,
 } from "../lib/correction-review.ts";
 import { entrySchema } from "../lib/care.ts";
 
@@ -117,6 +118,29 @@ test("quiet hours within one day stay inside it, and none on the plan hides noth
   assert.equal(inQuietHours(Date.parse("2026-09-26T20:00:00Z"), afternoon, timezone), false);
   assert.equal(inQuietHours(Date.parse("2026-09-26T08:00:00Z"), afternoon, timezone), false);
   assert.equal(inQuietHours(Date.parse("2026-09-26T04:28:00Z"), undefined, timezone), false);
+});
+
+test("a review due in quiet hours is not shown, one outside them is", () => {
+  const night = { start: "23:00", end: "06:00" };
+  // Skipped at 9:03 PM CDT, so the review lands at 12:03 AM, inside the quiet hours.
+  const late = correctionReviewStatus(
+    "2026-09-28T02:03:00Z",
+    Date.parse("2026-09-28T02:06:00Z"),
+    timezone,
+    3,
+  );
+  assert.equal(late?.at, "2026-09-28T05:03:00.000Z");
+  assert.equal(shownCorrectionReview(late, night, timezone), null);
+  assert.equal(shownCorrectionReview(late, undefined, timezone), late);
+  // Skipped at 6:54 PM CDT, the 9:54 PM review is before the quiet hours start.
+  const evening = correctionReviewStatus(
+    "2026-09-27T23:54:00Z",
+    Date.parse("2026-09-28T00:00:00Z"),
+    timezone,
+    3,
+  );
+  assert.equal(shownCorrectionReview(evening, night, timezone), evening);
+  assert.equal(shownCorrectionReview(null, night, timezone), null);
 });
 
 test("a skipped correction restarts the review from the skip", () => {
