@@ -472,7 +472,7 @@ export function PlanSettingsFields({
       </ToggleGroup>
       <ToggleGroup
         legend="Hide overnight correction reviews"
-        helper="Hours when your plan gives no correction doses, such as while asleep. Correction review times in these hours are left off the chart. Optional."
+        helper="Hours when your plan gives no correction doses, such as while asleep. Correction review times in these hours are left off the chart and the reminders. Optional."
         enabled={!!draft.correctionQuietHours}
         onToggle={(on) =>
           on ? set("correctionQuietHours", { start: "", end: "" }) : remove("correctionQuietHours")

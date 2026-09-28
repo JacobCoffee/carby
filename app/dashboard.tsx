@@ -151,6 +151,7 @@ import {
   correctionReviewStatus,
   lastCorrectionEvent,
   readingAboveRange,
+  shownCorrectionReview,
 } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
@@ -1029,12 +1030,17 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         : `${glucoseWithUnit(latestVerifiedGlucose.value, glucoseUnit)} · Dexcom Share`
     : null;
   // A logged skip restarts the review; the dose flow still reads insulin from actual doses only.
+  // A review due in the plan's quiet hours is left off the chart, the header and the menu.
   const lastCorrection = lastCorrectionEvent(entries, now?.getTime() ?? NaN);
-  const correctionReview = correctionReviewStatus(
-    lastCorrection?.at,
-    now?.getTime() ?? NaN,
+  const correctionReview = shownCorrectionReview(
+    correctionReviewStatus(
+      lastCorrection?.at,
+      now?.getTime() ?? NaN,
+      plan.timezone,
+      plan.correctionHours,
+    ),
+    plan.correctionQuietHours,
     plan.timezone,
-    plan.correctionHours,
   );
   const chartCorrectionAt = correctionMarkerAt(
     correctionReview,

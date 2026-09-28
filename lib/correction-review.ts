@@ -107,3 +107,12 @@ export function inQuietHours(
     ? clock >= quiet.start && clock < quiet.end
     : clock >= quiet.start || clock < quiet.end;
 }
+
+/** The review, unless it falls in the plan's quiet hours: the plan gives no corrections then. */
+export function shownCorrectionReview(
+  review: CorrectionReview | null,
+  quiet: CorrectionQuietHours | undefined,
+  timezone: string,
+): CorrectionReview | null {
+  return review && !inQuietHours(Date.parse(review.at), quiet, timezone) ? review : null;
+}
