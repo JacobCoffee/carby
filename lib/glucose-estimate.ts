@@ -1,4 +1,5 @@
 import type { CgmReading, Entry } from "./care";
+import { formatGlucose, type GlucoseUnit } from "./glucose-units";
 import { uniqueCgm } from "./cgm-metrics";
 
 /**
@@ -245,7 +246,7 @@ export function loggedEstimate(
   });
 }
 
-/** An estimate value as text: mg/dL, or the sensor's HIGH/LOW at its limits. */
-export function estimateLabel(value: number) {
-  return value >= SENSOR_HIGH ? "HIGH" : value <= SENSOR_LOW ? "LOW" : String(value);
+/** An estimate value as text in the unit, or the sensor's HIGH/LOW at its limits. */
+export function estimateLabel(value: number, unit: GlucoseUnit) {
+  return value >= SENSOR_HIGH ? "HIGH" : value <= SENSOR_LOW ? "LOW" : formatGlucose(value, unit);
 }

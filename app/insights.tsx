@@ -5,7 +5,8 @@ import { CARE_CHANGED } from "@/lib/live-refresh";
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Activity, BarChart3, Clock3, Utensils } from "lucide-react";
 import type { CgmReading, Entry, Plan } from "@/lib/care";
-import { fromLocal, glucoseRanges } from "@/lib/care";
+import { STANDARD_GLUCOSE_RANGES, fromLocal, glucoseRanges } from "@/lib/care";
+import { formatGlucose, glucoseUnitOf, type GlucoseUnit } from "@/lib/glucose-units";
 import { computeInsights, type InsightsSummary } from "@/lib/insights";
 import { illnessOverlap, illnessLabel, isSick, type IllnessWindow } from "@/lib/illness";
 import { buildPatternFlags, patternFlagLabel, type PatternFlag } from "@/lib/patterns";
@@ -20,7 +21,10 @@ type Props = {
   timezone: string;
   patientName?: string;
   illnesses?: IllnessWindow[];
-  plan: Pick<Plan, "glucoseRanges" | "lowThreshold" | "patternRule" | "usualChangePercent">;
+  plan: Pick<
+    Plan,
+    "glucoseRanges" | "glucoseUnit" | "lowThreshold" | "patternRule" | "usualChangePercent"
+  >;
   /** Opens a new illness period; absent when this account can't log. */
   onLogIllness?: () => void;
 };
@@ -40,7 +44,7 @@ const percent = (value: number | null) => (value === null ? "—" : `${value}%`)
 const dayLabel = (day: string, short = false) =>
   (short ? shortDayFormatter : dayFormatter).format(new Date(`${day}T12:00:00Z`));
 
-function TrendPlot({ insights }: { insights: InsightsSummary }) {
+function TrendPlot({ insights, unit }: { insights: InsightsSummary; unit: GlucoseUnit }) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const viewport = useRef<HTMLDivElement | null>(null);
@@ -79,7 +83,9 @@ function TrendPlot({ insights }: { insights: InsightsSummary }) {
         </span>
       </div>
       <p className="insights-small">
-        70–180 mg/dL is shown only where enough CGM time was recorded. Select a day for its details.
+        {formatGlucose(STANDARD_GLUCOSE_RANGES.low, unit)}–
+        {formatGlucose(STANDARD_GLUCOSE_RANGES.high, unit)} {unit} is shown only where enough CGM
+        time was recorded. Select a day for its details.
       </p>
       <div
         className="insights-chart"
@@ -184,7 +190,9 @@ function TrendPlot({ insights }: { insights: InsightsSummary }) {
   );
 }
 
-function TimeOfDay({ insights }: { insights: InsightsSummary }) {
+function TimeOfDay({ insights, unit }: { insights: InsightsSummary; unit: GlucoseUnit }) {
+  const low = formatGlucose(STANDARD_GLUCOSE_RANGES.low, unit),
+    high = formatGlucose(STANDARD_GLUCOSE_RANGES.high, unit);
   return (
     <section className="insights-panel insights-times" aria-labelledby="insights-times-heading">
       <div className="insights-panel-title">
@@ -197,15 +205,15 @@ function TimeOfDay({ insights }: { insights: InsightsSummary }) {
       <div className="insights-time-legend" aria-hidden="true">
         <span>
           <i className="low" />
-          Below 70
+          Below {low}
         </span>
         <span>
           <i className="range" />
-          70–180
+          {low}–{high}
         </span>
         <span>
           <i className="high" />
-          Above 180
+          Above {high}
         </span>
       </div>
       <div className="insights-time-rows">
@@ -215,7 +223,7 @@ function TimeOfDay({ insights }: { insights: InsightsSummary }) {
             <div
               className={`insights-time-track${slot.inRangePercent === null ? " no-data" : ""}`}
               role="img"
-              aria-label={`${slot.label}: ${slot.inRangePercent === null ? "insufficient CGM coverage for glucose percentages" : `${slot.below70Percent}% below 70, ${slot.inRangePercent}% from 70 to 180, ${slot.above180Percent}% above 180`}; ${slot.coveragePercent}% CGM coverage`}
+              aria-label={`${slot.label}: ${slot.inRangePercent === null ? "insufficient CGM coverage for glucose percentages" : `${slot.below70Percent}% below ${low}, ${slot.inRangePercent}% from ${low} to ${high}, ${slot.above180Percent}% above ${high}`}; ${slot.coveragePercent}% CGM coverage`}
             >
               <span
                 className="insights-time-low"
@@ -295,6 +303,7 @@ function Insights({
   plan,
   onLogIllness,
 }: Props) {
+  const unit = glucoseUnitOf(plan);
   const [days, setDays] = useState<Period>(14);
   const [clock, setClock] = useState(() => Date.now());
   const [history, setHistory] = useState<{ cgm: CgmReading[]; limited: boolean } | null>(null);
@@ -493,6 +502,7 @@ function Insights({
               (illness) => isSick(illness) && illnessOverlap(illness, clock, clock + 1, clock),
             )}
             onLogIllness={onLogIllness}
+            unit={unit}
           />
           {patterns && (
             <section
@@ -536,13 +546,15 @@ function Insights({
                 ? null
                 : { low: glucoseRanges(plan).low, high: glucoseRanges(plan).high }
             }
+            unit={unit}
           />
           <div className="insights-stats" aria-label="Period summary">
             <div className="insights-main-stat">
               <span>Observed time in range</span>
               <strong>{percent(insights.glucose.inRangePercent)}</strong>
               <small>
-                70–180 mg/dL ·{" "}
+                {formatGlucose(STANDARD_GLUCOSE_RANGES.low, unit)}–
+                {formatGlucose(STANDARD_GLUCOSE_RANGES.high, unit)} {unit} ·{" "}
                 {insights.glucose.inRangePercent === null
                   ? "not enough CGM coverage"
                   : `${hours(insights.coverage.observedMinutes)} of CGM time`}
@@ -605,8 +617,8 @@ function Insights({
             </p>
           )}
           <div className="insights-body-grid">
-            <TrendPlot key={days} insights={insights} />
-            <TimeOfDay insights={insights} />
+            <TrendPlot key={days} insights={insights} unit={unit} />
+            <TimeOfDay insights={insights} unit={unit} />
             <FoodRankings insights={insights} />
           </div>
           <p className="insights-method">

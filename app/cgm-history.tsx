@@ -3,10 +3,11 @@ import { apiFetch, personHref } from "@/lib/person-request";
 import { usePersonAccess } from "./person-context";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { dateKey } from "@/lib/care";
+import { STANDARD_GLUCOSE_RANGES, dateKey } from "@/lib/care";
 import { currentSensor, type CgmSummaryResponse } from "@/lib/cgm-summary";
 import type { ClarityStatus } from "@/lib/clarity-sync";
 import { AGP_MIN_WEAR_PERCENT, GLUCOSE_LEVELS, glucoseLevelLabels } from "@/lib/glucose-metrics";
+import { formatGlucose, glucoseWithUnit, type GlucoseUnit } from "@/lib/glucose-units";
 import { CARE_CHANGED } from "@/lib/live-refresh";
 import { formatSize, reportKindNames } from "./clarity-panel";
 import "./cgm-overview.css";
@@ -53,7 +54,15 @@ const tenth = (value: number) => Math.round(value * 10) / 10;
  * The record kept past the report's dates: a year of standard CGM levels by month, every
  * sensor Clarity has reported, and every Clarity PDF archived. Screen only; it does not print.
  */
-export default function CgmHistory({ active, timezone }: { active: boolean; timezone: string }) {
+export default function CgmHistory({
+  active,
+  timezone,
+  unit,
+}: {
+  active: boolean;
+  timezone: string;
+  unit: GlucoseUnit;
+}) {
   const { person } = usePersonAccess();
   // Re-read whenever the care log changes, so a Clarity sync shows up.
   const [clock, setClock] = useState(Date.now);
@@ -109,6 +118,7 @@ export default function CgmHistory({ active, timezone }: { active: boolean; time
   const sensors = [...(summary?.sensors ?? [])].reverse();
   const running = summary ? currentSensor(summary.sensors, clock) : null;
   const reports = clarity?.reports ?? [];
+  const levelLabels = glucoseLevelLabels(unit);
 
   return (
     <section
@@ -143,9 +153,16 @@ export default function CgmHistory({ active, timezone }: { active: boolean; time
                       <tr>
                         <th scope="col">Month</th>
                         <th scope="col">Ranges</th>
-                        <th scope="col">In range 70–180</th>
-                        <th scope="col">Below 70</th>
-                        <th scope="col">Above 250</th>
+                        <th scope="col">
+                          In range {formatGlucose(STANDARD_GLUCOSE_RANGES.low, unit)}–
+                          {formatGlucose(STANDARD_GLUCOSE_RANGES.high, unit)}
+                        </th>
+                        <th scope="col">
+                          Below {formatGlucose(STANDARD_GLUCOSE_RANGES.low, unit)}
+                        </th>
+                        <th scope="col">
+                          Above {formatGlucose(STANDARD_GLUCOSE_RANGES.veryHigh, unit)}
+                        </th>
                         <th scope="col">Average</th>
                         <th scope="col">CGM wear</th>
                       </tr>
@@ -163,7 +180,7 @@ export default function CgmHistory({ active, timezone }: { active: boolean; time
                                 className="cgm-levels-track"
                                 role="img"
                                 aria-label={GLUCOSE_LEVELS.map(
-                                  (l) => `${glucoseLevelLabels[l]} ${levels[l]}%`,
+                                  (l) => `${levelLabels[l]} ${levels[l]}%`,
                                 ).join(", ")}
                               >
                                 {GLUCOSE_LEVELS.map((level) => (
@@ -181,7 +198,7 @@ export default function CgmHistory({ active, timezone }: { active: boolean; time
                           <td>{levels ? pct(levels.inRange) : "—"}</td>
                           <td>{levels ? pct(tenth(levels.veryLow + levels.low)) : "—"}</td>
                           <td>{levels ? pct(levels.veryHigh) : "—"}</td>
-                          <td>{mean === null ? "—" : `${mean} mg/dL`}</td>
+                          <td>{mean === null ? "—" : glucoseWithUnit(mean, unit)}</td>
                           <td className={wearPercent < AGP_MIN_WEAR_PERCENT ? "is-low" : undefined}>
                             {pct(wearPercent)}
                           </td>

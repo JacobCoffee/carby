@@ -150,6 +150,7 @@ import { SyncNotice } from "./sync-notice";
 import { correctionReviewStatus, readingAboveRange } from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
+import { formatGlucose, glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import { EstimateChart } from "./estimate-chart";
 import CareHeaderReminders, { OvernightBanner } from "./care-header-reminders";
 import DexcomCredentialsForm, { type DexcomCredentials } from "./dexcom-credentials";
@@ -984,6 +985,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         isRecentReading(dexcomLatestShareAt, now?.getTime() ?? NaN)
       : latestManual?.source === "Finger-stick");
   const ranges = glucoseRanges(plan);
+  const glucoseUnit = glucoseUnitOf(plan);
   const highReading =
     !!latest &&
     (latest.status === "High" || (latest.value !== null && latest.value > plan.ketoneCheckAbove));
@@ -996,7 +998,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const levelLabel = latestLevel
     ? lowReading && latestLevel !== "low" && latestLevel !== "veryLow"
       ? "Low reading"
-      : `${glucoseLevelNames[latestLevel]} · ${glucoseLevelRanges(ranges)[latestLevel]} mg/dL`
+      : `${glucoseLevelNames[latestLevel]} · ${glucoseLevelRanges(ranges, glucoseUnit)[latestLevel]} ${glucoseUnit}`
     : "";
   const runningSensor = now && sensor ? currentSensor([sensor], now.getTime()) : null;
   const lastRapid = entries.find(
@@ -1016,11 +1018,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const doseGlucoseText = latestVerifiedGlucose
     ? "kind" in latestVerifiedGlucose
       ? latestVerifiedGlucose.glucose === null
-        ? `${meterStatusLabel(latestVerifiedGlucose.status!, plan.meter)} · finger-stick`
-        : `${latestVerifiedGlucose.glucose} mg/dL · finger-stick`
+        ? `${meterStatusLabel(latestVerifiedGlucose.status!, plan)} · finger-stick`
+        : `${glucoseWithUnit(latestVerifiedGlucose.glucose, glucoseUnit)} · finger-stick`
       : latestVerifiedGlucose.value === null
         ? `${latestVerifiedGlucose.status?.toUpperCase()} · exact value unknown`
-        : `${latestVerifiedGlucose.value} mg/dL · Dexcom Share`
+        : `${glucoseWithUnit(latestVerifiedGlucose.value, glucoseUnit)} · Dexcom Share`
     : null;
   const lastCorrection = entries.find(
     (e) =>
@@ -1051,9 +1053,9 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     readingAboveRange(latest.value, latest.status, plan.target, ranges.high);
   const reviewStillHigh =
     aboveRange && latest && correctionReview && correctionReview.state !== "upcoming"
-      ? latest.status === "High"
+      ? latest.status === "High" || latest.value === null
         ? "HIGH"
-        : `${latest.value} mg/dL`
+        : glucoseWithUnit(latest.value, glucoseUnit)
       : null;
   const nightly = nightlyReminder(entries, now?.getTime() ?? NaN, plan);
   const nowMs = now?.getTime() ?? NaN;
@@ -2120,10 +2122,12 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                           ) : (
                             meterStatusLabel(latest.status)
                           )
+                        ) : latest?.value != null ? (
+                          formatGlucose(latest.value, glucoseUnit)
                         ) : (
-                          (latest?.value ?? "—")
+                          "—"
                         )}
-                        {latest?.value != null && <span>mg/dL</span>}
+                        {latest?.value != null && <span>{glucoseUnit}</span>}
                       </div>
                       <p>
                         {latest
@@ -2166,7 +2170,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                               ? latestIsCgm
                                 ? "CGM reports HIGH."
                                 : "Meter reads HI."
-                              : `Glucose above ${plan.ketoneCheckAbove} mg/dL.`}{" "}
+                              : `Glucose above ${glucoseWithUnit(plan.ketoneCheckAbove, glucoseUnit)}.`}{" "}
                             Follow your sick-day plan and contact your care team for guidance.
                           </span>
                         </div>
@@ -2909,7 +2913,12 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
               <h3 id="night-estimate-title">Likely range, next 2 hours</h3>
               {estimate.state === "ready" ? (
                 <>
-                  <EstimateChart estimate={estimate} ranges={ranges} time={time} />
+                  <EstimateChart
+                    estimate={estimate}
+                    ranges={ranges}
+                    time={time}
+                    unit={glucoseUnit}
+                  />
                   <dl>
                     {[2, 4, 8].flatMap((i) => {
                       const point = estimate.points[i];
@@ -2918,8 +2927,9 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                             <div key={point.at}>
                               <dt>{time(point.at)}</dt>
                               <dd>
-                                <strong>{estimateLabel(point.median)}</strong> median · most likely{" "}
-                                {estimateLabel(point.low)}–{estimateLabel(point.high)} mg/dL
+                                <strong>{estimateLabel(point.median, glucoseUnit)}</strong> median ·
+                                most likely {estimateLabel(point.low, glucoseUnit)}–
+                                {estimateLabel(point.high, glucoseUnit)} {glucoseUnit}
                               </dd>
                             </div>,
                           ]
@@ -3257,7 +3267,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                 <DialogDescription>
                   Your care plan gives no insulin for snacks under {fmt(foodDose.cutoff)} g.
                   {foodDose.mode === "Carbs + correction" && latest
-                    ? ` The current reading, ${latest.status === "High" ? "HIGH" : `${latest.value} mg/dL`}, is above your range.`
+                    ? ` The current reading, ${latest.status === "High" || latest.value === null ? "HIGH" : glucoseWithUnit(latest.value, glucoseUnit)}, is above your range.`
                     : ""}{" "}
                   Check your care plan before giving insulin.
                 </DialogDescription>

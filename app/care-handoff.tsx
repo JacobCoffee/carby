@@ -7,6 +7,7 @@ import {
   entryGlucoseLabel,
   ratioSummary,
 } from "@/lib/care";
+import { formatFactor, glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
 import { escapeHtml, handoffEmergencyHtml } from "@/lib/handoff";
 import { illnessOverlap, illnessLabel, isSick, type IllnessWindow } from "@/lib/illness";
 import { useEffect, useMemo, useState } from "react";
@@ -89,6 +90,7 @@ export default function CareHandoff({
   const lastBasal = entries
     .filter((e) => e.kind === "insulin" && e.insulin === "Long-acting")
     .sort((a, b) => b.at.localeCompare(a.at))[0];
+  const unit = glucoseUnitOf(plan);
   const lastFinger = entries
     .filter((e) => e.kind === "glucose" && e.source === "Finger-stick")
     .sort((a, b) => b.at.localeCompare(a.at))[0];
@@ -115,7 +117,7 @@ export default function CareHandoff({
         : entry.kind === "food"
           ? `${entry.meal} · ${entry.carbs} g carbs${entry.lowSeverity ? ` · ${entry.lowSeverity} low` : ""}${entry.foodItems?.length ? ` · ${entry.foodItems.map((item) => `${item.name} (${item.amount} ${item.unit})`).join(", ")}` : ""}`
           : entry.kind === "glucose"
-            ? `${entry.source} glucose ${entryGlucoseLabel(entry, plan.meter)}${entry.ketones && entry.ketones !== "Not checked" ? ` · ketones ${entry.ketones}` : ""}`
+            ? `${entry.source} glucose ${entryGlucoseLabel(entry, plan)}${entry.ketones && entry.ketones !== "Not checked" ? ` · ketones ${entry.ketones}` : ""}`
             : entry.kind === "exercise"
               ? `Exercise${entry.minutes ? ` · ${entry.minutes} min` : ""}${entry.intensity ? ` · ${entry.intensity}` : ""}`
               : `Rescue medication given${entry.medication ? ` · ${entry.medication}` : ""}`;
@@ -131,7 +133,7 @@ export default function CareHandoff({
           )
           .join("")}</ul>`
       : "<p>No manually recorded actions in the past 24 hours.</p>"
-  }<h2>What was given</h2><p>Last Rapid-acting: ${lastRapid ? escapeHtml(`${lastRapid.units} units at ${readable(lastRapid.at, plan.timezone)}`) : "none recorded"}. Last Long-acting: ${lastBasal ? escapeHtml(`${lastBasal.units} units at ${readable(lastBasal.at, plan.timezone)}`) : "none recorded"}.</p><h2>What needs checking</h2><ul><li>Current glucose on the G7 app or primary device. Last imported Share reading: ${lastShare ? escapeHtml(`${lastShare.status ? lastShare.status.toUpperCase() + " (exact value unknown)" : lastShare.value + " mg/dL"} at ${readable(lastShare.at, plan.timezone)}`) : "none"}.</li><li>Last recorded finger-stick: ${lastFinger ? escapeHtml(`${entryGlucoseLabel(lastFinger, plan.meter)} at ${readable(lastFinger.at, plan.timezone)}`) : "none"}.</li><li>Check the current clinician care plan and confirm recent insulin before any dose. A calculated dose is never a dose given.</li></ul>${handoffEmergencyHtml(plan)}<h2>Current saved plan · verify against clinician instructions</h2><p>Target ${plan.target} mg/dL · ${escapeHtml(ratioSummary(plan))} · correction factor ${plan.factor} mg/dL/unit · ${plan.basal > 0 ? `prescribed long-acting ${plan.basal} units at ${escapeHtml(plan.basalTime)} (${escapeHtml(plan.timezone)})` : "no long-acting reminder configured"}.</p><p>Plan note: ${escapeHtml(plan.note || "None recorded")}</p>`;
+  }<h2>What was given</h2><p>Last Rapid-acting: ${lastRapid ? escapeHtml(`${lastRapid.units} units at ${readable(lastRapid.at, plan.timezone)}`) : "none recorded"}. Last Long-acting: ${lastBasal ? escapeHtml(`${lastBasal.units} units at ${readable(lastBasal.at, plan.timezone)}`) : "none recorded"}.</p><h2>What needs checking</h2><ul><li>Current glucose on the G7 app or primary device. Last imported Share reading: ${lastShare ? escapeHtml(`${lastShare.status ? lastShare.status.toUpperCase() + " (exact value unknown)" : glucoseWithUnit(lastShare.value!, unit)} at ${readable(lastShare.at, plan.timezone)}`) : "none"}.</li><li>Last recorded finger-stick: ${lastFinger ? escapeHtml(`${entryGlucoseLabel(lastFinger, plan)} at ${readable(lastFinger.at, plan.timezone)}`) : "none"}.</li><li>Check the current clinician care plan and confirm recent insulin before any dose. A calculated dose is never a dose given.</li></ul>${handoffEmergencyHtml(plan)}<h2>Current saved plan · verify against clinician instructions</h2><p>Target ${glucoseWithUnit(plan.target, unit)} · ${escapeHtml(ratioSummary(plan))} · correction factor ${formatFactor(plan.factor, unit)} ${unit}/unit · ${plan.basal > 0 ? `prescribed long-acting ${plan.basal} units at ${escapeHtml(plan.basalTime)} (${escapeHtml(plan.timezone)})` : "no long-acting reminder configured"}.</p><p>Plan note: ${escapeHtml(plan.note || "None recorded")}</p>`;
   function download() {
     const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carby caregiver handoff</title><style>body{font:16px/1.5 system-ui,sans-serif;color:#243249;max-width:760px;margin:auto;padding:20px}h1{color:#234ac7}h2{margin-top:28px;border-bottom:1px solid #dae3ee;padding-bottom:6px}h3{margin:18px 0 4px;font-size:17px}.care-plan-instructions{white-space:pre-wrap}li{margin:9px 0}p,li{overflow-wrap:anywhere}@media print{body{padding:0}}</style><main>${snapshot}</main></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
@@ -214,14 +216,14 @@ export default function CareHandoff({
             <li>
               Current glucose on primary device. Last imported Share point:{" "}
               {lastShare
-                ? `${lastShare.status ? lastShare.status.toUpperCase() + " · exact value unknown" : lastShare.value + " mg/dL"} · ${readable(lastShare.at, plan.timezone)}`
+                ? `${lastShare.status ? lastShare.status.toUpperCase() + " · exact value unknown" : glucoseWithUnit(lastShare.value!, unit)} · ${readable(lastShare.at, plan.timezone)}`
                 : "none"}
               .
             </li>
             <li>
               Last finger-stick:{" "}
               {lastFinger
-                ? `${entryGlucoseLabel(lastFinger, plan.meter)} · ${readable(lastFinger.at, plan.timezone)}`
+                ? `${entryGlucoseLabel(lastFinger, plan)} · ${readable(lastFinger.at, plan.timezone)}`
                 : "none"}
               .
             </li>
@@ -304,8 +306,8 @@ export default function CareHandoff({
           )}
           <h3>Current saved plan · verify before use</h3>
           <p>
-            Target {plan.target} mg/dL · {ratioSummary(plan)} · correction factor {plan.factor}{" "}
-            mg/dL/unit ·{" "}
+            Target {glucoseWithUnit(plan.target, unit)} · {ratioSummary(plan)} · correction factor{" "}
+            {formatFactor(plan.factor, unit)} {unit}/unit ·{" "}
             {plan.basal > 0
               ? `Long-acting ${plan.basal} units at ${plan.basalTime} (${plan.timezone})`
               : "No long-acting reminder configured"}

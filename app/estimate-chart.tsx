@@ -1,6 +1,7 @@
 "use client";
 import type { GlucoseRanges } from "@/lib/care";
 import { ESTIMATE_MINUTES, estimateLabel, type GlucoseEstimate } from "@/lib/glucose-estimate";
+import { formatGlucose, type GlucoseUnit } from "@/lib/glucose-units";
 
 const W = 440,
   H = 132,
@@ -14,10 +15,12 @@ export function EstimateChart({
   estimate,
   ranges,
   time,
+  unit,
 }: {
   estimate: Extract<GlucoseEstimate, { state: "ready" }>;
   ranges: Pick<GlucoseRanges, "low" | "high">;
   time: (at: string) => string;
+  unit: GlucoseUnit;
 }) {
   const { points } = estimate;
   const max = Math.min(
@@ -38,7 +41,7 @@ export function EstimateChart({
       className="estimate-chart"
       viewBox={`0 0 ${W} ${H}`}
       role="img"
-      aria-label={`Likely range: from ${estimateLabel(estimate.value)} now to a median of ${estimateLabel(last.median)} mg/dL by ${time(last.at)}, most likely between ${estimateLabel(last.low)} and ${estimateLabel(last.high)}.`}
+      aria-label={`Likely range: from ${estimateLabel(estimate.value, unit)} now to a median of ${estimateLabel(last.median, unit)} ${unit} by ${time(last.at)}, most likely between ${estimateLabel(last.low, unit)} and ${estimateLabel(last.high, unit)}.`}
     >
       <rect
         className="estimate-chart-range"
@@ -49,7 +52,7 @@ export function EstimateChart({
       />
       {[ranges.low, ranges.high].map((value) => (
         <text key={value} x={LEFT - 6} y={y(value) + 4} textAnchor="end">
-          {value}
+          {formatGlucose(value, unit)}
         </text>
       ))}
       <polygon

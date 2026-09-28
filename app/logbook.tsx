@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { BookOpen, Copy } from "lucide-react";
 import { dateKey, type CgmReading, type Entry, type Plan } from "@/lib/care";
+import { glucoseUnitOf } from "@/lib/glucose-units";
 import { periodKindLabels, type IllnessWindow } from "@/lib/illness";
 import {
   LOGBOOK_SLOTS,
@@ -89,8 +90,8 @@ export default function Logbook({
           </span>
           <h1 id="logbook-heading">Logbook</h1>
           <p>
-            One glucose reading before each meal and at bedtime, laid out the way the clinic reads
-            it. Bring it to appointments or read it out on a call-in.
+            One glucose reading in {glucoseUnitOf(plan)} before each meal and at bedtime, laid out
+            the way the clinic reads it. Bring it to appointments or read it out on a call-in.
           </p>
         </div>
         <div className="logbook-actions">
@@ -128,7 +129,9 @@ export default function Logbook({
       )}
       <div className="insights-panel report-scroll">
         <table className="matrix-table logbook-table">
-          <caption className="sr-only">Clinic logbook: pre-meal glucose by day and slot</caption>
+          <caption className="sr-only">
+            Clinic logbook: pre-meal glucose in {glucoseUnitOf(plan)} by day and slot
+          </caption>
           <thead>
             <tr>
               <th scope="col">Day</th>

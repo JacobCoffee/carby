@@ -40,7 +40,7 @@ test("a care plan's own ranges move each boundary, and the labels follow them", 
   // Past the sensor's limits is past every allowed range.
   assert.equal(level(null, "Low"), "veryLow");
   assert.equal(level(null, "High"), "veryHigh");
-  assert.deepEqual(glucoseLevelRanges(ranges), {
+  assert.deepEqual(glucoseLevelRanges(ranges, "mg/dL"), {
     veryLow: "below 60",
     low: "60–79",
     inRange: "80–160",
@@ -57,7 +57,7 @@ test("metrics weigh observed time, skip gaps, and hide mean-based numbers when t
   assert.equal(m.wearPercent, 50);
   assert.deepEqual(m.levels, { veryLow: 0, low: 0, inRange: 66.7, high: 33.3, veryHigh: 0 });
   assert.equal(m.inPlanRange, 66.7);
-  assert.equal(m.mean, 138);
+  assert.equal(m.mean, 137.5);
   assert.equal(m.gmi, 6.6);
   assert.equal(m.cv, 35.2);
   assert.equal(m.hiddenReason, null);
@@ -176,7 +176,7 @@ test("days follow local midnight, stop at now, and roll up by weekday", () => {
     ["2026-09-22", "2026-09-23", "2026-09-24"],
   );
   assert.equal(daily[0].levels, null);
-  assert.equal(daily[1].mean, 105);
+  assert.equal(daily[1].mean, 7800 / 74);
   assert.equal(daily[1].wearPercent, 50.7);
   assert.equal(daily[1].levels.inRange, 98.6);
   // 2026-09-24 has not started at `now`.

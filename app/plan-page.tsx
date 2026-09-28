@@ -50,6 +50,7 @@ import {
   type TemperatureUnit,
 } from "@/lib/care";
 import { issueFlag } from "@/lib/setup-steps";
+import { glucoseUnitOf, glucoseUnits } from "@/lib/glucose-units";
 import {
   isPlanSection,
   planChanges,
@@ -71,7 +72,13 @@ import { CareContactFields, OtherContactFields } from "./care-contacts";
 import { EmergencyInstructionFields } from "./emergency-instructions";
 import { GlucoseRangeFields } from "./glucose-range-fields";
 import { MealRatioFields } from "./meal-ratio-fields";
-import { NumberField, PlanSettingsFields, planSettingsKeys } from "./plan-settings-fields";
+import {
+  FactorField,
+  GlucoseField,
+  NumberField,
+  PlanSettingsFields,
+  planSettingsKeys,
+} from "./plan-settings-fields";
 import TimeZoneField from "./time-zone-field";
 import "./care-workspace.css";
 import "./person-menu.css";
@@ -285,6 +292,8 @@ export default function PlanPage({
     setDiscard(null);
   }
 
+  // Fields show the draft's unit; switching it re-displays the same mg/dL values.
+  const unit = glucoseUnitOf(draft);
   const flagged = (field: string) => flags.has(field);
   const flaggedKeys = <K extends string>(group: string, keys: readonly K[]) =>
     keys.filter((key) => flags.has(`${group}.${key}`));
@@ -505,22 +514,31 @@ export default function PlanPage({
                       plan.
                     </p>
                     <div className="two-fields">
-                      <NumberField
-                        label="Glucose target (mg/dL)"
+                      <Choice
+                        label="Glucose unit"
+                        value={unit}
+                        onChange={(value) =>
+                          update(
+                            { ...draft, glucoseUnit: value === "mmol/L" ? "mmol/L" : "mg/dL" },
+                            "glucoseUnit",
+                          )
+                        }
+                        options={glucoseUnits.map((option) => ({ value: option, label: option }))}
+                      />
+                      <GlucoseField
+                        label="Glucose target"
+                        unit={unit}
                         value={draft.target}
                         min={70}
                         max={250}
-                        step="any"
                         required
                         invalid={flagged("target")}
                         onChange={(target) => update({ ...draft, target }, "target")}
                       />
-                      <NumberField
-                        label="Correction factor (mg/dL per unit)"
+                      <FactorField
+                        label="Correction factor"
+                        unit={unit}
                         value={draft.factor}
-                        min={1}
-                        max={1000}
-                        step="any"
                         required
                         invalid={flagged("factor")}
                         onChange={(factor) => update({ ...draft, factor }, "factor")}
@@ -577,6 +595,7 @@ export default function PlanPage({
                   <div className="plan-lead-legend">
                     <GlucoseRangeFields
                       ranges={draft.glucoseRanges}
+                      unit={unit}
                       invalid={flagged("glucoseRanges")}
                       onChange={(glucoseRanges) => {
                         const { glucoseRanges: _, ...rest } = draft;
@@ -590,6 +609,7 @@ export default function PlanPage({
                   <div className="plan-lead-legend">
                     <PlanSettingsFields
                       draft={draft}
+                      unit={unit}
                       invalid={planSettingsKeys.filter((key) => flags.has(key))}
                       onChange={(next, changed) => {
                         // A toggled-off group is absent from `next`, so copy each key rather than spread.

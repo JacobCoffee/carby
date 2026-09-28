@@ -439,7 +439,7 @@ test("CGM coverage excludes outages and status values do not become glucose numb
   assert.equal(summary.inRangePercent, 33);
   assert.equal(summary.above180Percent, 50);
   assert.equal(summary.below70Percent, 17);
-  assert.equal(summary.average, 157);
+  assert.equal(summary.average, 940 / 6);
   const corrected = uniqueCgm([...readings, point(10, 150, null, "Dexcom Clarity")]);
   assert.equal(corrected.length, readings.length);
   assert.equal(corrected[2].value, 150);

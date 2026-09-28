@@ -31,12 +31,15 @@ import {
   stepOfFlag,
   type SetupStepId,
 } from "@/lib/setup-steps";
+import { glucoseUnits, type GlucoseUnit } from "@/lib/glucose-units";
 import BackupImport from "./backup-import";
 import { CareContactFields, OtherContactFields, type OtherContact } from "./care-contacts";
 import { EmergencyInstructionFields } from "./emergency-instructions";
 import { GlucoseRangeFields } from "./glucose-range-fields";
 import { MealRatioFields } from "./meal-ratio-fields";
 import {
+  FactorField,
+  GlucoseField,
   PlanSettingsFields,
   planSettingsKeys,
   type PlanSettingsDraft,
@@ -48,6 +51,7 @@ import PersonMenu from "./person-menu";
 import "./care-workspace.css";
 
 const fieldLabels: Record<PlanField, string> = {
+  glucoseUnit: "glucose unit",
   target: "glucose target",
   factor: "correction factor",
   ratio: "carbohydrate ratio",
@@ -146,6 +150,13 @@ export default function CareSetup({
     saved.emergencyInstructions ?? {},
   );
   const [note, setNote] = useState(saved.note ?? "");
+  // A saved plan's unit is kept; a plan saved before the setting starts blank so the person chooses.
+  const [unit, setUnit] = useState<GlucoseUnit | "">(saved.glucoseUnit ?? "");
+  // Held in mg/dL, so choosing another unit shows the same level in it.
+  const [target, setTarget] = useState(saved.target);
+  const [factor, setFactor] = useState(saved.factor);
+  // Until a unit is chosen the glucose fields are disabled, so this only labels them.
+  const shownUnit = unit || "mg/dL";
   const [ranges, setRanges] = useState<GlucoseRanges | undefined>(saved.glucoseRanges);
   const [planSettings, setPlanSettings] = useState<PlanSettingsDraft>({
     lowThreshold: saved.lowThreshold,
@@ -228,8 +239,9 @@ export default function CareSetup({
       return value === null || value === "" ? NaN : Number(value);
     };
     return planSchema.safeParse({
-      target: number("target"),
-      factor: number("factor"),
+      ...(unit && { glucoseUnit: unit }),
+      target: target ?? NaN,
+      factor: factor ?? NaN,
       ratio: number("ratio"),
       correctionHours: number("correctionHours"),
       increment: number("increment"),
@@ -527,33 +539,58 @@ export default function CareSetup({
                     <legend className="sr-only">Glucose & meal calculations</legend>
                     <div className="two-fields">
                       <label className="field">
-                        <span>Glucose target (mg/dL)</span>
-                        <input
-                          name="target"
-                          defaultValue={saved.target}
-                          aria-invalid={flagged("target")}
-                          type="number"
-                          inputMode="decimal"
-                          min="70"
-                          max="250"
-                          step="any"
+                        <span>Glucose unit</span>
+                        <select
+                          name="glucoseUnit"
+                          value={unit}
+                          onChange={(event) =>
+                            setUnit(
+                              glucoseUnits.find((option) => option === event.target.value) ?? "",
+                            )
+                          }
+                          aria-invalid={flagged("glucoseUnit")}
                           required
-                        />
+                        >
+                          <option value="" disabled>
+                            Select your plan’s glucose unit
+                          </option>
+                          {glucoseUnits.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                        <small>
+                          The unit your care plan and meter use. Carby stores readings the same way
+                          either way.
+                        </small>
                       </label>
-                      <label className="field">
-                        <span>Correction factor (mg/dL per unit)</span>
-                        <input
-                          name="factor"
-                          defaultValue={saved.factor}
-                          aria-invalid={flagged("factor")}
-                          type="number"
-                          inputMode="decimal"
-                          min="0.01"
-                          max="1000"
-                          step="any"
-                          required
-                        />
-                      </label>
+                      <GlucoseField
+                        label="Glucose target"
+                        unit={shownUnit}
+                        value={target}
+                        onChange={(value) => {
+                          setTarget(value);
+                          unflag("target");
+                        }}
+                        min={70}
+                        max={250}
+                        required
+                        disabled={!unit}
+                        invalid={flagged("target")}
+                      />
+                      <FactorField
+                        label="Correction factor"
+                        unit={shownUnit}
+                        value={factor}
+                        onChange={(value) => {
+                          setFactor(value);
+                          unflag("factor");
+                        }}
+                        required
+                        disabled={!unit}
+                        invalid={flagged("factor")}
+                      />
                       <label className="field">
                         <span>Carbohydrate ratio (grams per unit)</span>
                         <input
@@ -643,6 +680,7 @@ export default function CareSetup({
                   {stepHead(2)}
                   <GlucoseRangeFields
                     ranges={ranges}
+                    unit={shownUnit}
                     disabled={saving}
                     invalid={!!flagged("glucoseRanges")}
                     onChange={(next) => {
@@ -655,6 +693,7 @@ export default function CareSetup({
                   {stepHead(3)}
                   <PlanSettingsFields
                     draft={planSettings}
+                    unit={shownUnit}
                     onChange={(next, changed) => {
                       setPlanSettings(next);
                       unflag(changed);

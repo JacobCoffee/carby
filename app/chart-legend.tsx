@@ -1,6 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import { Activity, Link2, Siren, Syringe, Utensils } from "lucide-react";
+import { formatGlucose, type GlucoseUnit } from "@/lib/glucose-units";
 
 /** Everything on the glucose chart that can be hidden. The CGM line and the range band stay. */
 export type ChartLayer =
@@ -23,7 +24,7 @@ const icon = (Icon: typeof Utensils, color: string) => (
   <Icon size={14} color={color} strokeWidth={2.6} aria-hidden="true" />
 );
 
-function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
+function layers(status: { high: boolean; low: boolean }, reviewHours: number, unit: GlucoseUnit) {
   const groups: { name: string; items: LayerInfo[] }[] = [
     {
       name: "Glucose",
@@ -36,7 +37,12 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number) {
         },
         {
           layer: "status",
-          label: [status.high && "HIGH >400", status.low && "LOW <40"].filter(Boolean).join(" · "),
+          label: [
+            status.high && `HIGH >${formatGlucose(400, unit)}`,
+            status.low && `LOW <${formatGlucose(40, unit)}`,
+          ]
+            .filter(Boolean)
+            .join(" · "),
           swatch: <i className={status.high ? "legend-high" : "legend-low"} aria-hidden="true" />,
           title: "Past the sensor's limit: the exact value is unknown",
         },
@@ -114,6 +120,7 @@ export function ChartLegend({
   reviewHours,
   cgm,
   rangeLabel,
+  unit,
 }: {
   /** Layers with something in the current view; the rest are left out of the key. */
   present: ReadonlySet<ChartLayer>;
@@ -124,8 +131,9 @@ export function ChartLegend({
   reviewHours: number;
   cgm: boolean;
   rangeLabel: string;
+  unit: GlucoseUnit;
 }) {
-  const groups = layers(status, reviewHours)
+  const groups = layers(status, reviewHours, unit)
     .map((group) => ({ ...group, items: group.items.filter((i) => present.has(i.layer)) }))
     .filter((group) => group.items.length || group.name === "Glucose");
   return (

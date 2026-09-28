@@ -1,4 +1,5 @@
 import { temperatureUnitLabels, type Plan } from "./care";
+import { formatFactor, formatGlucose, glucoseUnitOf, type GlucoseUnit } from "./glucose-units";
 import { planSummary, setupSteps, stepOfFlag, type SummaryRow } from "./setup-steps";
 
 /** The care plan page's sections: the setup steps that hold plan settings, in the same order. */
@@ -18,10 +19,16 @@ export function sectionOfFlag(flag: string): PlanSectionId | null {
   return flag.split(".")[0] === "temperatureUnit" ? "schedule" : stepOfFlag(flag);
 }
 
-/** Every value the plan holds, restated per section: the setup review rows plus the temperature unit. */
-export function planSectionRows(plan: Plan): Record<PlanSectionId, SummaryRow[]> {
+/**
+ * Every value the plan holds, restated per section: the setup review rows plus the temperature
+ * unit. Glucose values read in `unit`, the plan's own unless another is given.
+ */
+export function planSectionRows(
+  plan: Plan,
+  unit: GlucoseUnit = glucoseUnitOf(plan),
+): Record<PlanSectionId, SummaryRow[]> {
   const rows = Object.fromEntries(
-    planSummary(plan).map(({ step, rows }) => [setupSteps[step].id, rows]),
+    planSummary(plan, unit).map(({ step, rows }) => [setupSteps[step].id, rows]),
   ) as Record<PlanSectionId, SummaryRow[]>;
   rows.schedule = [
     ...rows.schedule,
@@ -39,15 +46,16 @@ const plural = (count: number, one: string, many = `${one}s`) =>
 /** One line under each section's name in the page's index. It restates saved values only. */
 export function sectionHint(plan: Plan, id: PlanSectionId): string {
   const rows = planSectionRows(plan)[id];
+  const unit = glucoseUnitOf(plan);
   switch (id) {
     case "math":
-      return `Target ${plan.target} · factor ${plan.factor} · every ${plural(plan.correctionHours, "hour")}`;
+      return `Target ${formatGlucose(plan.target, unit)} · factor ${formatFactor(plan.factor, unit)} · every ${plural(plan.correctionHours, "hour")}`;
     case "ranges":
       return plan.glucoseRanges ? "Care team ranges" : "Standard ranges";
     case "safety": {
       // The first four rows are the required values; the rest are optional settings.
       const on = rows.slice(4).filter((row) => row.value !== NOT_SET).length;
-      return `Low below ${plan.lowThreshold} · ${on} of ${rows.length - 4} optional on`;
+      return `Low below ${formatGlucose(plan.lowThreshold, unit)} · ${on} of ${rows.length - 4} optional on`;
     }
     case "schedule":
       return `${rows[0].value} · ${plan.timezone.replaceAll("_", " ")}`;
@@ -74,9 +82,10 @@ function keyed(rows: SummaryRow[]) {
 /**
  * Every restated value that differs between two plans, by section, in page order. A value only
  * one plan has (an added or removed contact or instruction) reads "Not set" on the other side.
+ * Both plans read in the new plan's glucose unit, so changing the unit lists only the unit.
  */
 export function planChanges(before: Plan, after: Plan): PlanSectionChanges[] {
-  const was = planSectionRows(before);
+  const was = planSectionRows(before, glucoseUnitOf(after));
   const now = planSectionRows(after);
   return planSections.flatMap(({ id, title }) => {
     const old = new Map(keyed(was[id]).map((row) => [row.key, row]));

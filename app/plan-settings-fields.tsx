@@ -1,6 +1,15 @@
 "use client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { planFieldSchemas, type Plan } from "@/lib/care";
+import {
+  factorFromInput,
+  factorIn,
+  factorInputBounds,
+  glucoseFromInput,
+  glucoseIn,
+  glucoseInputBounds,
+  type GlucoseUnit,
+} from "@/lib/glucose-units";
 import { lastOvernightCheck } from "@/lib/overnight-check";
 
 /**
@@ -44,6 +53,7 @@ export function NumberField({
   required,
   disabled,
   invalid,
+  placeholder,
 }: {
   label: string;
   helper?: string;
@@ -55,6 +65,7 @@ export function NumberField({
   required?: boolean;
   disabled?: boolean;
   invalid?: boolean;
+  placeholder?: string;
 }) {
   return (
     <label className="field">
@@ -68,11 +79,82 @@ export function NumberField({
         required={required}
         disabled={disabled}
         aria-invalid={invalid || undefined}
+        placeholder={placeholder}
         value={value !== undefined && Number.isFinite(value) ? value : ""}
         onChange={(event) => onChange(event.target.value === "" ? NaN : Number(event.target.value))}
       />
       {helper && <small>{helper}</small>}
     </label>
+  );
+}
+
+/**
+ * A glucose level typed in the person's unit and held in mg/dL. The label gets the unit, and the
+ * limits are the stored mg/dL bounds as the unit shows them. A value always shows again as it was
+ * typed; changing the unit shows the same level in the new one.
+ */
+export function GlucoseField({
+  label,
+  unit,
+  value,
+  onChange,
+  min,
+  max,
+  ...rest
+}: {
+  label: string;
+  helper?: string;
+  unit: GlucoseUnit;
+  /** mg/dL. */
+  value: number | undefined;
+  /** Called with mg/dL, or NaN when blank. */
+  onChange: (mgdl: number) => void;
+  /** mg/dL bounds, as in the plan schema. */
+  min: number;
+  max: number;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <NumberField
+      {...rest}
+      {...glucoseInputBounds(min, max, unit)}
+      label={`${label} (${unit})`}
+      value={value === undefined ? undefined : glucoseIn(value, unit)}
+      onChange={(typed) => onChange(glucoseFromInput(typed, unit))}
+    />
+  );
+}
+
+/** A correction factor typed in the person's unit per insulin unit and held in mg/dL per unit. */
+export function FactorField({
+  label,
+  unit,
+  value,
+  onChange,
+  ...rest
+}: {
+  label: string;
+  helper?: string;
+  unit: GlucoseUnit;
+  /** mg/dL per unit. */
+  value: number | undefined;
+  /** Called with mg/dL per unit, or NaN when blank. */
+  onChange: (mgdlPerUnit: number) => void;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  return (
+    <NumberField
+      {...rest}
+      {...factorInputBounds(unit)}
+      label={`${label} (${unit} per unit)`}
+      value={value === undefined ? undefined : factorIn(value, unit)}
+      onChange={(typed) => onChange(factorFromInput(typed, unit))}
+    />
   );
 }
 
@@ -149,11 +231,13 @@ function ToggleGroup({
 
 export function PlanSettingsFields({
   draft,
+  unit,
   onChange,
   invalid = [],
   disabled,
 }: {
   draft: PlanSettingsDraft;
+  unit: GlucoseUnit;
   onChange: (draft: PlanSettingsDraft, changed: PlanSettingsKey) => void;
   invalid?: readonly PlanSettingsKey[];
   disabled?: boolean;
@@ -176,8 +260,9 @@ export function PlanSettingsFields({
         Enter these from your current care plan. Carby never suggests or fills in a value for you.
       </p>
       <div className="two-fields">
-        <NumberField
-          label="Treat a low below (mg/dL)"
+        <GlucoseField
+          label="Treat a low below"
+          unit={unit}
           helper="The number below which you treat a low."
           value={draft.lowThreshold}
           onChange={(value) => set("lowThreshold", value)}
@@ -187,8 +272,9 @@ export function PlanSettingsFields({
           disabled={disabled}
           invalid={flagged("lowThreshold")}
         />
-        <NumberField
-          label="Check ketones above (mg/dL)"
+        <GlucoseField
+          label="Check ketones above"
+          unit={unit}
           helper="The glucose number above which you check ketones."
           value={draft.ketoneCheckAbove}
           onChange={(value) => set("ketoneCheckAbove", value)}
@@ -236,8 +322,9 @@ export function PlanSettingsFields({
         }
         disabled={disabled}
       >
-        <NumberField
-          label="Call above (mg/dL)"
+        <GlucoseField
+          label="Call above"
+          unit={unit}
           value={draft.correctionCallCheck?.above}
           onChange={(value) =>
             set("correctionCallCheck", {
@@ -519,8 +606,9 @@ export function PlanSettingsFields({
           maxLength={60}
           disabled={disabled}
         />
-        <NumberField
+        <GlucoseField
           label="HI reads above"
+          unit={unit}
           value={draft.meter?.hi}
           onChange={(value) =>
             set("meter", { ...draft.meter, lo: draft.meter?.lo ?? NaN, hi: value })
@@ -531,8 +619,9 @@ export function PlanSettingsFields({
           disabled={disabled}
           invalid={flagged("meter")}
         />
-        <NumberField
+        <GlucoseField
           label="LO reads below"
+          unit={unit}
           value={draft.meter?.lo}
           onChange={(value) =>
             set("meter", { ...draft.meter, hi: draft.meter?.hi ?? NaN, lo: value })

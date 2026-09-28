@@ -1,5 +1,6 @@
 import { fromLocal, type CgmReading } from "./care";
 import type { ClarityAlert, ClarityDevice } from "./clarity";
+import { formatGlucoseRate, glucoseWithUnit, type GlucoseUnit } from "./glucose-units";
 import {
   agp,
   glucoseByDay,
@@ -120,12 +121,12 @@ export function clarityBehind(sync: ClarityFreshness, now: number) {
 }
 
 /** One alert as the app has it set, e.g. "Urgent Low · 55 mg/dL" or "Signal Loss · after 20 min". */
-export function describeAlert(alert: ClarityAlert) {
+export function describeAlert(alert: ClarityAlert, unit: GlucoseUnit) {
   const setting =
     alert.glucose !== null
-      ? `${alert.glucose} mg/dL`
+      ? glucoseWithUnit(alert.glucose, unit)
       : alert.rate !== null
-        ? `${alert.rate} mg/dL per min`
+        ? formatGlucoseRate(alert.rate, unit)
         : alert.minutes !== null
           ? `after ${alert.minutes} min`
           : null;

@@ -1,7 +1,8 @@
 "use client";
 import { useMemo } from "react";
 import { Thermometer } from "lucide-react";
-import type { CgmReading, Entry } from "@/lib/care";
+import { STANDARD_GLUCOSE_RANGES, type CgmReading, type Entry } from "@/lib/care";
+import { formatGlucose, glucoseIn, glucoseWithUnit, type GlucoseUnit } from "@/lib/glucose-units";
 import {
   comparedWithUsual,
   usualNudge,
@@ -24,10 +25,12 @@ function ComparisonTile({
   title,
   against,
   value,
+  unit,
 }: {
   title: string;
   against: string;
   value: Comparison | Unavailable;
+  unit: GlucoseUnit;
 }) {
   if ("unavailable" in value)
     return (
@@ -39,16 +42,18 @@ function ComparisonTile({
     );
   const { current, usual, meanChangePercent } = value;
   const moved = direction(meanChangePercent);
+  const { low, high } = STANDARD_GLUCOSE_RANGES;
   return (
     <div>
       <dt>{title}</dt>
-      <dd>{current.mean === null ? "Average hidden" : `${current.mean} mg/dL`}</dd>
+      <dd>{current.mean === null ? "Average hidden" : glucoseWithUnit(current.mean, unit)}</dd>
       <small>
         {current.mean !== null && usual.mean !== null && moved
-          ? `Average ${moved} ${against} (${usual.mean}).`
+          ? `Average ${moved} ${against} (${formatGlucose(usual.mean, unit)}).`
           : `Compared with ${against}; ${current.mean === null ? "this" : "the usual"} average is hidden because too many readings were past the sensor’s limit, so it would read low.`}{" "}
-        In range 70–180: {fmt(current.inRange)}% vs {fmt(usual.inRange)}%. Below 70:{" "}
-        {fmt(current.below70)}% vs {fmt(usual.below70)}%.
+        In range {formatGlucose(low, unit)}–{formatGlucose(high, unit)}: {fmt(current.inRange)}% vs{" "}
+        {fmt(usual.inRange)}%. Below {formatGlucose(low, unit)}: {fmt(current.below70)}% vs{" "}
+        {fmt(usual.below70)}%.
       </small>
     </div>
   );
@@ -62,6 +67,7 @@ export default function ComparedWithUsual({
   changePercent,
   sickNow,
   onLogIllness,
+  unit,
 }: {
   entries: Entry[];
   cgm: CgmReading[];
@@ -73,6 +79,7 @@ export default function ComparedWithUsual({
   sickNow: boolean;
   /** Opens a new illness period; absent when this account can't log. */
   onLogIllness?: () => void;
+  unit: GlucoseUnit;
 }) {
   const summary = useMemo(
     () => comparedWithUsual({ cgm, entries, timezone, now }),
@@ -109,11 +116,13 @@ export default function ComparedWithUsual({
           title="Today so far"
           against={`the same hours on the last ${todayDays} days`}
           value={summary.today}
+          unit={unit}
         />
         <ComparisonTile
           title="Last 7 days"
           against={`the ${USUAL_WEEKS} weeks before`}
           value={summary.week}
+          unit={unit}
         />
       </dl>
       {summary.dayparts && (
@@ -121,18 +130,22 @@ export default function ComparedWithUsual({
           className="insights-usual-parts"
           aria-label="Average by time of day, last 7 days vs usual"
         >
-          {summary.dayparts.map((part) => (
-            <li key={part.label}>
-              <span>{part.label}</span>
-              <strong>{part.current ?? "—"}</strong>
-              <small>
-                vs {part.usual ?? "—"}
-                {part.current !== null && part.usual !== null && part.current !== part.usual
-                  ? ` · ${part.current > part.usual ? "higher" : "lower"}`
-                  : ""}
-              </small>
-            </li>
-          ))}
+          {summary.dayparts.map((part) => {
+            const current = part.current === null ? null : glucoseIn(part.current, unit);
+            const usual = part.usual === null ? null : glucoseIn(part.usual, unit);
+            return (
+              <li key={part.label}>
+                <span>{part.label}</span>
+                <strong>{part.current === null ? "—" : formatGlucose(part.current, unit)}</strong>
+                <small>
+                  vs {part.usual === null ? "—" : formatGlucose(part.usual, unit)}
+                  {current !== null && usual !== null && current !== usual
+                    ? ` · ${current > usual ? "higher" : "lower"}`
+                    : ""}
+                </small>
+              </li>
+            );
+          })}
         </ul>
       )}
       {summary.logged && (

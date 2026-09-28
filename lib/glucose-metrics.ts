@@ -1,4 +1,11 @@
 import { STANDARD_GLUCOSE_RANGES, fromLocal, type CgmReading, type GlucoseRanges } from "./care";
+import {
+  formatGlucose,
+  formatUnitValue,
+  glucoseIn,
+  glucoseStep,
+  type GlucoseUnit,
+} from "./glucose-units";
 import { uniqueCgm } from "./cgm-metrics";
 
 /**
@@ -24,21 +31,33 @@ export const glucoseLevelNames: Record<GlucoseLevel, string> = {
   high: "High",
   veryHigh: "Very high",
 };
-/** Each level's name with the mg/dL values it covers under the given ranges. */
-export function glucoseLevelRanges(ranges: GlucoseRanges): Record<GlucoseLevel, string> {
+/**
+ * Each level's name with the values it covers under the given ranges, in the unit: "70–180", or
+ * "3.9–10.0" with the levels either side one step (1 mg/dL or 0.1 mmol/L) beyond the limit.
+ */
+export function glucoseLevelRanges(
+  ranges: GlucoseRanges,
+  unit: GlucoseUnit,
+): Record<GlucoseLevel, string> {
   const { veryLow, low, high, veryHigh } = ranges;
+  const shown = (mgdl: number) => formatGlucose(mgdl, unit);
+  const step = (mgdl: number, by: number) =>
+    formatUnitValue(glucoseIn(mgdl, unit) + by * glucoseStep(unit), unit);
   return {
-    veryLow: `below ${veryLow}`,
-    low: `${veryLow}–${low - 1}`,
-    inRange: `${low}–${high}`,
-    high: `${high + 1}–${veryHigh}`,
-    veryHigh: `above ${veryHigh}`,
+    veryLow: `below ${shown(veryLow)}`,
+    low: `${shown(veryLow)}–${step(low, -1)}`,
+    inRange: `${shown(low)}–${shown(high)}`,
+    high: `${step(high, 1)}–${shown(veryHigh)}`,
+    veryHigh: `above ${shown(veryHigh)}`,
   };
 }
-const standardRanges = glucoseLevelRanges(STANDARD_GLUCOSE_RANGES);
-export const glucoseLevelLabels = Object.fromEntries(
-  GLUCOSE_LEVELS.map((l) => [l, `${glucoseLevelNames[l]} (${standardRanges[l]})`]),
-) as Record<GlucoseLevel, string>;
+/** Each level's name with the standard values it covers, in the unit. */
+export function glucoseLevelLabels(unit: GlucoseUnit): Record<GlucoseLevel, string> {
+  const standard = glucoseLevelRanges(STANDARD_GLUCOSE_RANGES, unit);
+  return Object.fromEntries(
+    GLUCOSE_LEVELS.map((l) => [l, `${glucoseLevelNames[l]} (${standard[l]})`]),
+  ) as Record<GlucoseLevel, string>;
+}
 /** Percent of observed time in each standard level, to one decimal. */
 export type GlucoseLevels = Record<GlucoseLevel, number>;
 
@@ -117,6 +136,7 @@ export type GlucoseMetrics = {
   /** Readings that are only "High" or "Low" and have no number. */
   capped: number;
   cappedPercent: number;
+  /** Mean and SD in mg/dL, unrounded so they round once, in the unit they are shown in. */
   mean: number | null;
   sd: number | null;
   /** Coefficient of variation, percent. */
@@ -181,8 +201,8 @@ export function glucoseMetrics(
     readings: points.length,
     capped,
     cappedPercent,
-    mean: mean === null ? null : Math.round(mean),
-    sd: sd === null ? null : Math.round(sd),
+    mean,
+    sd,
     cv: mean === null || sd === null || !mean ? null : tenth((sd / mean) * 100),
     // Bergenstal et al. 2018: GMI (%) = 3.31 + 0.02392 × mean glucose (mg/dL).
     gmi: mean === null ? null : tenth(3.31 + 0.02392 * mean),
@@ -390,7 +410,7 @@ export type DayGlucose = {
   day: string;
   wearPercent: number;
   levels: GlucoseLevels | null;
-  /** Mean of numeric readings; null when none or when capped readings pass the limit. */
+  /** Mean of numeric readings in unrounded mg/dL; null when none or when capped readings pass the limit. */
   mean: number | null;
 };
 export type WeekdayGlucose = {
@@ -408,7 +428,7 @@ export type MonthGlucose = {
   wearPercent: number;
   levels: GlucoseLevels | null;
   readings: number;
-  /** Mean of numeric readings; null when none or when capped readings pass the limit. */
+  /** Mean of numeric readings in unrounded mg/dL; null when none or when capped readings pass the limit. */
   mean: number | null;
 };
 
@@ -471,10 +491,7 @@ export function glucoseByDay(
       day,
       wearPercent: possible[i] ? Math.min(100, tenth((t.observed / possible[i]) * 100)) : 0,
       levels: levelPercents(t.minutes, t.observed),
-      mean:
-        t.count && (t.capped / all) * 100 <= CAPPED_LIMIT_PERCENT
-          ? Math.round(t.sum / t.count)
-          : null,
+      mean: t.count && (t.capped / all) * 100 <= CAPPED_LIMIT_PERCENT ? t.sum / t.count : null,
     };
   });
   const weekdays: WeekdayGlucose[] = Array.from({ length: 7 }, (_, weekday) => {
@@ -534,10 +551,7 @@ export function glucoseByDay(
       wearPercent: Math.min(100, tenth((t.observed / m.possible) * 100)),
       levels: levelPercents(t.minutes, t.observed),
       readings: all,
-      mean:
-        t.count && (t.capped / all) * 100 <= CAPPED_LIMIT_PERCENT
-          ? Math.round(t.sum / t.count)
-          : null,
+      mean: t.count && (t.capped / all) * 100 <= CAPPED_LIMIT_PERCENT ? t.sum / t.count : null,
     };
   });
   return { daily, weekdays, months };

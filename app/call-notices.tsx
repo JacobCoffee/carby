@@ -2,10 +2,11 @@
 import { PhoneCall } from "lucide-react";
 import { careContactLines, careContactLinks, type Plan } from "@/lib/care";
 import type { CallTrigger } from "@/lib/call-triggers";
+import { glucoseUnitOf, glucoseWithUnit, type GlucoseUnit } from "@/lib/glucose-units";
 import { CarePlanInstructions } from "./emergency-instructions";
 import "./clinic-features.css";
 
-function triggerText(trigger: CallTrigger, timezone: string) {
+function triggerText(trigger: CallTrigger, timezone: string, unit: GlucoseUnit) {
   const time = (at: string) =>
     new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -15,7 +16,7 @@ function triggerText(trigger: CallTrigger, timezone: string) {
       minute: "2-digit",
     }).format(new Date(at));
   if (trigger.kind === "above-after-correction")
-    return `Still ${trigger.value !== null ? `${trigger.value} mg/dL` : "HI"} at ${time(trigger.at)}, above ${trigger.above} mg/dL and ${trigger.hours} h after the last correction at ${time(trigger.correctionAt)} with no correction since.`;
+    return `Still ${trigger.value !== null ? glucoseWithUnit(trigger.value, unit) : "HI"} at ${time(trigger.at)}, above ${glucoseWithUnit(trigger.above, unit)} and ${trigger.hours} h after the last correction at ${time(trigger.correctionAt)} with no correction since.`;
   if (trigger.kind === "ketones") return `Ketones ${trigger.level} logged at ${time(trigger.at)}.`;
   return `Severe low: ${trigger.medication} given at ${time(trigger.at)}.`;
 }
@@ -37,7 +38,7 @@ export default function CallNotices({ triggers, plan }: { triggers: CallTrigger[
             role="alert"
           >
             <PhoneCall size={18} aria-hidden="true" />
-            <span>{triggerText(trigger, plan.timezone)}</span>
+            <span>{triggerText(trigger, plan.timezone, glucoseUnitOf(plan))}</span>
           </li>
         ))}
       </ul>

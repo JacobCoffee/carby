@@ -10,17 +10,18 @@ import {
 
 test("alerts read as the setting the app uses, or just the name when it has none", () => {
   const alert = { kind: "Urgent Low", glucose: 55, rate: null, minutes: null };
-  assert.equal(describeAlert(alert), "Urgent Low · 55 mg/dL");
+  assert.equal(describeAlert(alert, "mg/dL"), "Urgent Low · 55 mg/dL");
+  assert.equal(describeAlert(alert, "mmol/L"), "Urgent Low · 3.1 mmol/L");
   assert.equal(
-    describeAlert({ ...alert, kind: "Rise", glucose: null, rate: 3 }),
+    describeAlert({ ...alert, kind: "Rise", glucose: null, rate: 3 }, "mg/dL"),
     "Rise · 3 mg/dL per min",
   );
   assert.equal(
-    describeAlert({ ...alert, kind: "Signal Loss", glucose: null, minutes: 20 }),
+    describeAlert({ ...alert, kind: "Signal Loss", glucose: null, minutes: 20 }, "mmol/L"),
     "Signal Loss · after 20 min",
   );
   assert.equal(
-    describeAlert({ ...alert, kind: "Urgent Low Soon", glucose: null }),
+    describeAlert({ ...alert, kind: "Urgent Low Soon", glucose: null }, "mg/dL"),
     "Urgent Low Soon",
   );
 });

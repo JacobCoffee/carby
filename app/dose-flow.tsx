@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { MealRatioPicker } from "./meal-ratio-fields";
 import { FoodPicker } from "./food-picker";
 import DoseAmountField from "./dose-amount-field";
+import { GlucoseField } from "./plan-settings-fields";
 import { mealRatioAt } from "@/lib/report-analysis";
 import { currentShareForCorrection } from "@/lib/correction-reading";
 import { correctionReviewStatus } from "@/lib/correction-review";
@@ -47,6 +48,14 @@ import {
   type FoodItem,
   type SavedFood,
 } from "@/lib/care";
+import {
+  formatFactor,
+  formatGlucose,
+  formatUnitValue,
+  glucoseInputBounds,
+  glucoseUnitOf,
+  glucoseWithUnit,
+} from "@/lib/glucose-units";
 import "./dose-flow.css";
 
 type Mode = "Carbs" | "Correction" | "Carbs + correction";
@@ -192,7 +201,7 @@ export default function DoseFlow({
 }: DoseFlowProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
   const [meal, setMeal] = useState<MealRatio | null>(initialMeal);
-  const [glucose, setGlucose] = useState(""),
+  const [glucose, setGlucose] = useState(NaN),
     [glucoseMode, setGlucoseMode] = useState<"number" | "High" | "Low">("number"),
     [source, setSource] = useState<"Finger-stick" | "Dexcom">("Finger-stick"),
     [measuredAt, setMeasuredAt] = useState(""),
@@ -216,11 +225,13 @@ export default function DoseFlow({
   const [checksOpen, setChecksOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const submissionRef = useRef<{ doseId: string; glucoseId: string; foodId: string } | null>(null);
+  const unit = glucoseUnitOf(plan);
+  const glucoseBounds = glucoseInputBounds(20, 1000, unit);
 
   function prefillFromShare() {
     const share = currentShareForCorrection(cgm, dexcomConnected, dexcomLatestShareAt, Date.now());
     if (share) {
-      setGlucose(String(share.value));
+      setGlucose(share.value ?? NaN);
       setGlucoseMode("number");
       setMeasuredAt(localInput(new Date(share.at), plan.timezone));
       setSource("Dexcom");
@@ -251,13 +262,13 @@ export default function DoseFlow({
     submissionRef.current = null;
     setDoseAt(localInput(new Date(), plan.timezone));
     if (initialMode === "Carbs") {
-      setGlucose("");
+      setGlucose(NaN);
       setGlucoseMode("number");
       setMeasuredAt("");
       setSource("Finger-stick");
       setAutofilledShare(false);
     } else if (!prefillFromShare()) {
-      setGlucose("");
+      setGlucose(NaN);
       setGlucoseMode("number");
       setMeasuredAt("");
       setSource("Finger-stick");
@@ -268,25 +279,26 @@ export default function DoseFlow({
   function selectMode(next: Mode) {
     if (next !== mode) {
       if (next === "Carbs") {
-        setGlucose("");
+        setGlucose(NaN);
         setGlucoseMode("number");
         setMeasuredAt("");
         setSource("Finger-stick");
         setAutofilledShare(false);
-      } else if (!glucose.trim() && glucoseMode === "number") {
+      } else if (Number.isNaN(glucose) && glucoseMode === "number") {
         prefillFromShare();
       }
     }
     setMode(next);
   }
 
-  function changeGlucose(value: string) {
+  function changeGlucose(value: number) {
     setGlucose(value);
+    const blank = Number.isNaN(value);
     if (autofilledShare) {
-      setMeasuredAt(value.trim() ? localInput(new Date(), plan.timezone) : "");
+      setMeasuredAt(blank ? "" : localInput(new Date(), plan.timezone));
       setAutofilledShare(false);
-    } else if (!value.trim()) setMeasuredAt("");
-    else if (!glucose.trim()) setMeasuredAt(localInput(new Date(), plan.timezone));
+    } else if (blank) setMeasuredAt("");
+    else if (Number.isNaN(glucose)) setMeasuredAt(localInput(new Date(), plan.timezone));
   }
 
   /** Meter shows HI/LO instead of a number: never fabricate a value from it. */
@@ -294,10 +306,10 @@ export default function DoseFlow({
     setGlucoseMode(next);
     setAutofilledShare(false);
     if (next === "number") {
-      setGlucose("");
+      setGlucose(NaN);
       setMeasuredAt("");
     } else {
-      setGlucose("");
+      setGlucose(NaN);
       setSource("Finger-stick");
       if (!measuredAt) setMeasuredAt(localInput(new Date(), plan.timezone));
     }
@@ -308,7 +320,7 @@ export default function DoseFlow({
     try {
       const share = await onSyncDexcom();
       if (share) {
-        setGlucose(String(share.value));
+        setGlucose(share.value ?? NaN);
         setGlucoseMode("number");
         setMeasuredAt(localInput(new Date(share.at), plan.timezone));
         setSource("Dexcom");
@@ -334,7 +346,7 @@ export default function DoseFlow({
 
   const needsCarbs = mode !== "Correction";
   const needsCorrection = mode !== "Carbs";
-  const glucoseValue = glucoseMode === "number" && glucose.trim() !== "" ? Number(glucose) : null;
+  const glucoseValue = glucoseMode === "number" && !Number.isNaN(glucose) ? glucose : null;
   const glucoseStatus: "High" | "Low" | null = glucoseMode === "number" ? null : glucoseMode;
   const hasReading = glucoseValue !== null || glucoseStatus !== null;
   let measuredInstant: string | null = null;
@@ -707,16 +719,18 @@ export default function DoseFlow({
                   <h3>Glucose</h3>
                   <div className="dose-flow-glucose-row">
                     {glucoseMode === "number" ? (
-                      <NumberField
-                        label="Reading (mg/dL)"
+                      <GlucoseField
+                        label="Reading"
+                        placeholder="Enter a fresh reading"
+                        unit={unit}
                         value={glucose}
                         min={20}
+                        max={1000}
                         onChange={changeGlucose}
-                        placeholder="Enter a fresh reading"
                       />
                     ) : (
                       <label className="field">
-                        <span>Reading (mg/dL)</span>
+                        <span>Reading ({unit})</span>
                         <input
                           type="text"
                           value={glucoseMode === "High" ? "HI" : "LO"}
@@ -749,7 +763,7 @@ export default function DoseFlow({
                       onChange={(value) => {
                         setSource(value as "Finger-stick" | "Dexcom");
                         if (autofilledShare) {
-                          setGlucose("");
+                          setGlucose(NaN);
                           setMeasuredAt("");
                           setAutofilledShare(false);
                         }
@@ -780,7 +794,7 @@ export default function DoseFlow({
                         type="button"
                         className="text-button"
                         onClick={() => {
-                          setGlucose("");
+                          setGlucose(NaN);
                           setMeasuredAt("");
                           setSource("Finger-stick");
                           setAutofilledShare(false);
@@ -790,7 +804,7 @@ export default function DoseFlow({
                       </button>
                     </p>
                   ) : (
-                    !glucose &&
+                    Number.isNaN(glucose) &&
                     glucoseMode === "number" && (
                       <p className="helper" role="status">
                         No current numeric Share reading is available here. Enter a new finger-stick
@@ -824,13 +838,16 @@ export default function DoseFlow({
                     )}
                   </div>
                   {glucoseValue !== null && !glucoseValid && (
-                    <p className="notice danger">Enter glucose between 20 and 1000 mg/dL.</p>
+                    <p className="notice danger">
+                      Enter glucose between {formatUnitValue(glucoseBounds.min, unit)} and{" "}
+                      {formatUnitValue(glucoseBounds.max, unit)} {unit}.
+                    </p>
                   )}
                   {hasReading && glucoseValid && low && (
                     <p className="notice danger" role="alert">
                       {glucoseStatus === "Low"
                         ? "LO: follow your low-glucose plan. No correction math shown."
-                        : `Below ${plan.lowThreshold}: follow your low-glucose plan. No correction math shown.`}
+                        : `Below ${formatGlucose(plan.lowThreshold, unit)}: follow your low-glucose plan. No correction math shown.`}
                     </p>
                   )}
                   {hasReading && glucoseValid && !low && glucoseStatus === "High" && (
@@ -846,8 +863,8 @@ export default function DoseFlow({
                     (glucoseStatus === "High" ||
                       (glucoseValue !== null && glucoseValue > plan.ketoneCheckAbove)) && (
                       <p className="notice timing-warning" role="alert">
-                        Check ketones above {plan.ketoneCheckAbove}. High glucose with large ketones
-                        needs emergency evaluation.
+                        Check ketones above {formatGlucose(plan.ketoneCheckAbove, unit)}. High
+                        glucose with large ketones needs emergency evaluation.
                       </p>
                     )}
                   {hasReading && glucoseValid && !low && !measuredRecently && (
@@ -1054,7 +1071,7 @@ export default function DoseFlow({
                         <span>Glucose correction</span>
                         <span>
                           {include
-                            ? `(${glucoseValue} − ${plan.target}) ÷ ${plan.factor} = ${exactUnits(result.correction)} units`
+                            ? `(${formatGlucose(glucoseValue!, unit)} − ${formatGlucose(plan.target, unit)}) ÷ ${formatFactor(plan.factor, unit)} = ${exactUnits(result.correction)} units`
                             : "—"}
                         </span>
                       </div>
@@ -1200,7 +1217,7 @@ export default function DoseFlow({
                             ? "HI"
                             : glucoseStatus === "Low"
                               ? "LO"
-                              : `${glucoseValue} mg/dL`}{" "}
+                              : glucoseWithUnit(glucoseValue!, unit)}{" "}
                           Dexcom reading
                         </span>
                       </label>

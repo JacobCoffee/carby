@@ -21,8 +21,8 @@ export default function NotFound() {
         </Link>
       }
     >
-      Meters stop counting at 400, and there is nothing at this address. The link may be old or
-      mistyped.
+      Past its limit a meter only reads HI, and there is nothing at this address. The link may be
+      old or mistyped.
     </StatusScene>
   );
 }

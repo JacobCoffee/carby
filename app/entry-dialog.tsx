@@ -26,6 +26,7 @@ import {
 import { ArrowUpRight, Calculator, Check, Link2, Loader2, Trash2, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { FoodPicker } from "./food-picker";
+import { GlucoseField } from "./plan-settings-fields";
 import {
   entrySchema,
   fromLocal,
@@ -36,6 +37,7 @@ import {
   type Plan,
   type SavedFood,
 } from "@/lib/care";
+import { formatGlucose, glucoseUnitOf } from "@/lib/glucose-units";
 
 export type EntryModalKind = "glucose" | "food" | "insulin" | "exercise" | "rescue";
 
@@ -167,7 +169,7 @@ export default function EntryDialog({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [at, setAt] = useState(""),
-    [glucose, setGlucose] = useState(""),
+    [glucose, setGlucose] = useState(NaN),
     [glucoseStatus, setGlucoseStatus] = useState<"High" | "Low" | null>(null),
     [source, setSource] = useState("Finger-stick"),
     [ketones, setKetones] = useState("Not checked"),
@@ -183,6 +185,7 @@ export default function EntryDialog({
     [note, setNote] = useState(""),
     [foodItems, setFoodItems] = useState<FoodItem[] | undefined>();
   const [foodPickerResetKey, setFoodPickerResetKey] = useState(0);
+  const unit = glucoseUnitOf(plan);
   const foodDoseSource = prefill?.foodDoseSource ?? null;
   const historicalDoseLog = prefill?.historicalDoseLog ?? false;
   // A fresh open (new kind, new edited entry, or a new prefill payload) reseeds every field at once.
@@ -190,7 +193,7 @@ export default function EntryDialog({
     if (!modal) return;
     setDeleting(false);
     setAt(prefill?.at ?? localInput(editing ? new Date(editing.at) : new Date(), plan.timezone));
-    setGlucose(editing?.glucose?.toString() ?? "");
+    setGlucose(editing?.glucose ?? NaN);
     setGlucoseStatus(editing?.status ?? null);
     setSource(editing?.source ?? "Finger-stick");
     setKetones(editing?.ketones ?? "Not checked");
@@ -241,7 +244,7 @@ export default function EntryDialog({
         kind: modal,
         at: fromLocal(at, plan.timezone),
         glucose:
-          modal === "glucose" && glucoseStatus === null && glucose !== "" ? Number(glucose) : null,
+          modal === "glucose" && glucoseStatus === null && !Number.isNaN(glucose) ? glucose : null,
         status: modal === "glucose" ? glucoseStatus : null,
         source: modal === "glucose" ? source : null,
         ketones: modal === "glucose" ? ketones : null,
@@ -340,7 +343,7 @@ export default function EntryDialog({
               <summary>Original calculation · preserved with this record</summary>
               <p>
                 {editing.calculation.carbs} g carbs · {editing.calculation.calculatedUnits}{" "}
-                calculated units · target {editing.calculation.target}
+                calculated units · target {formatGlucose(editing.calculation.target, unit)}
                 {editing.calculation.mode !== "Correction"
                   ? ` · ratio 1:${editing.calculation.ratio}${editing.calculation.ratioMeal ? ` · ${mealRatioLabels[editing.calculation.ratioMeal]}` : ""}`
                   : ""}
@@ -414,16 +417,17 @@ export default function EntryDialog({
           {modal === "glucose" && (
             <>
               {glucoseStatus === null ? (
-                <NumberField
-                  label="Glucose (mg/dL)"
+                <GlucoseField
+                  label="Glucose"
+                  unit={unit}
                   value={glucose}
                   min={20}
-                  step="1"
+                  max={1000}
                   onChange={setGlucose}
                 />
               ) : (
                 <label className="field">
-                  <span>Glucose (mg/dL)</span>
+                  <span>Glucose ({unit})</span>
                   <input
                     type="text"
                     value={glucoseStatus === "High" ? "HI" : "LO"}
@@ -443,7 +447,7 @@ export default function EntryDialog({
                       aria-pressed={(glucoseStatus ?? "number") === value}
                       onClick={() => {
                         setGlucoseStatus(value === "number" ? null : value);
-                        setGlucose("");
+                        setGlucose(NaN);
                       }}
                     >
                       {value === "number" ? "Number" : value === "High" ? "HI" : "LO"}
@@ -454,8 +458,8 @@ export default function EntryDialog({
               {plan.meter && glucoseStatus && (
                 <p className="helper">
                   {glucoseStatus === "High"
-                    ? `${plan.meter.name ? `${plan.meter.name}: ` : ""}above ${plan.meter.hi}`
-                    : `${plan.meter.name ? `${plan.meter.name}: ` : ""}below ${plan.meter.lo}`}
+                    ? `${plan.meter.name ? `${plan.meter.name}: ` : ""}above ${formatGlucose(plan.meter.hi, unit)}`
+                    : `${plan.meter.name ? `${plan.meter.name}: ` : ""}below ${formatGlucose(plan.meter.lo, unit)}`}
                 </p>
               )}
               <div className="two-fields">
@@ -473,10 +477,11 @@ export default function EntryDialog({
                 />
               </div>
               {(glucoseStatus === "High" ||
-                (glucoseStatus === null && Number(glucose) > plan.ketoneCheckAbove)) && (
+                (glucoseStatus === null && glucose > plan.ketoneCheckAbove)) && (
                 <p className="notice">
-                  Check ketones above {plan.ketoneCheckAbove}. Call the diabetes team for guidance.
-                  Large ketones with high glucose, vomiting or confusion: seek emergency care.
+                  Check ketones above {formatGlucose(plan.ketoneCheckAbove, unit)}. Call the
+                  diabetes team for guidance. Large ketones with high glucose, vomiting or
+                  confusion: seek emergency care.
                 </p>
               )}
             </>
