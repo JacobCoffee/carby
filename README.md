@@ -108,12 +108,14 @@ A food whose serving is a measure like "1 cup" can also keep what that serving w
 
 ## Nightscout uploads
 
-Apps that upload to a Nightscout site (xDrip+, Juggluco, Loop and Trio) can upload to Carby instead. Make a token under **Sharing and access > Connected apps**, then give the app Carby's address as the Nightscout URL and the token as the API secret or access token. xDrip+ takes both in one URL, `https://TOKEN@host/api/v1/`, which the token screen shows.
+Apps that upload to a Nightscout site (xDrip+, Juggluco, Loop, Trio and AAPS) can upload to Carby instead. Make a token under **Sharing and access > Connected apps**, then give the app Carby's address as the Nightscout URL and the token as the API secret or access token. xDrip+ takes both in one URL, `https://TOKEN@host/api/v1/`, which the token screen shows.
+
+Carby serves Nightscout's API v1 (`/api/v1`) and API v3 (`/api/v3`, with `history` and `lastModified`), which AAPS needs, plus the token exchange at `/api/v2/authorization/request/<token>`.
 
 - **What becomes part of the log:** sensor readings (`sgv`) become CGM readings, stored in mg/dL, with the app's device name as the source. Meter readings (`mbg`, and treatments with finger or manual glucose) become glucose entries, and a treatment's carbs become a food entry.
 - **Insulin is logged only when the upload says which kind it is.** Bolus events and Trio's External Insulin are rapid-acting; Juggluco's "Long-Acting" and AAPS's basal-insulin flag are long-acting. xDrip+ doesn't say, so its doses aren't logged. No uploaded dose claims a purpose, since Loop sends meal boluses as corrections.
-- **Everything else is kept as sent:** temp basals, overrides, notes, device status and profiles. The app can read it back, but it isn't part of the log, and a profile never changes the care plan.
-- **Ids and deletes:** each document keeps the `_id` or `identifier` the app gave it, and sending the same document again changes nothing. Deleting an uploaded entry in Carby is permanent; the app's next sync can't bring it back. When the app itself deletes a document and sends it again, as Loop and Juggluco do to edit one, it comes back.
+- **Everything else is kept as sent:** temp basals, overrides, notes, device status, profiles, food and settings. The app can read it back, but it isn't part of the log, and a profile never changes the care plan.
+- **Ids and deletes:** each document keeps the `_id` or `identifier` the app gave it, and sending the same document again changes nothing. Deleting an uploaded entry in Carby is permanent; the app's next sync can't bring it back. When the app itself deletes a document and sends it again, as Loop and Juggluco do to edit one, it comes back. API v3 history reports deletions.
 - **Limits:** up to 1,000 documents per request and 600 requests a minute per token. Documents dated in the future are answered but not saved. Treatments need a saved care plan first.
 - Uploaded entries join [sync with another Carby](#sync-with-another-carby-optional). The uploaded documents themselves aren't in backups, but the entries and readings they became are.
 
