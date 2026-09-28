@@ -110,7 +110,7 @@ test("reads the paths and queries Nightscout clients send", () => {
   assert.equal(nightscoutRoute("/api/v1/status.json").kind, "status");
   assert.equal(nightscoutRoute("/api/v1/verifyauth").kind, "verifyauth");
   assert.equal(nightscoutRoute("/api/v1/experiments/test").kind, "test");
-  assert.equal(nightscoutRoute("/api/v1/food.json"), null);
+  assert.equal(nightscoutRoute("/api/v1/activity.json"), null);
   assert.equal(nightscoutRoute("/api/v1/treatments/not%20an%20id"), null);
 
   const none = { type: null, id: null };
@@ -128,6 +128,7 @@ test("reads the paths and queries Nightscout clients send", () => {
     type: "Meal Bolus",
     all: [{ field: "uuid", value: "abc" }],
     any: [],
+    descending: true,
   });
   // Trio deletes a manual reading by its id or its time.
   const trio = parseQuery(

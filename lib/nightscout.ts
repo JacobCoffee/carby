@@ -2,13 +2,30 @@ import { cgmSchema, entrySchema, type CgmReading, type Entry } from "./care";
 
 /**
  * The Nightscout collections Carby accepts uploads to. Glucose and log records become Carby
- * records; everything is also kept as sent, so nothing an uploader writes is dropped.
+ * records; everything is also kept as sent, so nothing an uploader writes is dropped. AAPS won't
+ * upload unless all six are writable, so food and settings are accepted and only kept.
  */
-export const nightscoutCollections = ["entries", "treatments", "devicestatus", "profile"] as const;
+export const nightscoutCollections = [
+  "entries",
+  "treatments",
+  "devicestatus",
+  "profile",
+  "food",
+  "settings",
+] as const;
 export type NightscoutCollection = (typeof nightscoutCollections)[number];
 export function isCollection(value: string): value is NightscoutCollection {
   return (nightscoutCollections as readonly string[]).includes(value);
 }
+/** Fields the server sets. A client's copies are dropped, so a stored document never claims them. */
+export const SERVER_FIELDS = [
+  "_id",
+  "srvCreated",
+  "srvModified",
+  "subject",
+  "modifiedBy",
+  "isValid",
+];
 /** Nightscout 15.0.8 caps a write at 10,000 documents. Carby saves each request in one transaction, so it takes fewer. */
 export const MAX_UPLOAD_DOCS = 1000;
 /** A document dated further ahead of the server clock than this is refused, as Carby refuses log entries. */
@@ -34,8 +51,12 @@ function millis(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-/** When the document happened: an entry's `date`, or a treatment's `created_at`, with the other fields clients use as fallbacks. */
-export function docTime(collection: NightscoutCollection, doc: Doc): number | null {
+/**
+ * When the document happened: an entry's `date`, or a treatment's `created_at`, with the other
+ * fields clients use as fallbacks. Nightscout dates device status and settings sent without a
+ * time (xDrip+'s battery reports) when they arrive, so `now` does here too.
+ */
+export function docTime(collection: NightscoutCollection, doc: Doc, now: number): number | null {
   const fields =
     collection === "entries"
       ? [doc.date, doc.dateString, doc.sysTime, doc.mills]
@@ -46,7 +67,7 @@ export function docTime(collection: NightscoutCollection, doc: Doc): number | nu
     const time = millis(field);
     if (time !== null) return Math.round(time);
   }
-  return null;
+  return collection === "devicestatus" || collection === "settings" ? now : null;
 }
 
 const text = (value: unknown, max: number) =>
@@ -283,12 +304,16 @@ export type NightscoutQuery = {
   all: Condition[];
   /** At least one must hold, from `find[$or][n]...`. */
   any: Condition[];
+  /** Newest first, as v1 answers; v3 clients may ask for oldest first. */
+  descending: boolean;
 };
 const DEFAULT_COUNT: Record<NightscoutCollection, number> = {
   entries: 10,
   treatments: 100,
   devicestatus: 10,
   profile: 10,
+  food: 100,
+  settings: 10,
 };
 export const MAX_QUERY_COUNT = 1000;
 
@@ -321,6 +346,7 @@ export function parseQuery(
     type: path.type,
     all: path.id ? [{ field: "_id", value: path.id }] : [],
     any: [],
+    descending: true,
   };
   const typeField = collection === "treatments" ? "eventType" : "type";
   for (const [key, value] of params) {
@@ -413,4 +439,86 @@ export function nightscoutRoute(pathname: string): NightscoutRoute | null {
   if (name === "entries" && ENTRY_TYPES.has(rest))
     return { kind: "collection", collection: name, type: rest, id: null };
   return validId(rest) ? { kind: "collection", collection: name, type: null, id: rest } : null;
+}
+
+/** The API v3 version Carby's /api/v3 matches, as its status reports it. */
+export const API3_VERSION = "3.0.5";
+
+/** What an /api/v3 path asks for. */
+export type V3Route =
+  | { kind: "status" }
+  | { kind: "lastModified" }
+  | { kind: "search"; collection: NightscoutCollection }
+  | { kind: "history"; collection: NightscoutCollection; since: number }
+  | { kind: "document"; collection: NightscoutCollection; identifier: string };
+export function v3Route(pathname: string): V3Route | null {
+  let parts: string[];
+  try {
+    parts = pathname
+      .replace(/^\/api\/v3\/?/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+  } catch {
+    return null;
+  }
+  const [name = "", second, third] = parts;
+  if (parts.length === 1 && name === "status") return { kind: "status" };
+  if (parts.length === 1 && name === "lastModified") return { kind: "lastModified" };
+  if (!isCollection(name)) return null;
+  if (parts.length === 1) return { kind: "search", collection: name };
+  if (second === "history" && parts.length <= 3) {
+    // Without a time, or from 0, history starts from the beginning.
+    const since = third === undefined || third === "0" ? 0 : millis(third);
+    return since === null ? null : { kind: "history", collection: name, since };
+  }
+  return parts.length === 2 && validId(second)
+    ? { kind: "document", collection: name, identifier: second }
+    : null;
+}
+
+/**
+ * API v3 search parameters: `limit`, `sort=field` or `sort$desc=field`, and `field$op=value`
+ * filters (eq, gt, gte, lt, lte) over time, type and identifier.
+ */
+export function parseV3Query(
+  collection: NightscoutCollection,
+  params: URLSearchParams,
+): NightscoutQuery {
+  const query = parseQuery(collection, new URLSearchParams(), { type: null, id: null });
+  const limit = Number(params.get("limit"));
+  if (Number.isInteger(limit) && limit > 0) query.count = Math.min(limit, MAX_QUERY_COUNT);
+  if (params.has("sort")) query.descending = false;
+  const typeField = collection === "treatments" ? "eventType" : "type";
+  for (const [key, value] of params) {
+    const match = /^([A-Za-z_]+)(?:\$(eq|gt|gte|lt|lte))?$/.exec(key);
+    if (!match || key === "limit" || key === "fields") continue;
+    const [, field = "", op = "eq"] = match;
+    if (field === typeField && op === "eq") query.type = value;
+    else if (field === "identifier" && op === "eq" && validId(value))
+      query.all.push({ field: "_id", value });
+    else if (TIME_FIELDS.includes(field)) {
+      const time = millis(value);
+      if (time === null) continue;
+      const at = new Date(time).toISOString();
+      if (op === "eq") query.from = query.to = { at, inclusive: true };
+      else if (op === "gt" || op === "gte") query.from = { at, inclusive: op === "gte" };
+      else query.to = { at, inclusive: op === "lte" };
+    }
+  }
+  return query;
+}
+
+/** Nightscout's own identifier for a document sent without one: a UUID v5 of its device, date and event type. */
+export async function v3Identifier(doc: Doc, time: number): Promise<string> {
+  const name = `${String(doc.device)}_${time}${typeof doc.eventType === "string" && doc.eventType ? `_${doc.eventType}` : ""}`;
+  const bytes = new Uint8Array([
+    ...new TextEncoder().encode("NightscoutRocks!"),
+    ...new TextEncoder().encode(name),
+  ]);
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-1", bytes)).slice(0, 16);
+  h[6] = ((h[6] ?? 0) & 0x0f) | 0x50;
+  h[8] = ((h[8] ?? 0) & 0x3f) | 0x80;
+  const x = hex(h);
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
 }

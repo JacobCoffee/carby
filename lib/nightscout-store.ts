@@ -10,7 +10,9 @@ import {
   isDoc,
   MAX_QUERY_COUNT,
   MAX_UPLOAD_DOCS,
+  nightscoutCollections,
   project,
+  SERVER_FIELDS,
   sha256,
   stableObjectId,
   validId,
@@ -50,6 +52,7 @@ type StoredRow = {
   dedupe_key: string;
   data: string;
   carby: string;
+  modified: string;
   deleted: string | null;
   deleted_by: string | null;
 };
@@ -57,6 +60,33 @@ type StoredRow = {
 function publicDoc(id: string, identifier: string | null, data: Doc): Doc {
   return { ...data, _id: id, ...(identifier ? { identifier } : {}) };
 }
+
+/** A stored document as it is read back: v1 with its `_id`, or v3 with its identifier and server fields. */
+type Row = {
+  id: string;
+  identifier: string | null;
+  at: string;
+  data: string;
+  created: string;
+  modified: string;
+  deleted: string | null;
+};
+const ROW_COLUMNS = "id, identifier, at, data, created, modified, deleted";
+function readDoc(row: Row, format: "v1" | "v3"): Doc {
+  const data = JSON.parse(row.data) as Doc;
+  if (format === "v1") return publicDoc(row.id, row.identifier, data);
+  return {
+    ...data,
+    identifier: row.identifier ?? row.id,
+    date: typeof data.date === "number" ? data.date : Date.parse(row.at),
+    srvCreated: Date.parse(row.created),
+    srvModified: Date.parse(row.modified),
+    isValid: row.deleted === null,
+  };
+}
+
+/** One saved document: as v1 answers it, whether it was already stored, and when it last changed. */
+export type Saved = { doc: Doc; identifier: string; existed: boolean; modified: number };
 
 const AUDIT_COLUMNS =
   'INSERT INTO care_audit (id, owner, entry_id, actor_id, actor_name, action, "before", "after", at)';
@@ -120,13 +150,16 @@ async function prepare(
   now: number,
 ): Promise<Prepared> {
   if (!isDoc(raw)) throw new UploadError("Each document must be a JSON object.");
-  const { _id: clientId, ...data } = raw;
+  const { _id: clientId, ...sent } = raw;
   if (clientId !== undefined && clientId !== null && !validId(clientId))
     throw new UploadError("Invalid _id.");
+  const data = Object.fromEntries(
+    Object.entries(sent).filter(([key]) => !SERVER_FIELDS.includes(key)),
+  );
   const identifier = data.identifier;
   if (identifier !== undefined && identifier !== null && !validId(identifier))
     throw new UploadError("Invalid identifier.");
-  const time = docTime(collection, data);
+  const time = docTime(collection, data, now);
   if (time === null) throw new UploadError("Each document needs a date.");
   return {
     clientId: typeof clientId === "string" ? clientId : null,
@@ -156,7 +189,7 @@ export async function uploadDocs(
   body: unknown,
   now: Date,
   queue: Queue,
-): Promise<Doc[]> {
+): Promise<Saved[]> {
   const raw = Array.isArray(body) ? body : [body];
   if (raw.length === 0) return [];
   if (raw.length > MAX_UPLOAD_DOCS)
@@ -170,7 +203,7 @@ export async function uploadDocs(
 
   const found = await db
     .prepare(
-      "SELECT id, identifier, dedupe_key, data, carby, deleted, deleted_by FROM nightscout_records WHERE owner = $1 AND collection = $2 AND (id = ANY($3) OR identifier = ANY($3) OR dedupe_key = ANY($4))",
+      "SELECT id, identifier, dedupe_key, data, carby, modified, deleted, deleted_by FROM nightscout_records WHERE owner = $1 AND collection = $2 AND (id = ANY($3) OR identifier = ANY($3) OR dedupe_key = ANY($4))",
     )
     .bind(
       u.person,
@@ -199,7 +232,7 @@ export async function uploadDocs(
     cgm: { link: CgmLink; value: string; at: string } | null;
     old: Link[];
   };
-  const answers = new Map<string, Doc>();
+  const answers = new Map<string, Saved>();
   const plans: Plan[] = [];
   for (const p of docs) {
     const row = match(p);
@@ -210,9 +243,17 @@ export async function uploadDocs(
         p.identifier ? `identifier|${p.identifier}` : `${collection}|${p.key}`,
       ));
     const identifier = p.identifier ?? row?.identifier ?? null;
-    answers.set(matchKey(p), publicDoc(id, identifier, p.data));
-    if (p.future || row?.deleted_by === "carby") continue;
-    if (row && !row.deleted && canonical(JSON.parse(row.data)) === canonical(p.data)) continue;
+    const unchanged =
+      p.future ||
+      row?.deleted_by === "carby" ||
+      (row !== undefined && !row.deleted && canonical(JSON.parse(row.data)) === canonical(p.data));
+    answers.set(matchKey(p), {
+      doc: publicDoc(id, identifier, p.data),
+      identifier: identifier ?? id,
+      existed: row !== undefined,
+      modified: unchanged && row ? Date.parse(row.modified) : now.getTime(),
+    });
+    if (unchanged) continue;
     const projection = project(collection, p.data, p.time, u.label);
     plans.push({
       p,
@@ -329,9 +370,9 @@ export async function uploadDocs(
     statements.push(...queue(refs), ...changes);
   }
   if (statements.length) await db.batch(statements);
-  return all.flatMap((p): Doc[] => {
-    const doc = answers.get(matchKey(p));
-    return doc ? [doc] : [];
+  return all.flatMap((p): Saved[] => {
+    const saved = answers.get(matchKey(p));
+    return saved ? [saved] : [];
   });
 }
 
@@ -363,23 +404,82 @@ function whereFor(
   return where.join(" AND ");
 }
 
-/** Uploaded documents, newest first, as Nightscout returns them. Deleted ones are left out. */
+/** Uploaded documents, newest first unless asked otherwise. Deleted ones are left out. */
 export async function findDocs(
   db: Database,
   owner: string,
   collection: NightscoutCollection,
   query: NightscoutQuery,
+  format: "v1" | "v3",
 ): Promise<Doc[]> {
   const args: unknown[] = [owner, collection];
   const where = whereFor(collection, query, args);
   args.push(query.count);
   const rows = await db
     .prepare(
-      `SELECT id, identifier, data FROM nightscout_records WHERE ${where} ORDER BY at DESC LIMIT $${args.length}`,
+      `SELECT ${ROW_COLUMNS} FROM nightscout_records WHERE ${where} ORDER BY at ${query.descending ? "DESC" : "ASC"} LIMIT $${args.length}`,
     )
     .bind(...args)
-    .all<{ id: string; identifier: string | null; data: string }>();
-  return rows.results.map((row) => publicDoc(row.id, row.identifier, JSON.parse(row.data) as Doc));
+    .all<Row>();
+  return rows.results.map((row) => readDoc(row, format));
+}
+
+/** One stored document by `_id` or identifier, deleted or not: its stored fields and its v3 form. */
+export async function findRecord(
+  db: Database,
+  owner: string,
+  collection: NightscoutCollection,
+  identifier: string,
+) {
+  const row = await db
+    .prepare(
+      `SELECT ${ROW_COLUMNS} FROM nightscout_records WHERE owner = $1 AND collection = $2 AND (id = $3 OR identifier = $3) LIMIT 1`,
+    )
+    .bind(owner, collection, identifier)
+    .first<Row>();
+  return row
+    ? {
+        id: row.id,
+        data: JSON.parse(row.data) as Doc,
+        doc: readDoc(row, "v3"),
+        deleted: row.deleted !== null,
+      }
+    : null;
+}
+
+/**
+ * API v3 history: documents changed after `since` (ms), oldest change first, deleted ones
+ * included with `isValid: false` so clients learn of deletions.
+ */
+export async function historyDocs(
+  db: Database,
+  owner: string,
+  collection: NightscoutCollection,
+  since: number,
+  limit: number,
+): Promise<Doc[]> {
+  const rows = await db
+    .prepare(
+      `SELECT ${ROW_COLUMNS} FROM nightscout_records WHERE owner = $1 AND collection = $2 AND modified > $3 ORDER BY modified, id LIMIT $4`,
+    )
+    .bind(owner, collection, new Date(since).toISOString(), limit)
+    .all<Row>();
+  return rows.results.map((row) => readDoc(row, "v3"));
+}
+
+/** When each collection last changed, in ms, for API v3's lastModified. */
+export async function lastModified(db: Database, owner: string) {
+  const rows = await db
+    .prepare(
+      "SELECT collection, MAX(modified) AS modified FROM nightscout_records WHERE owner = $1 GROUP BY collection",
+    )
+    .bind(owner)
+    .all<{ collection: string; modified: string }>();
+  return Object.fromEntries(
+    rows.results
+      .filter((row) => (nightscoutCollections as readonly string[]).includes(row.collection))
+      .map((row) => [row.collection, Date.parse(row.modified)]),
+  );
 }
 
 /**
