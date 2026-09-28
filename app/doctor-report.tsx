@@ -218,7 +218,9 @@ function label(e: Entry, plan: ReportPlan) {
         ? `${e.insulin}: ${e.units} units${e.purpose ? ` · ${e.purpose}` : ""}`
         : e.kind === "exercise"
           ? `Exercise${e.intensity ? ` · ${e.intensity}` : ""}${e.minutes !== null ? ` · ${e.minutes} min` : ""}`
-          : `Rescue medication given${e.medication ? `: ${e.medication}` : ""}`;
+          : e.kind === "correction-skipped"
+            ? "Correction skipped · no insulin given"
+            : `Rescue medication given${e.medication ? `: ${e.medication}` : ""}`;
 }
 function calculationLabel(e: Entry, unit: GlucoseUnit) {
   if (e.kind !== "insulin" || !e.calculation) return "";
@@ -310,7 +312,7 @@ function DailyChart({
   );
   const insulin = packed(
     entries
-      .filter((e) => e.kind === "insulin")
+      .filter((e) => e.kind === "insulin" || e.kind === "correction-skipped")
       .map((e) => ({
         at: e.at,
         text: `${localParts(e.at, timezone).time}: ${label(e, plan)}${e.note ? ` · ${e.note}` : ""}`,
@@ -1525,13 +1527,15 @@ function DoctorReport({
                     e.kind === "exercise" ||
                     e.kind === "rescue" ||
                     (e.kind === "food" && sections.meals) ||
-                    (e.kind === "insulin" && sections.insulin),
+                    ((e.kind === "insulin" || e.kind === "correction-skipped") && sections.insulin),
                 );
                 const rows = [
                   ...visibleEntries.map((e) => ({
                     at: e.at,
                     key: e.id,
-                    kind: e.kind,
+                    // The badge class doubles as its text; "correction-skipped" would also pick up
+                    // the dashboard's log icon colors.
+                    kind: e.kind === "correction-skipped" ? "skipped" : e.kind,
                     text: label(e, plan),
                     note: recordDetails(e, unit),
                   })),

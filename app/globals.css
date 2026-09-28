@@ -363,6 +363,10 @@ h1 span {
   background: var(--danger-bg);
   color: var(--danger-ink);
 }
+.correction-skipped {
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
+}
 .calc {
   background: var(--accent-wash);
   color: var(--accent-solid);

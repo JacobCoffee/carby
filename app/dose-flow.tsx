@@ -23,7 +23,7 @@ import DoseAmountField from "./dose-amount-field";
 import { GlucoseField } from "./plan-settings-fields";
 import { mealRatioAt } from "@/lib/report-analysis";
 import { currentShareForCorrection } from "@/lib/correction-reading";
-import { correctionReviewStatus } from "@/lib/correction-review";
+import { correctionReviewStatus, isCorrectionDose } from "@/lib/correction-review";
 import { isRecentReading } from "@/lib/reading-freshness";
 import {
   currentDoseOverride,
@@ -395,12 +395,9 @@ export default function DoseFlow({
       e.insulin === "Rapid-acting" &&
       (!now || Date.parse(e.at) <= now.getTime()),
   );
+  // Only insulin given counts here; a logged skip restarts the dashboard review but adds no insulin.
   const lastCorrection = entries.find(
-    (e) =>
-      e.kind === "insulin" &&
-      e.insulin === "Rapid-acting" &&
-      (e.purpose === "Correction only" || e.purpose === "Meal + correction") &&
-      (!now || Date.parse(e.at) <= now.getTime()),
+    (e) => isCorrectionDose(e) && (!now || Date.parse(e.at) <= now.getTime()),
   );
   const correctionReview = correctionReviewStatus(
     lastCorrection?.at,

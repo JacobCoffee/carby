@@ -39,7 +39,7 @@ import {
 } from "@/lib/care";
 import { formatGlucose, glucoseUnitOf } from "@/lib/glucose-units";
 
-export type EntryModalKind = "glucose" | "food" | "insulin" | "exercise" | "rescue";
+export type EntryModalKind = Entry["kind"];
 
 /** One-shot prefill for the next time the dialog opens; ignored once the fields are edited. */
 export type EntryPrefill = {
@@ -285,12 +285,16 @@ export default function EntryDialog({
                     ? "Log exercise"
                     : modal === "rescue"
                       ? "Record rescue medication given"
-                      : "Record insulin given"}
+                      : modal === "correction-skipped"
+                        ? "Log a skipped correction"
+                        : "Record insulin given"}
           </DialogTitle>
           <DialogDescription>
             {modal === "insulin"
               ? "Enter the dose actually given. This form does not recommend a dose."
-              : "Keep a clear record for you and your care team."}
+              : modal === "correction-skipped"
+                ? `Record that no correction was given. The correction review restarts from this time, ${plan.correctionHours} hours later.`
+                : "Keep a clear record for you and your care team."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={saveEntry} className="entry-form">
@@ -305,7 +309,7 @@ export default function EntryDialog({
                   type="button"
                   className="button outline"
                   key={record.id}
-                  onClick={() => onOpenEntry(record.kind as EntryModalKind, record)}
+                  onClick={() => onOpenEntry(record.kind, record)}
                 >
                   {record.kind === "food"
                     ? `${record.meal} · ${fmt(record.carbs ?? 0)} g carbs`
@@ -672,7 +676,11 @@ export default function EntryDialog({
               onChange={(e) => {
                 setNote(e.target.value);
               }}
-              placeholder="Food, symptoms, or care-team instructions"
+              placeholder={
+                modal === "correction-skipped"
+                  ? "Why the correction was skipped"
+                  : "Food, symptoms, or care-team instructions"
+              }
             />
           </label>
           <button type="submit" className="button primary full" disabled={saving}>

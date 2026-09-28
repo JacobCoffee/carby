@@ -1,4 +1,4 @@
-import { localInput, type CorrectionQuietHours } from "./care";
+import { localInput, type CorrectionQuietHours, type Entry } from "./care";
 
 export type CorrectionReview = {
   at: string;
@@ -17,6 +17,30 @@ export function readingAboveRange(
   high: number,
 ) {
   return status === "High" || (value !== null && value > Math.max(high, target));
+}
+
+/** A rapid-acting dose logged as covering a correction. */
+export function isCorrectionDose(entry: Entry): boolean {
+  return (
+    entry.kind === "insulin" &&
+    entry.insulin === "Rapid-acting" &&
+    (entry.purpose === "Correction only" || entry.purpose === "Meal + correction")
+  );
+}
+
+/**
+ * The latest correction dose or logged skipped correction at or before `now`. The review interval
+ * runs from it, so a skip restarts the review without counting as insulin given.
+ */
+export function lastCorrectionEvent(entries: Entry[], now: number): Entry | undefined {
+  let last: Entry | undefined;
+  for (const entry of entries) {
+    if (!isCorrectionDose(entry) && entry.kind !== "correction-skipped") continue;
+    const at = Date.parse(entry.at);
+    if (at > now || (last && at <= Date.parse(last.at))) continue;
+    last = entry;
+  }
+  return last;
 }
 
 /** Describe the configured review interval without implying a dose is due. */

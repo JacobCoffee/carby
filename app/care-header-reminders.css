@@ -54,6 +54,58 @@
   }
 }
 
+/* A card with its own actions: the main button keeps the chip layout and the actions sit under
+ * its text, lined up past the alert icon (34px) and the chip's gap. */
+.care-redesign .care-header-reminder.has-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.care-reminder-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.care-reminder-main > svg {
+  flex: none;
+}
+.care-reminder-main:focus-visible {
+  outline: 3px solid var(--accent-deep);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.care-reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 46px;
+}
+.care-reminder-actions .text-button {
+  padding-block: 4px;
+}
+.care-header-reminders.is-collapsed .care-reminder-actions {
+  display: none;
+}
+@media (max-width: 680px) {
+  .care-reminder-main {
+    gap: 7px;
+    align-items: flex-start;
+  }
+  .care-reminder-actions {
+    padding-left: 41px;
+  }
+}
+
 /* Overnight check close, due or missed: full width above the header, aligned with its content. */
 .overnight-banner {
   display: flex;
