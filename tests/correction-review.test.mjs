@@ -1,9 +1,31 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { correctionReviewStatus, inQuietHours } from "../lib/correction-review.ts";
+import {
+  correctionReviewStatus,
+  inQuietHours,
+  lastCorrectionEvent,
+} from "../lib/correction-review.ts";
+import { entrySchema } from "../lib/care.ts";
 
 const timezone = "America/Chicago";
 const correctionHours = 3;
+
+const record = (fields) =>
+  entrySchema.parse({
+    id: crypto.randomUUID(),
+    glucose: null,
+    source: null,
+    ketones: null,
+    carbs: null,
+    units: null,
+    insulin: null,
+    meal: null,
+    note: "",
+    ...fields,
+  });
+const dose = (at, purpose) =>
+  record({ kind: "insulin", at, units: 2, insulin: "Rapid-acting", purpose });
+const skip = (at) => record({ kind: "correction-skipped", at });
 
 test("yesterday’s review time is past, not the next check", () => {
   const review = correctionReviewStatus(
@@ -95,4 +117,29 @@ test("quiet hours within one day stay inside it, and none on the plan hides noth
   assert.equal(inQuietHours(Date.parse("2026-09-26T20:00:00Z"), afternoon, timezone), false);
   assert.equal(inQuietHours(Date.parse("2026-09-26T08:00:00Z"), afternoon, timezone), false);
   assert.equal(inQuietHours(Date.parse("2026-09-26T04:28:00Z"), undefined, timezone), false);
+});
+
+test("a skipped correction restarts the review from the skip", () => {
+  // 216 mg/dL at review time after a 4:32 PM CDT correction; the correction is skipped at 7:40 PM.
+  const entries = [skip("2026-09-21T00:40:00Z"), dose("2026-09-20T21:32:00Z", "Correction only")];
+  const now = Date.parse("2026-09-21T00:45:00Z");
+  const last = lastCorrectionEvent(entries, now);
+  assert.equal(last.kind, "correction-skipped");
+  const review = correctionReviewStatus(last.at, now, timezone, correctionHours);
+  assert.equal(review.state, "upcoming");
+  assert.equal(review.at, "2026-09-21T03:40:00.000Z");
+});
+
+test("a correction dose after a skip takes over, and meal-only doses never anchor a review", () => {
+  const now = Date.parse("2026-09-21T02:00:00Z");
+  const later = dose("2026-09-21T01:30:00Z", "Meal + correction");
+  const entries = [dose("2026-09-21T01:50:00Z", "Meal only"), skip("2026-09-21T00:40:00Z"), later];
+  assert.equal(lastCorrectionEvent(entries, now), later);
+  assert.equal(lastCorrectionEvent([dose("2026-09-21T01:50:00Z", "Meal only")], now), undefined);
+});
+
+test("a skip logged after now is not the review's start", () => {
+  const earlier = dose("2026-09-20T21:32:00Z", "Correction only");
+  const entries = [skip("2026-09-21T00:40:00Z"), earlier];
+  assert.equal(lastCorrectionEvent(entries, Date.parse("2026-09-21T00:30:00Z")), earlier);
 });

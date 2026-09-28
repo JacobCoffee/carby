@@ -10,6 +10,7 @@ import {
   Loader2,
   Pencil,
   Siren,
+  SkipForward,
   Syringe,
   Thermometer,
   Utensils,
@@ -47,6 +48,7 @@ const iconFor = {
   insulin: Syringe,
   exercise: Dumbbell,
   rescue: Siren,
+  "correction-skipped": SkipForward,
 };
 
 function ExactDose({
@@ -189,7 +191,9 @@ export default function DailyLog({
           (logFilter === "all" ||
             (logFilter === "care" && (row.kind === "manual" || row.kind === "dose-food")) ||
             (logFilter === "food" && row.kind === "dose-food") ||
-            (row.kind === "manual" && (row.item as Entry).kind === logFilter)) &&
+            (row.kind === "manual" &&
+              ((row.item as Entry).kind === logFilter ||
+                (logFilter === "insulin" && (row.item as Entry).kind === "correction-skipped")))) &&
           (logSearch.trim() === "" ||
             logSearchText(row.item, unit).includes(logSearch.trim().toLocaleLowerCase())),
       ),
@@ -461,7 +465,9 @@ export default function DailyLog({
                                   ? `Exercise · ${e.minutes} min${e.intensity ? ` · ${e.intensity.toLowerCase()}` : ""}`
                                   : e.kind === "rescue"
                                     ? `Emergency medication · ${e.medication}`
-                                    : `${e.insulin} · ${fmt(e.units!)} units`}
+                                    : e.kind === "correction-skipped"
+                                      ? "Correction skipped"
+                                      : `${e.insulin} · ${fmt(e.units!)} units`}
                           </strong>
                           {(linkedRecordIds.has(e.id) ||
                             doseFoodRecords.some((food) => food.dose.id === e.id)) && (
@@ -481,7 +487,9 @@ export default function DailyLog({
                                   ? "Food recorded separately from insulin"
                                   : e.kind === "rescue"
                                     ? "Severe low · emergency medication given"
-                                    : "Activity"}
+                                    : e.kind === "correction-skipped"
+                                      ? "No correction given"
+                                      : "Activity"}
                           </p>
                           {e.calculation && (
                             <p className="event-note">

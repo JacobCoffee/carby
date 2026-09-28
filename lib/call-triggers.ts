@@ -1,4 +1,5 @@
 import type { CgmReading, Entry, Plan } from "./care";
+import { isCorrectionDose } from "./correction-review";
 
 /**
  * Descriptive call-the-team triggers only; never a dosing calculation.
@@ -17,14 +18,6 @@ export type CallTrigger =
   | { kind: "rescue"; at: string; medication: string };
 
 const hour = 60 * 60 * 1000;
-
-function isCorrectionDose(entry: Entry): boolean {
-  return (
-    entry.kind === "insulin" &&
-    entry.insulin === "Rapid-acting" &&
-    (entry.purpose === "Correction only" || entry.purpose === "Meal + correction")
-  );
-}
 
 /** 15-minute freshness window, per the clinic's after-correction check (distinct from the
  * 10-minute dose-review window in reading-freshness.ts). */

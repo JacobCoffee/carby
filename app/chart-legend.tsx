@@ -93,7 +93,7 @@ function layers(status: { high: boolean; low: boolean }, reviewHours: number, un
           layer: "review",
           label: "Correction review",
           swatch: <i className="legend-correction" aria-hidden="true" />,
-          title: `${reviewHours} h after a correction dose. A timing reference, not a dose recommendation.`,
+          title: `${reviewHours} h after a correction dose or skipped correction. A timing reference, not a dose recommendation.`,
         },
         {
           layer: "nightly",

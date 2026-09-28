@@ -45,7 +45,7 @@ import {
   type ChartZoom,
 } from "@/lib/chart-window";
 import { uniqueCgm } from "@/lib/cgm-metrics";
-import { inQuietHours } from "@/lib/correction-review";
+import { inQuietHours, isCorrectionDose } from "@/lib/correction-review";
 import { nightlySchedule } from "@/lib/nightly-reminder";
 import { glucoseLevel, glucoseLevelNames } from "@/lib/glucose-metrics";
 import { estimateLabel, type GlucoseEstimate } from "@/lib/glucose-estimate";
@@ -72,7 +72,7 @@ type Props = {
   illnesses?: IllnessWindow[];
   now: number;
   correctionAt?: string | null;
-  /** Plan's correction review interval; each correction dose gets a faint review line at dose + interval. */
+  /** Plan's correction review interval; each correction dose or skipped correction gets a faint review line at its time + interval. */
   correctionHours?: number;
   onSelectIllness?: (illness: IllnessWindow) => void;
   entries: Entry[];
@@ -887,16 +887,12 @@ const GlucoseChart = memo(function GlucoseChart({
       }
       return { ...tag, width: Math.max(0, limit - tag.left) };
     });
-  // Timing references for every correction dose in view. The highlighted marker above covers the upcoming one.
+  // Timing references for every correction dose or skipped correction in view. The highlighted
+  // marker above covers the upcoming one.
   const reviewMarks =
     correctionHours > 0
       ? entries.flatMap((entry) => {
-          if (
-            entry.kind !== "insulin" ||
-            entry.insulin !== "Rapid-acting" ||
-            (entry.purpose !== "Correction only" && entry.purpose !== "Meal + correction")
-          )
-            return [];
+          if (!isCorrectionDose(entry) && entry.kind !== "correction-skipped") return [];
           const at = new Date(Date.parse(entry.at) + correctionHours * 3600000).toISOString();
           const minute = minuteOf(at);
           return minute >= start &&

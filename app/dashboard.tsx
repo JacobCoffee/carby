@@ -147,7 +147,11 @@ import { mealRatioAt } from "@/lib/report-analysis";
 import { foodDosePrompt, type FoodDosePrompt } from "@/lib/food-dose-prompt";
 import type { SyncStatus } from "@/lib/sync";
 import { SyncNotice } from "./sync-notice";
-import { correctionReviewStatus, readingAboveRange } from "@/lib/correction-review";
+import {
+  correctionReviewStatus,
+  lastCorrectionEvent,
+  readingAboveRange,
+} from "@/lib/correction-review";
 import { nightlyReminder } from "@/lib/nightly-reminder";
 import { estimateLabel, glucoseEstimate } from "@/lib/glucose-estimate";
 import { formatGlucose, glucoseUnitOf, glucoseWithUnit } from "@/lib/glucose-units";
@@ -1024,13 +1028,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         ? `${latestVerifiedGlucose.status?.toUpperCase()} · exact value unknown`
         : `${glucoseWithUnit(latestVerifiedGlucose.value, glucoseUnit)} · Dexcom Share`
     : null;
-  const lastCorrection = entries.find(
-    (e) =>
-      e.kind === "insulin" &&
-      e.insulin === "Rapid-acting" &&
-      (e.purpose === "Correction only" || e.purpose === "Meal + correction") &&
-      (!now || Date.parse(e.at) <= now.getTime()),
-  );
+  // A logged skip restarts the review; the dose flow still reads insulin from actual doses only.
+  const lastCorrection = lastCorrectionEvent(entries, now?.getTime() ?? NaN);
   const correctionReview = correctionReviewStatus(
     lastCorrection?.at,
     now?.getTime() ?? NaN,
@@ -1922,6 +1921,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       <div className="care-sheet">
         <CareHeaderReminders
           correction={aboveRange ? correctionReview : null}
+          correctionSkipped={lastCorrection?.kind === "correction-skipped"}
           nightly={nightly}
           now={now?.getTime() ?? NaN}
           plan={plan}
@@ -1933,6 +1933,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           lowRecheck={lowRecheckState}
           sickDay={sickStatus}
           onCorrection={() => openDoseFlow("Correction")}
+          onSkipCorrection={canLog ? () => open("correction-skipped") : undefined}
           onNightly={() => setNightOpen(true)}
           onOvernight={() => open("glucose")}
           onLowRecheck={() => open("glucose")}

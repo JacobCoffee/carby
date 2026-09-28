@@ -580,7 +580,7 @@ export const entrySchema = z
   .object({
     id: z.string().uuid(),
     revision: z.string().max(100).optional(),
-    kind: z.enum(["glucose", "food", "insulin", "exercise", "rescue"]),
+    kind: z.enum(["glucose", "food", "insulin", "exercise", "rescue", "correction-skipped"]),
     at: z.string().datetime(),
     glucose: z.number().min(20).max(1000).nullable(),
     status: z.enum(["High", "Low"]).nullable().optional(),
