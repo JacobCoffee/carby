@@ -295,6 +295,12 @@ button.chart-layer[aria-pressed="false"] > :first-child {
   width: 24px;
   border-top: 2px dashed var(--chart-device);
 }
+.chart-legend .legend-fall {
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--chart-alert-high) 45%, transparent);
+}
 /* A small fan with its dashed middle line, drawn as the chart draws the likely range. */
 .chart-legend svg.legend-estimate {
   width: 24px;
@@ -333,6 +339,7 @@ button.chart-layer[aria-pressed="false"] > :first-child {
 .glucose-chart .plot-wrap svg[data-preview="device"] [data-layer="device"],
 .glucose-chart .plot-wrap svg[data-preview="review"] [data-layer="review"],
 .glucose-chart .plot-wrap svg[data-preview="nightly"] [data-layer="nightly"],
+.glucose-chart .plot-wrap svg[data-preview="fall"] [data-layer="fall"],
 .glucose-chart .plot-wrap svg[data-preview="estimate"] [data-layer="estimate"] {
   opacity: 1;
 }
@@ -366,6 +373,19 @@ button.chart-layer[aria-pressed="false"] > :first-child {
   stroke-width: 1.5;
   stroke-dasharray: 3 5;
   opacity: 0.75;
+}
+/* Where glucose usually fell fastest after rapid-acting: a wash in the dose marker's color,
+ * stronger while it is still ahead. */
+.chart-fall-band {
+  fill: color-mix(in srgb, var(--chart-alert-high) 22%, transparent);
+}
+.chart-fall-band.is-ahead {
+  fill: color-mix(in srgb, var(--chart-alert-high) 42%, transparent);
+}
+.chart-fall-label {
+  fill: var(--chart-alert-high);
+  font-size: 11px;
+  font-weight: 700;
 }
 /* The likely range ahead of now: kept faint so it never reads as data. */
 .chart-estimate-band {

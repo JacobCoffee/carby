@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { doseResponses, doseTiming } from "../lib/dose-response.ts";
+import { doseResponses, doseTiming, usualFastestFall } from "../lib/dose-response.ts";
 import { mealResponses, mealsWithoutInsulin } from "../lib/meal-response.ts";
 
 const base = Date.parse("2026-09-20T12:00:00Z");
@@ -126,6 +126,30 @@ test("timing needs three comparable doses and gives medians across them", () => 
   assert.equal(timing.medianLowestMinutes, 85);
   assert.equal(timing.changes.find((c) => c.minutes === 60).change, -100);
   assert.equal(doseTiming(three, "Long-acting"), null);
+});
+
+test("the usual fastest fall is placed after a new dose, and only once three doses fell", () => {
+  const day = 86400000 / 60000;
+  const days = [0, 1, 2].map((d) => d * day);
+  const readings = days.flatMap((start, d) =>
+    cgm((m) => fall(m - start - 5 * d), start - 10, start + 180),
+  );
+  const responses = doseResponses(
+    days.map((start) => dose(start, 1.5)),
+    readings,
+    later,
+  );
+  const timing = doseTiming(responses, "Rapid-acting");
+  const next = dose(4 * day, 1);
+  assert.deepEqual(usualFastestFall(next, timing), {
+    from: at(4 * day + 45),
+    to: at(4 * day + 60),
+  });
+  // Too few doses, the other insulin, or a record that isn't a dose: nothing to place.
+  assert.equal(usualFastestFall(next, doseTiming(responses.slice(0, 2), "Rapid-acting")), null);
+  assert.equal(usualFastestFall(dose(4 * day, 10, "Long-acting"), timing), null);
+  assert.equal(usualFastestFall(food(4 * day, 20), timing), null);
+  assert.equal(usualFastestFall(next, { ...timing, fastestFallFrom: null }), null);
 });
 
 test("meals without insulin leave out meals with rapid-acting insulin around them", () => {
