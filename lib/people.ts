@@ -64,6 +64,20 @@ export function chooseMembership(
 }
 
 /**
+ * The person a page opens. The cookie's choice wins; without one, the first person (owners first)
+ * with a saved care plan, so an empty person made before an invite was accepted never hides the
+ * log the account was invited to. A browser that never stored the cookie, such as an iOS home
+ * screen app, otherwise opens that empty person every time.
+ */
+export function openingPerson<T extends { id: string }>(
+  people: readonly T[],
+  chosen: string | undefined,
+  planned: ReadonlySet<string>,
+): T | undefined {
+  return people.find((p) => p.id === chosen) ?? people.find((p) => planned.has(p.id)) ?? people[0];
+}
+
+/**
  * Whether a change leaves the person with at least one owner. `role: null` removes the member.
  * Every person keeps an owner, so there is always someone who can manage the care plan and sharing.
  */

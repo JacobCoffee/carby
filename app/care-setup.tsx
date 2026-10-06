@@ -125,11 +125,15 @@ type Problem = { step: number; control?: Control; flags?: string[] };
 export default function CareSetup({
   incompletePlan,
   hasRecords = false,
+  hasLog = false,
   profile = null,
 }: {
   /** Present when the latest saved plan exists but fails planSchema. */
   incompletePlan?: PlanDraft;
+  /** Any row at all, which blocks a backup import. */
   hasRecords?: boolean;
+  /** Care records the plan would open, beyond a profile and its change history. */
+  hasLog?: boolean;
   /** Already-saved profile, if any. When absent, setup collects one before the care plan step. */
   profile?: Profile | null;
 }) {
@@ -499,7 +503,7 @@ export default function CareSetup({
               <fieldset className="setup-steps" disabled={saving || finished}>
                 <section {...stepProps(0)}>
                   {stepHead(0)}
-                  {hasRecords && !incompletePlan && (
+                  {hasLog && !incompletePlan && (
                     <p className="notice" role="status">
                       This account has records but no care plan. Enter your current care plan
                       settings to open them.

@@ -21,6 +21,11 @@ export async function careRecordKinds(db: Database, owner: string): Promise<Back
   return ACCOUNT_TABLES.filter((table) => row?.[table] === true);
 }
 
+/** Kinds that hold care data. A profile or change history alone is not a log waiting on a plan. */
+export function loggedRecordKinds(kinds: readonly BackupTable[]): BackupTable[] {
+  return kinds.filter((kind) => kind !== "profiles" && kind !== "care_audit");
+}
+
 const SESSION_TTL = 24 * 3600000;
 const CLEANUP_ROWS = 5000;
 const finished = "state IN ('cancelled','failed','complete')";

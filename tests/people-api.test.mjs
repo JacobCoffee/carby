@@ -22,6 +22,7 @@ const clarityReport = await import("../app/api/clarity/report/route.ts");
 const dexcom = await import("../app/api/dexcom/route.ts");
 const exportRoute = await import("../app/api/export/route.ts");
 const importRoute = await import("../app/api/import/route.ts");
+const access = await import("../app/access.ts");
 
 async function setup() {
   const db = await createTestDatabase();
@@ -101,6 +102,26 @@ async function join(account, token) {
   assert.equal(joined.status, 200, JSON.stringify(joined.body));
   return joined.body.person;
 }
+
+pgTest(
+  "an account that opened Carby before joining opens the shared log, not its empty person",
+  async () => {
+    const db = await setup();
+    try {
+      // Grandma's first visit gives her an owned person with no plan.
+      signedIn = accounts.grandma;
+      assert.equal((await json(people.GET(request("/api/people")))).status, 200);
+      const person = await join(accounts.grandma, await momShares("caregiver"));
+      const opened = (chosen) =>
+        access.pagePeople(globalThis.peopleTestDb, accounts.grandma, chosen);
+      // A browser without the person cookie, such as an iOS home screen app.
+      assert.equal((await opened(undefined)).active.id, person);
+      assert.equal((await opened(accounts.grandma.userId)).active.id, accounts.grandma.userId);
+    } finally {
+      await teardown(db);
+    }
+  },
+);
 
 pgTest(
   "an account with records from before people existed keeps them as its own person",

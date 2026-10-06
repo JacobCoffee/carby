@@ -6,6 +6,7 @@ import {
   keepsAnOwner,
   inviteTokenHash,
   newInviteToken,
+  openingPerson,
   peopleActionSchema,
 } from "../lib/people.ts";
 
@@ -59,6 +60,20 @@ test("an unnamed read follows the cookie, and ignores a cookie for someone else"
   assert.deepEqual(chooseMembership([], { named: null, cookie: null, write: false }), {
     status: 404,
   });
+});
+
+test("without a cookie, a page opens someone with a care plan before an empty owned person", () => {
+  // Owners come first: the empty person the account got before accepting an invite.
+  const people = [
+    { id: "own-empty", role: "owner" },
+    { id: "invited", role: "caregiver" },
+  ];
+  const planned = new Set(["invited"]);
+  assert.equal(openingPerson(people, undefined, planned).id, "invited");
+  assert.equal(openingPerson(people, "not-mine", planned).id, "invited");
+  assert.equal(openingPerson(people, "own-empty", planned).id, "own-empty");
+  assert.equal(openingPerson(people, undefined, new Set()).id, "own-empty");
+  assert.equal(openingPerson(people, undefined, new Set(["own-empty", "invited"])).id, "own-empty");
 });
 
 test("the last owner can't be demoted or removed, but another owner can", () => {
