@@ -3,11 +3,16 @@ import Dashboard from "./dashboard";
 import CareSetup from "./care-setup";
 import SetupPending from "./setup-pending";
 import { requireCurrentUser } from "./auth";
-import { listPeople } from "./access";
+import { pagePeople } from "./access";
 import { PersonProvider } from "./person-context";
 import { database } from "@/db/raw";
 import { planDraft, planSchema } from "@/lib/care";
-import { careRecordKinds, cleanupImports, importCleanupNeeded } from "@/lib/care-records";
+import {
+  careRecordKinds,
+  cleanupImports,
+  importCleanupNeeded,
+  loggedRecordKinds,
+} from "@/lib/care-records";
 import { PERSON_COOKIE, type PersonAccess } from "@/lib/people";
 import { PERSON_META } from "@/lib/person-request";
 import { profileSchema } from "@/lib/profile";
@@ -18,9 +23,11 @@ export default async function Home() {
   const user = await requireCurrentUser("/");
   const db = database();
   // Every account reaches at least one person; the cookie only picks which one opens first.
-  const people = await listPeople(db, user);
-  const chosen = (await cookies()).get(PERSON_COOKIE)?.value;
-  const active = people.find((p) => p.id === chosen) ?? people[0]!;
+  const { people, active } = await pagePeople(
+    db,
+    user,
+    (await cookies()).get(PERSON_COOKIE)?.value,
+  );
   const access: PersonAccess = { person: active.id, role: active.role, people };
   const owner = active.id;
   // Staged import rows are removed here too, so an import abandoned by closing the page does not linger.
@@ -51,6 +58,7 @@ export default async function Home() {
       <CareSetup
         incompletePlan={saved ? planDraft(savedData) : undefined}
         hasRecords={existing.length > 0}
+        hasLog={loggedRecordKinds(existing).length > 0}
         profile={parsedProfile && parsedProfile.success ? parsedProfile.data : null}
       />
     );

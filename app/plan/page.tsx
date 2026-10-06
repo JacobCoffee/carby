@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "../auth";
-import { listPeople } from "../access";
+import { pagePeople } from "../access";
 import { PersonProvider } from "../person-context";
 import PlanPage, { type PlanVersion } from "../plan-page";
 import { database } from "@/db/raw";
@@ -16,9 +16,11 @@ export const dynamic = "force-dynamic";
 export default async function CarePlan() {
   const user = await requireCurrentUser("/plan");
   const db = database();
-  const people = await listPeople(db, user);
-  const chosen = (await cookies()).get(PERSON_COOKIE)?.value;
-  const active = people.find((p) => p.id === chosen) ?? people[0]!;
+  const { people, active } = await pagePeople(
+    db,
+    user,
+    (await cookies()).get(PERSON_COOKIE)?.value,
+  );
   const access: PersonAccess = { person: active.id, role: active.role, people };
   const owner = active.id;
   const [saved, profileRow] = await Promise.all([

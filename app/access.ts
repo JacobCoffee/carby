@@ -14,6 +14,7 @@ import { profileSchema } from "@/lib/profile";
 import {
   can,
   chooseMembership,
+  openingPerson,
   personRoles,
   PERSON_COOKIE,
   PERSON_HEADER,
@@ -127,6 +128,20 @@ export async function listPeople(db: Database, user: User): Promise<PersonSummar
     }),
   );
   return list.map((m) => ({ id: m.person, name: names.get(m.person) ?? null, role: m.role }));
+}
+
+/** Everyone the account can reach, and the person a page opens for them (see openingPerson). */
+export async function pagePeople(db: Database, user: User, chosen: string | undefined) {
+  const people = await listPeople(db, user);
+  const planned = people.some((p) => p.id === chosen)
+    ? []
+    : (
+        await db
+          .prepare("SELECT DISTINCT owner FROM plans WHERE owner = ANY($1)")
+          .bind(people.map((p) => p.id))
+          .all<{ owner: string }>()
+      ).results.map((row) => row.owner);
+  return { people, active: openingPerson(people, chosen, new Set(planned))! };
 }
 
 export async function resolveAccess(
