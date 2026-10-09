@@ -88,3 +88,14 @@ export function timeLabelCount(span: number, most: number, label = TIME_LABEL_PX
   for (let n = most; n > 2; n--) if (span / (n - 1) >= label * 1.5 + gap) return n;
   return 2;
 }
+
+/**
+ * The instant a click at chart minute `minute` logs a record at: the nearest whole minute, as the
+ * readout shows it. A click in the current minute logs at `now`; anything later is the forecast
+ * area and logs nothing, since a record is never dated ahead of now.
+ */
+export function chartLogAt(start: number, minute: number, now: number): string | null {
+  const at = start + Math.round(minute) * 60000;
+  if (at > now + 60000) return null;
+  return new Date(Math.min(at, now)).toISOString();
+}

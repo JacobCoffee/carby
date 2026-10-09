@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   MIN_ZOOM_MINUTES,
   TIME_LABEL_PX,
+  chartLogAt,
   chartZoom,
   timeLabelCount,
   zoomAround,
@@ -45,4 +46,16 @@ test("a narrow chart gets fewer time labels, so neighbours never overlap", () =>
     const n = timeLabelCount(span, 5);
     if (n > 2) assert.ok(span / (n - 1) >= TIME_LABEL_PX * 1.5);
   }
+});
+
+test("a chart click logs at its rounded minute, never later than now", () => {
+  const start = Date.parse("2026-10-09T05:00:00.000Z");
+  const now = start + 600 * 60000 + 30_000;
+  // Earlier in the day: the minute the readout names.
+  assert.equal(chartLogAt(start, 278.4, now), "2026-10-09T09:38:00.000Z");
+  assert.equal(chartLogAt(start, 278.6, now), "2026-10-09T09:39:00.000Z");
+  // The minute that rounds just past now is still the present, so it logs at now.
+  assert.equal(chartLogAt(start, 600.7, now), new Date(now).toISOString());
+  // Further ahead is the forecast: nothing is logged there.
+  assert.equal(chartLogAt(start, 602, now), null);
 });

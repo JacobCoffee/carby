@@ -80,7 +80,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import PersonMenu from "./person-menu";
-import LogMenu, { type LogAction } from "./log-menu";
+import LogMenu, { type LogAction, type TimedLogAction } from "./log-menu";
 import { useHoverMenu } from "./hover-menu";
 import ShortcutsDialog from "./shortcuts-dialog";
 import { createShortcutMatcher } from "@/lib/shortcuts";
@@ -260,7 +260,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
     [now, setNow] = useState<Date | null>(null),
     [day, setDay] = useState("");
   const [illnessWindows, setIllnessWindows] = useState<IllnessWindow[]>([]),
-    [illnessEditor, setIllnessEditor] = useState<{ record: IllnessWindow | null } | null>(null),
+    [illnessEditor, setIllnessEditor] = useState<{
+      record: IllnessWindow | null;
+      /** A new period's start, as a local date-time input value. */
+      startAt?: string;
+    } | null>(null),
     [checkInEditor, setCheckInEditor] = useState<{
       illnessId: string;
       checkIn: IllnessCheckIn | null;
@@ -1748,6 +1752,12 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         return setShowFoodTools(true);
     }
   }
+  /** Open a record's form set to a moment picked on the glucose chart. */
+  function logActionAt(action: TimedLogAction, at: string) {
+    const local = localInput(new Date(at), plan.timezone);
+    if (action === "illness") return setIllnessEditor({ record: null, startAt: local });
+    return open(action, undefined, { at: local });
+  }
   return (
     <Tabs
       value={view}
@@ -2254,6 +2264,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
                     estimate={estimate}
                     rapidTiming={rapidTiming}
                     onSelectIllness={(illness) => setIllnessEditor({ record: illness })}
+                    onLogAt={canLog ? logActionAt : undefined}
                     key={day}
                     onSelectDoseFood={(dose) => openDoseFood(dose)}
                     onSelectEntry={(entry) => open(entry.kind, entry)}
@@ -2843,6 +2854,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       {illnessEditor && (
         <IllnessDialog
           initial={illnessEditor.record}
+          startAt={illnessEditor.startAt}
           timezone={plan.timezone}
           day={day}
           unit={plan.temperatureUnit}

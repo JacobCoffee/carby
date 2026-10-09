@@ -39,6 +39,7 @@ import { CheckInList } from "./illness-check-in-dialog";
 
 export default function IllnessDialog({
   initial,
+  startAt,
   timezone,
   day,
   unit,
@@ -49,6 +50,8 @@ export default function IllnessDialog({
   onDelete,
 }: {
   initial: IllnessWindow | null;
+  /** A new period's start as a local date-time input value; without it, the day, all day. */
+  startAt?: string;
   timezone: string;
   day: string;
   unit: TemperatureUnit | undefined;
@@ -65,12 +68,12 @@ export default function IllnessDialog({
   const [id] = useState(() => initial?.id ?? crypto.randomUUID());
   const [kind, setKind] = useState<PeriodKind>(initial ? periodKind(initial) : "illness");
   const [startDate, setStartDate] = useState(
-    initial?.startDate ?? (day && day <= today ? day : today),
+    initial?.startDate ?? startAt?.slice(0, 10) ?? (day && day <= today ? day : today),
   );
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [ongoing, setOngoing] = useState(!initial?.endDate);
-  const [allDay, setAllDay] = useState(!initial?.startTime && !initial?.endTime);
-  const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [allDay, setAllDay] = useState(initial ? !initial.startTime && !initial.endTime : !startAt);
+  const [startTime, setStartTime] = useState(initial?.startTime ?? startAt?.slice(11, 16) ?? "");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState(""),

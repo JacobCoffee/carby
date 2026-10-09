@@ -42,6 +42,21 @@ export type LogAction =
 
 type Choice = { action: LogAction; label: string; icon: ReactNode; detail?: string };
 
+/** Records that carry their own time, and so can be logged at a moment picked on the chart. */
+export type TimedLogAction = Extract<
+  LogAction,
+  "food" | "insulin" | "glucose" | "illness" | "exercise" | "rescue"
+>;
+const TIMED: ReadonlySet<LogAction> = new Set<TimedLogAction>([
+  "food",
+  "insulin",
+  "glucose",
+  "illness",
+  "exercise",
+  "rescue",
+]);
+const isTimed = (action: LogAction): action is TimedLogAction => TIMED.has(action);
+
 const TILES: (Choice & { tone: string })[] = [
   { action: "food", tone: "food", label: "Food", detail: "Carbs and meals", icon: <Utensils /> },
   {
@@ -90,30 +105,30 @@ const PALETTE_ID: Record<LogAction, string> = {
 // Each item's place in the entrance stagger.
 const order = (i: number) => ({ "--i": i }) as CSSProperties;
 
+/** Whose log this is, named only when there is more than one to choose from. */
+function useLoggingFor(name?: string) {
+  const access = usePersonAccess();
+  return access.people.length > 1
+    ? personLabel(name ?? access.people.find((p) => p.id === access.person)?.name)
+    : null;
+}
+
 /**
- * The one way to add a record on wider screens: a floating button in the corner that opens a sheet
- * of everything loggable, on hover or on click. Phones keep the fixed quick bar instead.
+ * The sheet's choices: four tiles, then the rest as a list. `timedOnly` keeps the records that
+ * take a time and drops the shortcut hints, which open a record at the current time instead.
  */
-export default function LogMenu({
-  name,
-  disabled,
+function LogChoices({
+  timedOnly,
   nightlyDisabled,
   onSelect,
 }: {
-  name?: string;
-  disabled: boolean;
+  timedOnly: boolean;
   nightlyDisabled: boolean;
   onSelect: (action: LogAction) => void;
 }) {
-  const access = usePersonAccess();
-  const hover = useHoverMenu();
-  // Naming whose log it is matters only when there is more than one to choose from.
-  const who =
-    access.people.length > 1
-      ? personLabel(name ?? access.people.find((p) => p.id === access.person)?.name)
-      : null;
+  const more = timedOnly ? MORE.filter((choice) => isTimed(choice.action)) : MORE;
   const item = ({ action, label, icon, detail }: Choice, i: number, className: string) => {
-    const keys = shortcutKeys(PALETTE_ID[action]);
+    const keys = timedOnly ? undefined : shortcutKeys(PALETTE_ID[action]);
     return (
       <DropdownMenuItem
         key={action}
@@ -133,6 +148,45 @@ export default function LogMenu({
       </DropdownMenuItem>
     );
   };
+  return (
+    <>
+      <div className="log-sheet-tiles">
+        {TILES.map((tile, i) => item(tile, i, `log-sheet-tile tone-${tile.tone}`))}
+      </div>
+      <div className="log-sheet-list">
+        {more.map((choice, i) => item(choice, TILES.length + i, "log-sheet-row"))}
+      </div>
+      {!timedOnly && (
+        <>
+          <DropdownMenuSeparator />
+          <div className="log-sheet-list">
+            {TOOLS.map((choice, i) =>
+              item(choice, TILES.length + more.length + i, "log-sheet-row"),
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * The one way to add a record on wider screens: a floating button in the corner that opens a sheet
+ * of everything loggable, on hover or on click. Phones keep the fixed quick bar instead.
+ */
+export default function LogMenu({
+  name,
+  disabled,
+  nightlyDisabled,
+  onSelect,
+}: {
+  name?: string;
+  disabled: boolean;
+  nightlyDisabled: boolean;
+  onSelect: (action: LogAction) => void;
+}) {
+  const hover = useHoverMenu();
+  const who = useLoggingFor(name);
   return (
     <DropdownMenu {...hover.root}>
       <DropdownMenuTrigger asChild>
@@ -157,16 +211,60 @@ export default function LogMenu({
         {...hover.content}
       >
         {who && <DropdownMenuLabel className="log-sheet-who">Logging for {who}</DropdownMenuLabel>}
-        <div className="log-sheet-tiles">
-          {TILES.map((tile, i) => item(tile, i, `log-sheet-tile tone-${tile.tone}`))}
-        </div>
-        <div className="log-sheet-list">
-          {MORE.map((choice, i) => item(choice, TILES.length + i, "log-sheet-row"))}
-        </div>
-        <DropdownMenuSeparator />
-        <div className="log-sheet-list">
-          {TOOLS.map((choice, i) => item(choice, TILES.length + MORE.length + i, "log-sheet-row"))}
-        </div>
+        <LogChoices timedOnly={false} nightlyDisabled={nightlyDisabled} onSelect={onSelect} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * The same sheet, opened at a moment picked on the glucose chart. It offers only the records that
+ * carry a time; the caller opens each one's form set to that moment.
+ */
+export function LogAtMenu({
+  open,
+  label,
+  anchor,
+  name,
+  onOpenChange,
+  onSelect,
+  onCloseAutoFocus,
+}: {
+  open: boolean;
+  /** The moment, as the chart's readout names it. */
+  label: string;
+  /** Where the moment was picked, in pixels from the corner of the positioned parent. */
+  anchor: { left: number; top: number };
+  name?: string;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (action: TimedLogAction) => void;
+  onCloseAutoFocus: (event: Event) => void;
+}) {
+  const who = useLoggingFor(name);
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <span className="log-at-anchor" style={anchor} aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        side="bottom"
+        align="start"
+        sideOffset={10}
+        collisionPadding={16}
+        className="log-sheet"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
+        <DropdownMenuLabel className="log-sheet-who">
+          Log at {label}
+          {who ? ` for ${who}` : ""}
+        </DropdownMenuLabel>
+        <LogChoices
+          timedOnly
+          nightlyDisabled={false}
+          onSelect={(action) => {
+            if (isTimed(action)) onSelect(action);
+          }}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -37,6 +37,7 @@ import {
 import {
   chartDaysWindow,
   chartRangeDays,
+  chartLogAt,
   chartZoom,
   zoomAround,
   timeLabelCount,
@@ -67,6 +68,7 @@ import {
   type Entry,
   type Plan,
 } from "@/lib/care";
+import { LogAtMenu, type TimedLogAction } from "./log-menu";
 import "./glucose-chart.css";
 
 type Props = {
@@ -85,6 +87,8 @@ type Props = {
   today: string;
   onSelectEntry?: (entry: Entry) => void;
   onSelectDoseFood?: (dose: Entry) => void;
+  /** Log a record at a moment clicked on the chart; left out, the chart offers no logging. */
+  onLogAt?: (action: TimedLogAction, at: string) => void;
   /** `null` keeps the responsive default: Day on wide screens, 12h on narrow ones. */
   range: ChartRange | null;
   onRangeChange: (range: ChartRange) => void;
@@ -537,6 +541,7 @@ const GlucoseChart = memo(function GlucoseChart({
   estimate = null,
   rapidTiming = null,
   onSelectIllness,
+  onLogAt,
   range,
   onRangeChange,
   cgmHistoryStart = null,
@@ -557,6 +562,19 @@ const GlucoseChart = memo(function GlucoseChart({
   const [hotIllness, setHotIllness] = useState<string | null>(null);
   const shows = (layer: ChartLayer) => !hiddenLayers.has(layer);
   const drag = useRef<{ pointer: number; x: number; minute: number; active: boolean } | null>(null);
+  // The moment picked for logging, where its menu stands, and whether the keyboard picked it.
+  const [logAt, setLogAt] = useState<{
+      at: string;
+      label: string;
+      left: number;
+      top: number;
+      byKey: boolean;
+    } | null>(null),
+    [logOpen, setLogOpen] = useState(false);
+  // A drag that zoomed still ends in a click; it picked a stretch, not a moment to log at.
+  const dragged = useRef(false),
+    lastPointer = useRef(""),
+    logPicked = useRef(false);
   const activeRange = range ?? defaultRange;
   const dayCount = chartRangeDays[activeRange],
     multiDay = dayCount > 1,
@@ -588,7 +606,17 @@ const GlucoseChart = memo(function GlucoseChart({
   );
   const when = (at: string) => stamp(at, timezone, multiDay);
   const clock = (minute: number) => when(new Date(bounds.start + minute * 60000).toISOString());
+  /** A moment as the readout names it, with the date when the chart spans several days. */
+  const readoutTime = (ms: number) =>
+    new Date(ms).toLocaleString("en-US", {
+      timeZone: timezone,
+      ...(multiDay ? ({ weekday: "short", month: "short", day: "numeric" } as const) : {}),
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short",
+    });
   const plotRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const initialRangeSet = useRef(false);
   const [width, setWidth] = useState(920);
   useEffect(() => {
@@ -1237,7 +1265,7 @@ const GlucoseChart = memo(function GlucoseChart({
   ]);
   const keyStep = duration > 1440 ? 60 : 5;
   /** The chart minute under the pointer, kept inside the plotted span. */
-  function minuteAt(event: PointerEvent<SVGSVGElement>) {
+  function minuteAt(event: MouseEvent<SVGSVGElement>) {
     const matrix = event.currentTarget.getScreenCTM();
     if (!matrix) return null;
     const point = event.currentTarget.createSVGPoint();
@@ -1275,10 +1303,20 @@ const GlucoseChart = memo(function GlucoseChart({
     const pressed = drag.current;
     if (!pressed || pressed.pointer !== event.pointerId) return;
     drag.current = null;
+    dragged.current = pressed.active;
     setSelection(null);
     const minute = minuteAt(event);
     if (pressed.active && minute !== null)
       applyZoom(chartZoom(pressed.minute, minute, totalMinutes, fullWidth));
+  }
+  /** Open the log menu for chart minute `minute`, standing at `left`, `top` within the plot. */
+  function openLogAt(minute: number, left: number, top: number, byKey: boolean) {
+    // The clock now, not the `now` prop, which refreshes only every so often.
+    const at = chartLogAt(bounds.start, minute, Date.now());
+    if (!at) return;
+    logPicked.current = false;
+    setLogAt({ at, label: readoutTime(Date.parse(at)), left, top, byKey });
+    setLogOpen(true);
   }
   /** Earlier or later by half the view: the zoomed stretch, or the 12h/6h window. */
   function pan(direction: -1 | 1) {
@@ -1417,19 +1455,31 @@ const GlucoseChart = memo(function GlucoseChart({
           </button>
         ))}
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${W} ${chartHeight}`}
           data-preview={previewLayer ?? undefined}
           role="group"
-          aria-label={`Interactive glucose timeline${multiDay ? ` for ${periodLabel}` : ""}, with food, insulin and Dexcom events. Move across it to inspect actual readings. Arrow keys move ${keyStep === 60 ? "one hour" : "five minutes"}. Drag across it, or press plus and minus, to zoom; 0 resets the zoom. The table below lists every plotted record.`}
+          aria-label={`Interactive glucose timeline${multiDay ? ` for ${periodLabel}` : ""}, with food, insulin and Dexcom events. Move across it to inspect actual readings. Arrow keys move ${keyStep === 60 ? "one hour" : "five minutes"}. Drag across it, or press plus and minus, to zoom; 0 resets the zoom.${onLogAt ? " Click a moment, or press Enter at the cursor, to log a record at that time." : ""} The table below lists every plotted record.`}
           tabIndex={0}
           onPointerMove={scrub}
           onPointerDown={(event) => {
+            lastPointer.current = event.pointerType;
             const minute = minuteAt(event);
             if (minute !== null && event.pointerType !== "touch" && event.button === 0)
               drag.current = { pointer: event.pointerId, x: event.clientX, minute, active: false };
             scrub(event);
           }}
           onPointerUp={finishDrag}
+          onClick={(event) => {
+            const zoomed = dragged.current;
+            dragged.current = false;
+            // Touch keeps tap-to-read; phones log from the quick bar.
+            if (!onLogAt || zoomed || event.button !== 0 || lastPointer.current === "touch") return;
+            const minute = minuteAt(event),
+              box = plotRef.current?.getBoundingClientRect();
+            if (minute === null || !box) return;
+            openLogAt(minute, event.clientX - box.left, event.clientY - box.top, false);
+          }}
           onPointerCancel={() => {
             drag.current = null;
             setSelection(null);
@@ -1440,6 +1490,18 @@ const GlucoseChart = memo(function GlucoseChart({
           onBlur={() => setCursor(null)}
           onKeyDown={(event) => {
             if (event.target !== event.currentTarget) return;
+            if (event.key === "Enter" && onLogAt && cursor !== null) {
+              const box = plotRef.current?.getBoundingClientRect(),
+                plot = event.currentTarget.getBoundingClientRect();
+              if (!box) return;
+              event.preventDefault();
+              openLogAt(
+                cursor,
+                plot.left - box.left + (x(cursor) / W) * plot.width,
+                plot.top - box.top + ((TOP + BOTTOM) / 2 / chartHeight) * plot.height,
+                true,
+              );
+            }
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
               event.preventDefault();
               setKeyboardMode(true);
@@ -1879,6 +1941,17 @@ const GlucoseChart = memo(function GlucoseChart({
               pointerEvents="none"
             />
           )}
+          {logOpen && logAt && (
+            <line
+              x1={x((Date.parse(logAt.at) - bounds.start) / 60000)}
+              x2={x((Date.parse(logAt.at) - bounds.start) / 60000)}
+              y1={TOP}
+              y2={AXIS_Y}
+              stroke="var(--chart-panel-ink)"
+              strokeWidth="2"
+              pointerEvents="none"
+            />
+          )}
           {closeReading && (
             <circle
               cx={x(minuteOf(closeReading.at))}
@@ -1935,17 +2008,7 @@ const GlucoseChart = memo(function GlucoseChart({
         </svg>
         {cursor !== null && (
           <div className="plot-tooltip" style={tooltipSide}>
-            <strong>
-              {new Date(bounds.start + cursor * 60000).toLocaleString("en-US", {
-                timeZone: timezone,
-                ...(multiDay
-                  ? ({ weekday: "short", month: "short", day: "numeric" } as const)
-                  : {}),
-                hour: "numeric",
-                minute: "2-digit",
-                timeZoneName: "short",
-              })}
-            </strong>
+            <strong>{readoutTime(bounds.start + cursor * 60000)}</strong>
             {sameTime.length ? (
               mergeReadings(sameTime).map((r, i) => (
                 <span key={r.at + r.source + i}>
@@ -2032,6 +2095,27 @@ const GlucoseChart = memo(function GlucoseChart({
           <span className="plot-empty">
             No glucose readings in this {multiDay ? "period" : "window"}
           </span>
+        )}
+        {onLogAt && logAt && (
+          <LogAtMenu
+            open={logOpen}
+            label={logAt.label}
+            anchor={{ left: logAt.left, top: logAt.top }}
+            onOpenChange={setLogOpen}
+            onSelect={(action) => {
+              logPicked.current = true;
+              onLogAt(action, logAt.at);
+            }}
+            onCloseAutoFocus={(event) => {
+              // A chosen record's form takes focus; otherwise a keyboard user goes back to the chart.
+              event.preventDefault();
+              if (!logAt.byKey || logPicked.current) return;
+              svgRef.current?.focus({ preventScroll: true });
+              // Focus left the chart for the menu, which cleared the cursor; put it back.
+              setKeyboardMode(true);
+              setCursor((Date.parse(logAt.at) - bounds.start) / 60000);
+            }}
+          />
         )}
       </div>
       <span className="glucose-chart-sr" aria-live="polite">
