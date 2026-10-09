@@ -598,7 +598,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "sync", force: manual }),
       });
-      const data = (await response.json()) as {
+      const data = (await response.json().catch(() => ({}))) as {
         error?: string;
         lastSync?: string;
         count?: number;
@@ -686,7 +686,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "connect", ...credentials }),
       });
-      const data = (await response.json()) as {
+      const data = (await response.json().catch(() => ({}))) as {
         error?: string;
         lastSync?: string;
         count?: number;

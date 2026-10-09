@@ -67,7 +67,7 @@ function shareValue(minutesAgo, value) {
 /**
  * Stand in for Dexcom Share. `calls` keeps what each request carried so a test can prove which
  * password actually went upstream; `foreign` collects any URL outside the Share bases, which is
- * asserted empty rather than thrown, since the route would otherwise fold a throw into a 502.
+ * asserted empty rather than thrown, since the route would otherwise fold a throw into a 503.
  */
 function syntheticShare({
   base = OUS_BASE,
@@ -341,7 +341,7 @@ pgTest("sync, its failure path and disconnect all read and write the right owner
     share.restore();
     share = syntheticShare({ readFailure: "AccountPasswordInvalid" });
     const failed = await post({ action: "sync", force: true });
-    assert.equal(failed.status, 502);
+    assert.equal(failed.status, 503);
     const error = await body(failed);
     assert.equal(error.error, "Dexcom rejected the publisher account credentials.");
     const afterFailure = await db.get("SELECT * FROM dexcom_connections WHERE owner = $1", OWNER);

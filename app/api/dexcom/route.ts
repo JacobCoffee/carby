@@ -240,7 +240,8 @@ export async function POST(request: Request) {
         /* Keep the original sync error. */
       }
     }
-    return reply({ error: safeMessage }, 502);
+    // Not 502: Cloudflare swaps an origin 502/504 for its own HTML page, hiding this message.
+    return reply({ error: safeMessage }, 503);
   }
 }
 
