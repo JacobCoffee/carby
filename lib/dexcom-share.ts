@@ -60,9 +60,32 @@ export async function unseal<T = ShareCredentials>(value: string, context: strin
   return JSON.parse(new TextDecoder().decode(data)) as T;
 }
 
-/** Request recent values from Dexcom Share, following pydexcom's three calls. */
+/** Dexcom asked Carby to slow down. `retryAfterMs` is Dexcom's own wait, when it sent one. */
+export class ShareRateLimited extends Error {
+  readonly retryAfterMs: number | null;
+  constructor(message: string, retryAfterMs: number | null) {
+    super(message);
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+/** A Retry-After header, in either its seconds or its HTTP-date form, as milliseconds from `now`. */
+export function retryAfterMs(header: string | null, now = Date.now()): number | null {
+  const value = header?.trim();
+  if (!value) return null;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
+/**
+ * Request recent values from Dexcom Share, following pydexcom's three calls. `onSession` receives
+ * each new session as soon as sign-in opens it, so a read that fails afterwards does not cost
+ * another sign-in on the next attempt.
+ */
 export async function fetchShare(
   credentials: ShareCredentials,
+  onSession?: (sessionId: string) => Promise<void>,
 ): Promise<{ readings: CgmReading[]; sessionId: string; rawCount: number }> {
   const base = endpoints[credentials.region],
     applicationId = appIds[credentials.region];
@@ -74,6 +97,14 @@ export async function fetchShare(
       signal: AbortSignal.timeout(12000),
     });
     const text = await response.text();
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("retry-after");
+      console.error("dexcom share rate limited", { path, retryAfter });
+      throw new ShareRateLimited(
+        "Dexcom is limiting requests, so Share sync is paused.",
+        retryAfterMs(retryAfter),
+      );
+    }
     let data: unknown;
     try {
       data = JSON.parse(text);
@@ -86,8 +117,6 @@ export async function fetchShare(
         type: response.headers.get("content-type"),
         length: text.length,
       });
-      if (response.status === 429)
-        throw new Error("Dexcom is limiting requests. Wait a few minutes before syncing again.");
       if (!response.ok) throw new Error("Dexcom Share is unavailable. Try again later.");
       throw new Error("Dexcom Share returned an unreadable response.");
     }
@@ -97,7 +126,10 @@ export async function fetchShare(
     if (code === "AccountPasswordInvalid" || code === "SSO_InternalError")
       throw new Error("Dexcom rejected the publisher account credentials.");
     if (code === "SSO_AuthenticateMaxAttemptsExceeded")
-      throw new Error("Dexcom temporarily blocked sign-in attempts. Wait before trying again.");
+      throw new ShareRateLimited(
+        "Dexcom temporarily blocked sign-in attempts. Wait before trying again.",
+        null,
+      );
     if (!response.ok) throw new Error("Dexcom Share is unavailable. Try again later.");
     return data;
   }
@@ -122,6 +154,7 @@ export async function fetchShare(
       session === "00000000-0000-0000-0000-000000000000"
     )
       throw new Error("Dexcom Share session could not be opened.");
+    await onSession?.(session);
     return session;
   }
   let sessionId = credentials.sessionId ?? (await login());

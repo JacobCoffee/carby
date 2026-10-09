@@ -235,6 +235,7 @@ type ShareStatus = {
   lastSync?: string | null;
   lastAttemptAt?: string | null;
   lastError?: string | null;
+  pausedUntil?: string | null;
   latestShareAt?: string | null;
   // The server sends the configured username and region only. The password stays there.
   defaults?: PublicDexcomDefaults | null;
@@ -271,7 +272,9 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
   const nextRefreshAt = useRef(0),
     refreshFailures = useRef(0),
     dexcomEpoch = useRef(0),
-    lastAttemptRef = useRef<string | null>(null);
+    lastAttemptRef = useRef<string | null>(null),
+    // When the server says Share must not be called again before; auto-sync waits until then.
+    retryAtRef = useRef<string | null>(null);
   const [refreshing, setRefreshing] = useState(false),
     [refreshError, setRefreshError] = useState(""),
     [lastChecked, setLastChecked] = useState<Date | null>(null),
@@ -500,6 +503,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           lastSyncRef.current = status.lastSync ?? null;
           latestShareRef.current = status.latestShareAt ?? null;
           lastAttemptRef.current = status.lastAttemptAt ?? null;
+          retryAtRef.current = status.pausedUntil ?? null;
           setDexcomConnected(!!status.connected);
           setDexcomLastSync(lastSyncRef.current);
           setDexcomLastAttempt(lastAttemptRef.current);
@@ -607,8 +611,11 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         alreadyRecent?: boolean;
         lastAttemptAt?: string | null;
         lastError?: string | null;
+        retryAt?: string;
       };
-      if (!response.ok) throw new Error(data.error ?? "Dexcom sync failed.");
+      retryAtRef.current = data.retryAt ?? null;
+      if (!response.ok)
+        throw new Error((data.error ?? "Dexcom sync failed.") + resumesAt(data.retryAt));
       lastSyncRef.current = data.lastSync ?? null;
       setDexcomLastSync(lastSyncRef.current);
       setDexcomLastAttempt(data.lastAttemptAt ?? null);
@@ -623,7 +630,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
           !data.latestShareAt || Date.now() - Date.parse(data.latestShareAt) > 30 * 60000;
         setDexcomMessage(
           data.alreadyRecent
-            ? "Share was checked within the last four minutes."
+            ? "Share was checked in the last few minutes."
             : data.rawCount === 0
               ? "Dexcom Share returned no readings from the past 24 hours. Check Share in the G7 app and the phone’s connection."
               : data.count === 0
@@ -692,8 +699,10 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         count?: number;
         rawCount?: number;
         latestShareAt?: string | null;
+        retryAt?: string;
       };
-      if (!response.ok) throw new Error(data.error ?? "Could not connect.");
+      if (!response.ok)
+        throw new Error((data.error ?? "Could not connect.") + resumesAt(data.retryAt));
       setDexcomConnected(true);
       setChangingDexcomAccount(false);
       lastSyncRef.current = data.lastSync ?? null;
@@ -743,6 +752,7 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
         document.visibilityState === "visible" &&
         navigator.onLine &&
         (!lastSyncRef.current || Date.now() - Date.parse(lastSyncRef.current) >= 300_000) &&
+        (!retryAtRef.current || Date.now() >= Date.parse(retryAtRef.current)) &&
         (!lastAttemptRef.current || Date.now() - Date.parse(lastAttemptRef.current) >= 60_000)
       )
         void syncDexcom();
@@ -765,6 +775,8 @@ export default function Dashboard({ initialPlan }: { initialPlan: Plan }) {
       hour: "numeric",
       minute: "2-digit",
     }).format(new Date(value));
+  const resumesAt = (retryAt?: string) =>
+    retryAt ? ` Syncing resumes after ${time(retryAt)}.` : "";
   const date = (value: string) =>
     new Intl.DateTimeFormat("en-US", {
       timeZone: plan.timezone,

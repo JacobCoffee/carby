@@ -74,6 +74,8 @@ export const dexcomConnections = pgTable("dexcom_connections", {
   latestReadingAt: text("latest_reading_at"),
   lastAttemptAt: text("last_attempt_at"),
   lastError: text("last_error"),
+  // Set after Dexcom rate-limits this connection; no Share call is made before it passes.
+  sharePausedUntil: text("share_paused_until"),
 });
 export const careAudit = pgTable(
   "care_audit",

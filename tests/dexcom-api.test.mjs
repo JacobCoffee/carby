@@ -21,6 +21,7 @@ const OTHER_OWNER = "github:99999";
 const LOCAL_OWNER = "local_dev";
 const ACCOUNT_ID = "11111111-1111-4111-8111-111111111111";
 const SESSION_ID = "22222222-2222-4222-8222-222222222222";
+const NEW_SESSION_ID = "33333333-3333-4333-8333-333333333333";
 
 mock.module("@/app/auth", () => ({
   getCurrentUser: async () => ({
@@ -73,6 +74,9 @@ function syntheticShare({
   base = OUS_BASE,
   values = [shareValue(10, 118), shareValue(5, 126)],
   readFailure = null,
+  sessionId = SESSION_ID,
+  // Answer reads with the HTML 429 a gateway sends, carrying this Retry-After when it is a string.
+  rateLimited,
 } = {}) {
   const original = globalThis.fetch;
   const share = { calls: [], foreign: [], restore: () => (globalThis.fetch = original) };
@@ -86,11 +90,17 @@ function syntheticShare({
     }
     const path = url.slice(base.length).split("?")[0];
     if (path === "General/AuthenticatePublisherAccount") return Response.json(ACCOUNT_ID);
-    if (path === "General/LoginPublisherAccountById") return Response.json(SESSION_ID);
-    if (path === "Publisher/ReadPublisherLatestGlucoseValues")
+    if (path === "General/LoginPublisherAccountById") return Response.json(sessionId);
+    if (path === "Publisher/ReadPublisherLatestGlucoseValues") {
+      if (rateLimited !== undefined)
+        return new Response("<html>Too many requests</html>", {
+          status: 429,
+          headers: rateLimited === null ? {} : { "Retry-After": rateLimited },
+        });
       return readFailure
         ? Response.json({ Code: readFailure }, { status: 500 })
         : Response.json(values);
+    }
     share.foreign.push(url);
     return Response.json({ Code: "Unexpected" }, { status: 500 });
   };
@@ -100,6 +110,15 @@ function syntheticShare({
 /** Every password sent upstream, in order. */
 function passwordsSent(share) {
   return share.calls.map((call) => call.body?.password).filter((value) => value !== undefined);
+}
+
+/** Move the last Share attempt over a minute into the past, so the next sync may call Share. */
+function attemptAMinuteAgo(db) {
+  return db.run(
+    "UPDATE dexcom_connections SET last_attempt_at = $1 WHERE owner = $2",
+    new Date(Date.now() - 61_000).toISOString(),
+    OWNER,
+  );
 }
 
 async function setup(owner, env = scopedEnv) {
@@ -309,6 +328,7 @@ pgTest("sync, its failure path and disconnect all read and write the right owner
     // A newer reading moves latest_reading_at forward through the CASE expression.
     share.restore();
     share = syntheticShare({ values: [shareValue(1, 131)] });
+    await attemptAMinuteAgo(db);
     const synced = await body(await post({ action: "sync", force: true }));
     assert.equal(synced.connected, true);
     assert.equal(synced.count, 1);
@@ -322,6 +342,7 @@ pgTest("sync, its failure path and disconnect all read and write the right owner
     // An older batch leaves the newest reading where it is.
     share.restore();
     share = syntheticShare({ values: [shareValue(120, 99)] });
+    await attemptAMinuteAgo(db);
     const stale = await body(await post({ action: "sync", force: true }));
     assert.equal(
       (await db.get("SELECT latest_reading_at AS at FROM dexcom_connections")).at,
@@ -340,6 +361,7 @@ pgTest("sync, its failure path and disconnect all read and write the right owner
     // A refused upstream records the failure against this owner and keeps the connection.
     share.restore();
     share = syntheticShare({ readFailure: "AccountPasswordInvalid" });
+    await attemptAMinuteAgo(db);
     const failed = await post({ action: "sync", force: true });
     assert.equal(failed.status, 503);
     const error = await body(failed);
@@ -362,6 +384,140 @@ pgTest("sync, its failure path and disconnect all read and write the right owner
     // Disconnecting drops the connection, not the readings already recorded.
     assert.equal((await db.get("SELECT COUNT(*)::int AS n FROM cgm_readings")).n, 4);
     assert.equal((await body(await get())).connected, false);
+  } finally {
+    await teardown(db, share);
+  }
+});
+
+pgTest("Share is called at most once a minute, even for manual syncs", async () => {
+  const db = await setup(OWNER);
+  let share = syntheticShare();
+  try {
+    await body(
+      await post({
+        action: "connect",
+        useConfiguredPassword: true,
+        username: USERNAME,
+        region: "ous",
+      }),
+    );
+    // Right after a successful check, a manual sync answers from what was saved.
+    share.restore();
+    share = syntheticShare();
+    const recent = await body(await post({ action: "sync", force: true }));
+    assert.equal(recent.alreadyRecent, true);
+    assert.deepEqual(share.calls, []);
+
+    // After a failed check, a second manual sync within the minute is refused without calling Share.
+    share.restore();
+    share = syntheticShare({ readFailure: "AccountPasswordInvalid" });
+    await attemptAMinuteAgo(db);
+    assert.equal((await post({ action: "sync", force: true })).status, 503);
+    const callsAfterFailure = share.calls.length;
+    const refused = await post({ action: "sync", force: true });
+    assert.equal(refused.status, 429);
+    const { attempt } = await db.get(
+      "SELECT last_attempt_at AS attempt FROM dexcom_connections WHERE owner = $1",
+      OWNER,
+    );
+    assert.equal(
+      (await body(refused)).retryAt,
+      new Date(Date.parse(attempt) + 60_000).toISOString(),
+    );
+    assert.equal(share.calls.length, callsAfterFailure);
+  } finally {
+    await teardown(db, share);
+  }
+});
+
+pgTest("a Dexcom rate limit pauses every Share call until it passes", async () => {
+  const db = await setup(OWNER);
+  let share = syntheticShare();
+  try {
+    await body(
+      await post({
+        action: "connect",
+        useConfiguredPassword: true,
+        username: USERNAME,
+        region: "ous",
+      }),
+    );
+    share.restore();
+    share = syntheticShare({ rateLimited: "120" });
+    await attemptAMinuteAgo(db);
+    const before = Date.now();
+    const limited = await post({ action: "sync", force: true });
+    assert.equal(limited.status, 429);
+    const reply = await body(limited);
+    assert.equal(reply.error, "Dexcom is limiting requests, so Share sync is paused.");
+    // Dexcom's Retry-After sets the pause.
+    const pause = Date.parse(reply.retryAt) - before;
+    assert.ok(pause >= 120_000 && pause < 125_000, `pause was ${pause}ms`);
+    assert.equal((await body(await get())).pausedUntil, reply.retryAt);
+
+    // Past the one-minute gap but inside the pause, neither sync nor connect reaches Share.
+    share.restore();
+    share = syntheticShare();
+    await attemptAMinuteAgo(db);
+    const paused = await post({ action: "sync", force: true });
+    assert.equal(paused.status, 429);
+    assert.equal((await body(paused)).retryAt, reply.retryAt);
+    const reconnect = await post({
+      action: "connect",
+      useConfiguredPassword: true,
+      username: USERNAME,
+      region: "ous",
+    });
+    assert.equal(reconnect.status, 429);
+    assert.deepEqual(share.calls, []);
+
+    // Once the pause has passed, a sync calls Share again and clears it.
+    await db.run(
+      "UPDATE dexcom_connections SET share_paused_until = $1 WHERE owner = $2",
+      new Date(Date.now() - 1000).toISOString(),
+      OWNER,
+    );
+    const resumed = await post({ action: "sync", force: true });
+    assert.equal(resumed.status, 200);
+    assert.notDeepEqual(share.calls, []);
+    assert.equal((await body(await get())).pausedUntil, null);
+    assert.equal(
+      (await db.get("SELECT share_paused_until AS until FROM dexcom_connections")).until,
+      null,
+    );
+
+    // Without a Retry-After the pause defaults to fifteen minutes.
+    share.restore();
+    share = syntheticShare({ rateLimited: null });
+    await attemptAMinuteAgo(db);
+    const start = Date.now();
+    const fallback = await body(await post({ action: "sync", force: true }));
+    const wait = Date.parse(fallback.retryAt) - start;
+    assert.ok(wait >= 15 * 60_000 && wait < 15 * 60_000 + 5000, `pause was ${wait}ms`);
+  } finally {
+    await teardown(db, share);
+  }
+});
+
+pgTest("a session opened before a failed read is kept for the next sync", async () => {
+  const db = await setup(OWNER);
+  let share = syntheticShare();
+  try {
+    await body(
+      await post({
+        action: "connect",
+        useConfiguredPassword: true,
+        username: USERNAME,
+        region: "ous",
+      }),
+    );
+    // The saved session has expired, sign-in opens a new one, and the read still fails.
+    share.restore();
+    share = syntheticShare({ readFailure: "SessionIdNotFound", sessionId: NEW_SESSION_ID });
+    await attemptAMinuteAgo(db);
+    assert.equal((await post({ action: "sync", force: true })).status, 503);
+    const row = await db.get("SELECT credentials FROM dexcom_connections WHERE owner = $1", OWNER);
+    assert.equal((await unseal(row.credentials, OWNER)).sessionId, NEW_SESSION_ID);
   } finally {
     await teardown(db, share);
   }

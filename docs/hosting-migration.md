@@ -22,7 +22,7 @@ Feature-level notes:
 - The 14-day provider report distinguishes HIGH/LOW without fabricated values; calories are not derived from statuses. Device calibration events are counted alongside coverage, food, and administered insulin.
 - The owner's handoff dialog can download a static HTML snapshot or print to PDF. A downloaded copy opens without an account, and possession of a copy is its only access control. It cannot be revoked or kept current after sharing.
 - `care_audit` records actor, old and new values, and time for manual entries and calculated-dose records, and `/api/audit` lists the owner's change history. Prior edits are not backfilled.
-- The Dexcom Share connection stores `last_attempt_at`, `last_sync`, `latest_reading_at`, and `last_error`. Carby connects to Dexcom only when a signed-in user asks it to; no scheduled sync process ships with the app.
+- The Dexcom Share connection stores `last_attempt_at`, `last_sync`, `latest_reading_at`, `last_error`, and `share_paused_until`. Carby connects to Dexcom only when a signed-in user asks it to; no scheduled sync process ships with the app. Share is called at most once a minute per connection, manual syncs included, and not at all while a Dexcom rate limit pause is in effect.
 
 ## Required before live release
 

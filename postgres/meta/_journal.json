@@ -64,6 +64,13 @@
       "when": 1790553956605,
       "tag": "0008_nightscout_records",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791567736001,
+      "tag": "0009_share_pause",
+      "breakpoints": true
     }
   ]
 }

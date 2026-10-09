@@ -1,0 +1,1 @@
+ALTER TABLE "dexcom_connections" ADD COLUMN "share_paused_until" text;

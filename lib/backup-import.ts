@@ -130,14 +130,20 @@ export const importColumns: Record<ImportTable, readonly string[]> = {
 const nullableColumns: Partial<Record<ImportTable, readonly string[]>> = {
   care_audit: ["before", "after"],
 };
-// Migrations 0004 and 0005 added the optional columns; older exports omit them.
+// Migrations 0004, 0005 and 0009 added the optional columns; older exports omit them.
 const connectionColumns = ["owner", "credentials", "last_sync", "updated"];
-const optionalConnectionColumns = ["latest_reading_at", "last_attempt_at", "last_error"];
+const optionalConnectionColumns = [
+  "latest_reading_at",
+  "last_attempt_at",
+  "last_error",
+  "share_paused_until",
+];
 const nullableConnectionColumns = [
   "last_sync",
   "latest_reading_at",
   "last_attempt_at",
   "last_error",
+  "share_paused_until",
 ];
 
 export const tableLabels: Record<BackupTable, { one: string; many: string }> = {
