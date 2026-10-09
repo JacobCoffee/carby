@@ -73,10 +73,22 @@ export async function fetchShare(
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(12000),
     });
+    const text = await response.text();
     let data: unknown;
     try {
-      data = await response.json();
+      data = JSON.parse(text);
     } catch {
+      // Gateways in front of Share answer rate limits and outages with HTML. The body is not
+      // logged: an error page can echo the URL, which carries the session id.
+      console.error("dexcom share non-JSON reply", {
+        path,
+        status: response.status,
+        type: response.headers.get("content-type"),
+        length: text.length,
+      });
+      if (response.status === 429)
+        throw new Error("Dexcom is limiting requests. Wait a few minutes before syncing again.");
+      if (!response.ok) throw new Error("Dexcom Share is unavailable. Try again later.");
       throw new Error("Dexcom Share returned an unreadable response.");
     }
     const code = data && typeof data === "object" && "Code" in data ? String(data.Code) : "";
