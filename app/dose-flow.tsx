@@ -946,22 +946,22 @@ export default function DoseFlow({
             </div>
 
             <div className="dose-flow-col-right">
-              <div className="dose-flow-scroll-top">
-                {doseReviewRequired && (
-                  <div className="notice timing-warning dose-flow-review-gate" role="alert">
-                    <label className="check-row">
-                      <Checkbox
-                        checked={recentDoseReviewed}
-                        onCheckedChange={(value) => setRecentDoseReviewed(value === true)}
-                      />
-                      <span>
-                        I reviewed the last Rapid-acting dose, timing, active insulin, and current
-                        care instructions before this correction. See Checks below for details.
-                      </span>
-                    </label>
-                  </div>
-                )}
+              {doseReviewRequired && (
+                <div className="notice timing-warning dose-flow-review-gate" role="alert">
+                  <label className="check-row">
+                    <Checkbox
+                      checked={recentDoseReviewed}
+                      onCheckedChange={(value) => setRecentDoseReviewed(value === true)}
+                    />
+                    <span>
+                      I reviewed the last Rapid-acting dose, timing, active insulin, and current
+                      care instructions before this correction. See Checks below for details.
+                    </span>
+                  </label>
+                </div>
+              )}
 
+              <div className="dose-flow-scroll-top">
                 <details
                   className="dose-flow-checks"
                   open={checksOpen}

@@ -67,9 +67,15 @@
        rather than spilling past the dialog. */
     overflow-y: auto;
   }
+  /* The review gate blocks logging, so it never shrinks or scrolls out of view. */
+  .dose-flow-col-right > .dose-flow-review-gate {
+    flex: none;
+  }
+  /* Keep Checks and the adjustment reachable: below this floor the whole column scrolls
+     instead of collapsing this area to an empty sliver. */
   .dose-flow-scroll-top {
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: min(140px, 20vh);
     overflow-y: auto;
   }
   .dose-flow-pinned {
